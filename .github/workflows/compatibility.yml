@@ -1,0 +1,33 @@
+# Marks the latest release as compatible with a newer Zotero version without a
+# new plugin release. Zotero releases a new major version every few weeks and
+# blocks plugins whose updates.json does not list it.
+#
+# Use it after you have tested the plugin with the new Zotero version:
+# Actions → "Update Zotero compatibility" → Run workflow → enter e.g. 10.*
+name: Update Zotero compatibility
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_version:
+        description: "Highest supported Zotero version, e.g. 10.*"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MAX: ${{ github.event.inputs.max_version }}
+    steps:
+      - name: Update updates.json of the latest release
+        run: |
+          TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern updates.json --clobber
+          jq --arg max "$MAX" '(.addons[].updates[].applications.zotero.strict_max_version) = $max' updates.json > updates.new.json
+          mv updates.new.json updates.json
+          cat updates.json
+          gh release upload "$TAG" updates.json --clobber --repo "$GITHUB_REPOSITORY"
