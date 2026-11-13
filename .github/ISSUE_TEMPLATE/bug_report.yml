@@ -1,0 +1,44 @@
+name: Bug report
+description: Something does not work as expected
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a PDF
+        2. Select text
+        3. …
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin version
+      description: Shown in the header of the plugin settings.
+    validations:
+      required: true
+  - type: input
+    id: zotero
+    attributes:
+      label: Zotero version and operating system
+      placeholder: Zotero 7.0.x on Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: plugins
+    attributes:
+      label: Other plugins
+      description: Plugins that change the reader (for example translators or other color plugins) can interfere.
+  - type: textarea
+    id: log
+    attributes:
+      label: Debug output
+      description: Help → Debug Output Logging → Enable, reproduce the problem, then View Output. Paste the lines starting with [BetterAnnotations] or the Debug ID.
+      render: text
