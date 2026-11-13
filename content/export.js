@@ -1,0 +1,816 @@
+/* Better Annotations – export of annotations
+ *
+ * Exports the annotations of an area (document, selection, collection,
+ * library) as a table:
+ * one row per annotation with color, label, text, comment, tags,
+ * page and source.
+ *
+ * Formats:
+ *  - Excel (.xlsx): colored cells, images of image and ink annotations,
+ *    links back to Zotero, extra sheets “Labels” and “Info”
+ *  - CSV (.csv): for R, Python, SPSS etc. (UTF-8, comma)
+ *  - HTML (.html): readable report with embedded images, printable
+ *
+ * The XLSX file is written without third-party libraries (Office Open XML in
+ * an uncompressed ZIP archive).
+ */
+
+/* global Zotero, BetterAnnotations, IOUtils */
+
+BetterAnnotations.Export = {
+  get SB() {
+    return BetterAnnotations;
+  },
+
+  // -------------------------------------------------------------------
+  // Collect data
+  // -------------------------------------------------------------------
+
+  IO() {
+    if (typeof IOUtils !== "undefined") {
+      return IOUtils;
+    }
+    return Zotero.getMainWindow().IOUtils;
+  },
+
+  /**
+   * Annotations of an area as rows.
+   * options: { labeledOnly, images, sort: "doc" | "label", profile }
+   */
+  async collect(scope, options = {}) {
+    const SB = this.SB;
+    const Library = SB.Library;
+    const profile = options.profile || SB.Store.getActive();
+    const match = await Library.scopeFilter(scope);
+    const index = (await Library.index()).filter(r => !r.del && match(r));
+    const items = await Library.loadItems(index.map(r => r.id));
+    const order = new Map(profile.colors.map((c, i) => [c.color, i]));
+    const labelOf = (color) => {
+      const entry = profile.colors.find(c => c.color === color);
+      return entry && SB.isVisible(entry) && entry.label.trim() ? entry.label.trim() : "";
+    };
+    const docs = new Map();
+    const rendered = new Set();
+    const rows = [];
+    for (const item of items) {
+      if (!item || !item.isAnnotation || !item.isAnnotation()) {
+        continue;
+      }
+      const color = SB.normalize(item.annotationColor) || "";
+      const label = labelOf(color);
+      if (options.labeledOnly && !label) {
+        continue;
+      }
+      const doc = this.docInfo(item.parentItemID, docs);
+      const type = item.annotationType || "highlight";
+      const row = {
+        color,
+        label,
+        labelOrder: order.has(color) && label ? order.get(color) : 9999,
+        type,
+        text: item.annotationText || "",
+        comment: item.annotationComment || "",
+        tags: this.safe(() => item.getTags().map(t => t.tag).sort((a, b) => a.localeCompare(b)), []),
+        page: item.annotationPageLabel || "",
+        sortIndex: item.annotationSortIndex || "",
+        created: this.localDate(item.dateAdded),
+        modified: this.localDate(item.dateModified),
+        author: this.safe(() => item.annotationAuthorName
+          || (item.createdByUserID ? Zotero.Users.getName(item.createdByUserID) : ""), ""),
+        link: this.link(item, doc),
+        doc,
+        image: null,
+      };
+      if (options.images && (type === "image" || type === "ink")) {
+        row.image = await this.image(item, rendered);
+      }
+      rows.push(row);
+    }
+    const byDoc = (a, b) => a.doc.sortKey.localeCompare(b.doc.sortKey) || String(a.sortIndex).localeCompare(String(b.sortIndex));
+    rows.sort(options.sort === "label"
+      ? (a, b) => a.labelOrder - b.labelOrder || a.color.localeCompare(b.color) || byDoc(a, b)
+      : byDoc);
+    rows.forEach((r, i) => {
+      r.no = i + 1;
+    });
+    return rows;
+  },
+
+  safe(fn, fallback) {
+    try {
+      const v = fn();
+      return v === undefined || v === null ? fallback : v;
+    }
+    catch (e) {
+      return fallback;
+    }
+  },
+
+  /** Zotero stores timestamps in UTC ("YYYY-MM-DD HH:MM:SS"). */
+  localDate(sql) {
+    if (!sql) {
+      return "";
+    }
+    try {
+      const d = Zotero.Date.sqlToDate(sql, true);
+      const pad = n => String(n).padStart(2, "0");
+      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    }
+    catch (e) {
+      return sql;
+    }
+  },
+
+  /** Source information (parent item of the file), cached per file. */
+  docInfo(attachmentID, cache) {
+    if (cache.has(attachmentID)) {
+      return cache.get(attachmentID);
+    }
+    const att = Zotero.Items.get(attachmentID);
+    const top = att && att.parentItem ? att.parentItem : att;
+    const field = (item, name) => this.safe(() => item.getField(name), "");
+    const title = top ? (field(top, "title") || field(att, "title")) : "";
+    let creators = [];
+    try {
+      const all = top.getCreators();
+      const primary = Zotero.CreatorTypes.getPrimaryIDForType(top.itemTypeID);
+      creators = all.filter(c => c.creatorTypeID === primary);
+      if (!creators.length) {
+        creators = all;
+      }
+    }
+    catch (e) {}
+    const names = creators.map(c => c.lastName || c.name || "").filter(Boolean);
+    const full = creators.map(c => (c.fieldMode === 1 || !c.firstName ? (c.lastName || c.name) : c.lastName + ", " + c.firstName));
+    let year = "";
+    try {
+      year = String(Zotero.Date.strToDate(field(top, "date")).year || "");
+    }
+    catch (e) {}
+    let who = names[0] || "";
+    if (names.length === 2) {
+      who = names[0] + " & " + names[1];
+    }
+    else if (names.length > 2) {
+      who = names[0] + " et al.";
+    }
+    const citation = who ? who + " (" + (year || "n.d.") + ")" : title;
+    let collections = [];
+    try {
+      collections = (top || att).getCollections().map(id => Zotero.Collections.get(id)).filter(Boolean).map(c => c.name);
+    }
+    catch (e) {}
+    const info = {
+      title,
+      authors: full.join("; "),
+      year,
+      citation,
+      collections: collections.sort((a, b) => a.localeCompare(b)).join("; "),
+      file: att ? (this.safe(() => att.attachmentFilename, "") || field(att, "title")) : "",
+      attKey: att ? att.key : "",
+      libraryID: att ? att.libraryID : null,
+      sortKey: (citation + "\u0000" + title + "\u0000" + (att ? att.key : "")).toLowerCase(),
+    };
+    cache.set(attachmentID, info);
+    return info;
+  },
+
+  /** Link that opens the annotation in Zotero. */
+  link(item, doc) {
+    if (!doc.attKey) {
+      return "";
+    }
+    let base = "zotero://open-pdf/library/items/";
+    try {
+      const lib = Zotero.Libraries.get(item.libraryID);
+      if (lib && lib.libraryType === "group") {
+        base = "zotero://open-pdf/groups/" + lib.groupID + "/items/";
+      }
+    }
+    catch (e) {}
+    const params = [];
+    if (item.annotationPageLabel) {
+      params.push("page=" + encodeURIComponent(item.annotationPageLabel));
+    }
+    params.push("annotation=" + item.key);
+    return base + doc.attKey + "?" + params.join("&");
+  },
+
+  /** Image of an image or ink annotation from Zotero's cache. */
+  async image(item, rendered) {
+    const IO = this.IO();
+    let path = null;
+    try {
+      path = Zotero.Annotations.getCacheImagePath({ libraryID: item.libraryID, key: item.key });
+    }
+    catch (e) {
+      return null;
+    }
+    try {
+      if (!(await IO.exists(path)) && !rendered.has(item.parentItemID) && Zotero.PDFRenderer?.renderAttachmentAnnotations) {
+        rendered.add(item.parentItemID);
+        await Zotero.PDFRenderer.renderAttachmentAnnotations(item.parentItemID);
+      }
+      if (!(await IO.exists(path))) {
+        return null;
+      }
+      const bytes = await IO.read(path);
+      const size = this.pngSize(bytes);
+      return size ? { bytes, width: size.width, height: size.height } : null;
+    }
+    catch (e) {
+      this.SB.logError(e);
+      return null;
+    }
+  },
+
+  pngSize(b) {
+    if (!b || b.length < 24 || b[0] !== 0x89 || b[1] !== 0x50) {
+      return null;
+    }
+    const u32 = o => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
+    return { width: u32(16), height: u32(20) };
+  },
+
+  /** Summary per label for the “Labels” sheet. */
+  codebook(rows, profile) {
+    const counts = new Map();
+    for (const r of rows) {
+      counts.set(r.color, (counts.get(r.color) || 0) + 1);
+    }
+    const out = profile.colors.map(c => ({
+      color: c.color,
+      label: c.label.trim(),
+      shown: this.SB.isVisible(c),
+      n: counts.get(c.color) || 0,
+    }));
+    for (const [color, n] of counts) {
+      if (!out.some(o => o.color === color)) {
+        out.push({ color, label: "", shown: false, n });
+      }
+    }
+    return out;
+  },
+
+  // -------------------------------------------------------------------
+  // Columns
+  // -------------------------------------------------------------------
+
+  columns(rows, withImages) {
+    const S = k => this.SB.S(k);
+    const typeName = t => S({
+      highlight: "typeHighlight", underline: "typeUnderline", note: "typeNote",
+      text: "typeText", image: "typeImage", ink: "typeInk",
+    }[t] || "typeHighlight");
+    const cols = [
+      { key: "no", head: S("colNo"), width: 6, get: r => r.no, num: true },
+      { key: "color", head: S("colColor"), width: 9, get: r => r.color, colorCell: true },
+      { key: "label", head: S("colLabel"), width: 24, get: r => r.label, labelCell: true },
+      { key: "type", head: S("colType"), width: 16, get: r => typeName(r.type) },
+      { key: "text", head: S("colText"), width: 60, get: r => r.text, wrap: true },
+    ];
+    if (withImages && rows.some(r => r.image)) {
+      cols.push({ key: "image", head: S("colImage"), width: 42, get: () => "", image: true });
+    }
+    cols.push(
+      { key: "comment", head: S("colComment"), width: 40, get: r => r.comment, wrap: true },
+      { key: "tags", head: S("colTags"), width: 24, get: r => r.tags.join("; "), wrap: true },
+      { key: "page", head: S("colPage"), width: 7, get: r => r.page, num: r => /^\d{1,6}$/.test(r.page) },
+      { key: "citation", head: S("colCitation"), width: 22, get: r => r.doc.citation, wrap: true },
+      { key: "title", head: S("colTitle"), width: 40, get: r => r.doc.title, wrap: true },
+      { key: "authors", head: S("colAuthors"), width: 28, get: r => r.doc.authors, wrap: true },
+      { key: "year", head: S("colYear"), width: 7, get: r => r.doc.year },
+      { key: "collections", head: S("colCollections"), width: 24, get: r => r.doc.collections, wrap: true },
+      { key: "file", head: S("colFile"), width: 24, get: r => r.doc.file, wrap: true },
+      { key: "link", head: S("colLink"), width: 16, get: r => r.link, link: true },
+      { key: "created", head: S("colCreated"), width: 17, get: r => r.created },
+      { key: "modified", head: S("colModified"), width: 17, get: r => r.modified },
+    );
+    if (rows.some(r => r.author)) {
+      cols.push({ key: "author", head: S("colAuthor"), width: 18, get: r => r.author });
+    }
+    return cols;
+  },
+
+  // -------------------------------------------------------------------
+  // CSV
+  // -------------------------------------------------------------------
+
+  toCSV(rows) {
+    const cols = this.columns(rows, false);
+    const esc = (v) => {
+      const s = String(v ?? "");
+      return /[",\r\n]/.test(s) ? "\"" + s.replace(/"/g, "\"\"") + "\"" : s;
+    };
+    const lines = [cols.map(c => esc(c.head)).join(",")];
+    for (const r of rows) {
+      lines.push(cols.map(c => esc(c.get(r))).join(","));
+    }
+    return "﻿" + lines.join("\r\n") + "\r\n";
+  },
+
+  // -------------------------------------------------------------------
+  // HTML
+  // -------------------------------------------------------------------
+
+  esc(s) {
+    return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  },
+
+  toHTML(rows, meta) {
+    const SB = this.SB;
+    const S = (k, a) => SB.S(k, a);
+    const e = s => this.esc(s);
+    const cols = this.columns(rows, true);
+    const typeCol = cols.find(c => c.key === "type");
+    const groups = [];
+    for (const r of rows) {
+      const key = meta.sort === "label" ? r.color : r.doc.sortKey;
+      let g = groups[groups.length - 1];
+      if (!g || g.key !== key) {
+        g = { key, rows: [], first: r };
+        groups.push(g);
+      }
+      g.rows.push(r);
+    }
+    const chip = r => "<span class=\"chip\"><span class=\"dot\" style=\"background:" + e(r.color) + "\"></span>"
+      + (r.label ? e(r.label) : "<i>" + e(r.color) + "</i>") + "</span>";
+    const heading = (g) => {
+      const r = g.first;
+      if (meta.sort === "label") {
+        return "<h2>" + chip(r) + " <span class=\"n\">" + g.rows.length + "</span></h2>";
+      }
+      return "<h2>" + e(r.doc.citation) + " <span class=\"n\">" + g.rows.length + "</span></h2>"
+        + (r.doc.title && r.doc.title !== r.doc.citation ? "<p class=\"src\">" + e(r.doc.title) + "</p>" : "");
+    };
+    const body = groups.map(g => "<section>" + heading(g) + g.rows.map((r) => {
+      const parts = [];
+      const head = [chip(r), "<span>" + e(typeCol.get(r)) + "</span>"];
+      if (r.page) {
+        head.push("<span>" + e(S("colPage")) + " " + e(r.page) + "</span>");
+      }
+      if (meta.sort === "label") {
+        head.push("<span>" + e(r.doc.citation) + "</span>");
+      }
+      if (r.link) {
+        head.push("<a href=\"" + e(r.link) + "\">" + e(S("linkOpen")) + "</a>");
+      }
+      parts.push("<div class=\"meta\">" + head.join("") + "</div>");
+      if (r.text) {
+        parts.push("<blockquote class=\"" + (r.type === "underline" ? "ul" : "") + "\">" + e(r.text).replace(/\n/g, "<br>") + "</blockquote>");
+      }
+      if (r.image) {
+        parts.push("<img alt=\"\" src=\"data:image/png;base64," + this.base64(r.image.bytes) + "\">");
+      }
+      else if (r.type === "image" || r.type === "ink") {
+        parts.push("<p class=\"missing\">" + e(S("imageMissing")) + "</p>");
+      }
+      if (r.comment) {
+        parts.push("<p class=\"comment\">" + e(r.comment).replace(/\n/g, "<br>") + "</p>");
+      }
+      if (r.tags.length) {
+        parts.push("<p class=\"tags\">" + r.tags.map(t => "<span>" + e(t) + "</span>").join("") + "</p>");
+      }
+      return "<article style=\"border-left-color:" + e(r.color) + "\">" + parts.join("") + "</article>";
+    }).join("") + "</section>").join("");
+    return "<!DOCTYPE html>\n<html lang=\"" + e(SB.lang) + "\"><head><meta charset=\"utf-8\">"
+      + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+      + "<title>" + e(S("exportTitle")) + "</title><style>"
+      + "body{font:15px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;color:#222;background:#fff;max-width:880px;margin:0 auto;padding:24px 16px}"
+      + "h1{font-size:22px;margin:0 0 4px}.info{color:#666;margin:0 0 24px}"
+      + "h2{font-size:17px;margin:28px 0 4px;display:flex;align-items:center;gap:8px}.n{font-size:12px;color:#666;font-weight:400;border:1px solid #ddd;border-radius:9px;padding:0 7px}"
+      + ".src{margin:0 0 10px;color:#555;font-style:italic}"
+      + "article{border-left:5px solid #ccc;padding:8px 12px;margin:10px 0;background:#fafafa;border-radius:0 6px 6px 0;break-inside:avoid}"
+      + ".meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:12px;color:#555}"
+      + ".chip{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:#222}.dot{width:11px;height:11px;border-radius:3px;border:1px solid rgba(0,0,0,.2)}"
+      + "blockquote{margin:6px 0;padding:0}blockquote.ul{text-decoration:underline;text-decoration-color:#999}"
+      + "img{max-width:100%;border:1px solid #ddd;margin:6px 0}.comment{margin:6px 0;padding:6px 8px;background:#fff;border:1px solid #e4e4e4;border-radius:5px}"
+      + ".tags{margin:6px 0 0;display:flex;flex-wrap:wrap;gap:4px}.tags span{font-size:12px;background:#eee;border-radius:9px;padding:0 8px}"
+      + ".missing{color:#999;font-style:italic}a{color:#2563c1}"
+      + "@media (prefers-color-scheme:dark){body{background:#1d1d1f;color:#e6e6e6}article{background:#262628}.chip{color:#eee}.meta,.src,.info,.n{color:#aaa}.comment{background:#1d1d1f;border-color:#3a3a3c}.tags span{background:#3a3a3c}a{color:#7aa7ff}}"
+      + "@media print{body{max-width:none}a{color:inherit}}"
+      + "</style></head><body><h1>" + e(S("exportTitle")) + "</h1><p class=\"info\">"
+      + e(S("exportMeta", { n: rows.length, profile: meta.profile, scope: meta.scope, date: meta.date })) + "</p>"
+      + body + "</body></html>\n";
+  },
+
+  base64(bytes) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let out = "";
+    let i = 0;
+    for (; i + 2 < bytes.length; i += 3) {
+      const n = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+      out += chars[n >> 18 & 63] + chars[n >> 12 & 63] + chars[n >> 6 & 63] + chars[n & 63];
+    }
+    if (i < bytes.length) {
+      const n = (bytes[i] << 16) | ((i + 1 < bytes.length ? bytes[i + 1] : 0) << 8);
+      out += chars[n >> 18 & 63] + chars[n >> 12 & 63] + (i + 1 < bytes.length ? chars[n >> 6 & 63] : "=") + "=";
+    }
+    return out;
+  },
+
+  // -------------------------------------------------------------------
+  // XLSX
+  // -------------------------------------------------------------------
+
+  xml(s) {
+    // control characters are not allowed in XML
+    return String(s ?? "").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/g, "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  },
+
+  colName(i) {
+    let s = "";
+    let n = i + 1;
+    while (n > 0) {
+      const m = (n - 1) % 26;
+      s = String.fromCharCode(65 + m) + s;
+      n = Math.floor((n - 1) / 26);
+    }
+    return s;
+  },
+
+  /** Mix a color with white (light background of label cells). */
+  tint(hex, amount) {
+    const n = parseInt(hex.slice(1), 16);
+    const mix = c => Math.round(c + (255 - c) * amount);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255].map(c => mix(c).toString(16).padStart(2, "0")).join("").toUpperCase();
+  },
+
+  isDark(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const lum = (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+    return lum < 0.55;
+  },
+
+  /** Builds the XLSX file as bytes. */
+  toXLSX(rows, codebook, meta) {
+    const S = (k, a) => this.SB.S(k, a);
+    const x = s => this.xml(s);
+    const cols = this.columns(rows, meta.images);
+    const colors = [...new Set([...rows.map(r => r.color), ...codebook.map(c => c.color)].filter(Boolean))];
+
+    // --- Styles ---
+    const fills = ["<fill><patternFill patternType=\"none\"/></fill>", "<fill><patternFill patternType=\"gray125\"/></fill>",
+      "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFEDEDED\"/><bgColor indexed=\"64\"/></patternFill></fill>"];
+    const solid = rgb => "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF" + rgb + "\"/><bgColor indexed=\"64\"/></patternFill></fill>";
+    const fonts = [
+      "<font><sz val=\"11\"/><color theme=\"1\"/><name val=\"Calibri\"/><family val=\"2\"/></font>",
+      "<font><b/><sz val=\"11\"/><color theme=\"1\"/><name val=\"Calibri\"/><family val=\"2\"/></font>",
+      "<font><u/><sz val=\"11\"/><color rgb=\"FF0563C1\"/><name val=\"Calibri\"/><family val=\"2\"/></font>",
+      "<font><sz val=\"11\"/><color rgb=\"FFFFFFFF\"/><name val=\"Calibri\"/><family val=\"2\"/></font>",
+    ];
+    const top = "<alignment vertical=\"top\"/>";
+    const topWrap = "<alignment vertical=\"top\" wrapText=\"1\"/>";
+    const xfs = [
+      "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>",
+      "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"2\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\"><alignment vertical=\"center\"/></xf>",
+      "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\">" + topWrap + "</xf>",
+      "<xf numFmtId=\"0\" fontId=\"2\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyBorder=\"1\" applyAlignment=\"1\">" + top + "</xf>",
+      "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\">" + top + "</xf>",
+    ];
+    const ST = { header: 1, wrap: 2, link: 3, plain: 4 };
+    const colorStyle = new Map();
+    for (const c of colors) {
+      fills.push(solid(c.slice(1).toUpperCase()));
+      const full = fills.length - 1;
+      fills.push(solid(this.tint(c, 0.6)));
+      const light = full + 1;
+      xfs.push("<xf numFmtId=\"0\" fontId=\"" + (this.isDark(c) ? 3 : 0) + "\" fillId=\"" + full + "\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\">" + top + "</xf>");
+      xfs.push("<xf numFmtId=\"0\" fontId=\"0\" fillId=\"" + light + "\" borderId=\"1\" xfId=\"0\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\">" + topWrap + "</xf>");
+      colorStyle.set(c, { full: xfs.length - 2, light: xfs.length - 1 });
+    }
+    const styles = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+      + "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
+      + "<fonts count=\"" + fonts.length + "\">" + fonts.join("") + "</fonts>"
+      + "<fills count=\"" + fills.length + "\">" + fills.join("") + "</fills>"
+      + "<borders count=\"2\"><border><left/><right/><top/><bottom/><diagonal/></border>"
+      + "<border><left style=\"thin\"><color rgb=\"FFD9D9D9\"/></left><right style=\"thin\"><color rgb=\"FFD9D9D9\"/></right>"
+      + "<top style=\"thin\"><color rgb=\"FFD9D9D9\"/></top><bottom style=\"thin\"><color rgb=\"FFD9D9D9\"/></bottom><diagonal/></border></borders>"
+      + "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>"
+      + "<cellXfs count=\"" + xfs.length + "\">" + xfs.join("") + "</cellXfs>"
+      + "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>"
+      + "</styleSheet>";
+
+    const cell = (ref, value, style, num) => {
+      if (value === "" || value === null || value === undefined) {
+        return "<c r=\"" + ref + "\"" + (style ? " s=\"" + style + "\"" : "") + "/>";
+      }
+      if (num) {
+        return "<c r=\"" + ref + "\" s=\"" + (style || 0) + "\"><v>" + Number(value) + "</v></c>";
+      }
+      const text = String(value).slice(0, 32767);
+      return "<c r=\"" + ref + "\" t=\"inlineStr\" s=\"" + (style || 0) + "\"><is><t xml:space=\"preserve\">" + x(text) + "</t></is></c>";
+    };
+    const sheet = (colDefs, headRow, bodyRows, extra = {}) => {
+      const last = this.colName(colDefs.length - 1);
+      const n = bodyRows.length + 1;
+      return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        + "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
+        + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+        + "<dimension ref=\"A1:" + last + n + "\"/>"
+        + "<sheetViews><sheetView workbookViewId=\"0\"" + (extra.selected ? " tabSelected=\"1\"" : "") + ">"
+        + "<pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/>"
+        + "<selection pane=\"bottomLeft\" activeCell=\"A2\" sqref=\"A2\"/></sheetView></sheetViews>"
+        + "<sheetFormatPr defaultRowHeight=\"15\"/>"
+        + "<cols>" + colDefs.map((c, i) => "<col min=\"" + (i + 1) + "\" max=\"" + (i + 1) + "\" width=\"" + c.width + "\" customWidth=\"1\"/>").join("") + "</cols>"
+        + "<sheetData>" + headRow + bodyRows.join("") + "</sheetData>"
+        + "<autoFilter ref=\"A1:" + last + n + "\"/>"
+        + (extra.hyperlinks || "")
+        + "<pageMargins left=\"0.5\" right=\"0.5\" top=\"0.6\" bottom=\"0.6\" header=\"0.3\" footer=\"0.3\"/>"
+        + "<pageSetup orientation=\"landscape\" fitToHeight=\"0\"/>"
+        + (extra.drawing ? "<drawing r:id=\"rIdDrawing\"/>" : "")
+        + "</worksheet>";
+    };
+    const headRow = defs => "<row r=\"1\" ht=\"20\" customHeight=\"1\">" + defs.map((c, i) => cell(this.colName(i) + "1", c.head, ST.header)).join("") + "</row>";
+
+    // --- Sheet 1: annotations ---
+    const imageCol = cols.findIndex(c => c.image);
+    const sheetRels = [];
+    const links = [];
+    const anchors = [];
+    const media = [];
+    const MAX_W = 300;
+    const MAX_H = 240;
+    const body = rows.map((r, idx) => {
+      const rowNo = idx + 2;
+      let height = null;
+      const cells = cols.map((c, i) => {
+        const ref = this.colName(i) + rowNo;
+        if (c.colorCell) {
+          return cell(ref, r.color, r.color ? colorStyle.get(r.color).full : ST.plain);
+        }
+        if (c.labelCell) {
+          return cell(ref, r.label, r.color ? colorStyle.get(r.color).light : ST.wrap);
+        }
+        if (c.link) {
+          if (!r.link) {
+            return cell(ref, "", ST.plain);
+          }
+          const id = "rIdL" + (links.length + 1);
+          links.push("<hyperlink ref=\"" + ref + "\" r:id=\"" + id + "\"/>");
+          sheetRels.push("<Relationship Id=\"" + id + "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"" + x(r.link) + "\" TargetMode=\"External\"/>");
+          return cell(ref, S("linkOpen"), ST.link);
+        }
+        if (c.image) {
+          if (!r.image) {
+            return cell(ref, r.type === "image" || r.type === "ink" ? S("imageMissing") : "", ST.wrap);
+          }
+          const scale = Math.min(1, MAX_W / r.image.width, MAX_H / r.image.height);
+          const w = Math.max(1, Math.round(r.image.width * scale));
+          const h = Math.max(1, Math.round(r.image.height * scale));
+          media.push(r.image.bytes);
+          anchors.push({ col: i, row: rowNo - 1, w, h, n: media.length });
+          height = Math.max(height || 0, Math.ceil(h * 0.75) + 6);
+          return cell(ref, "", ST.plain);
+        }
+        const num = typeof c.num === "function" ? c.num(r) : !!c.num;
+        return cell(ref, c.get(r), num ? ST.plain : (c.wrap ? ST.wrap : ST.plain), num);
+      });
+      return "<row r=\"" + rowNo + "\"" + (height ? " ht=\"" + height + "\" customHeight=\"1\"" : "") + ">" + cells.join("") + "</row>";
+    });
+    if (imageCol >= 0 && anchors.length) {
+      cols[imageCol].width = Math.max(cols[imageCol].width, Math.ceil(MAX_W / 7) + 2);
+    }
+    const drawing = anchors.length > 0;
+    if (drawing) {
+      sheetRels.push("<Relationship Id=\"rIdDrawing\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing\" Target=\"../drawings/drawing1.xml\"/>");
+    }
+    const sheet1 = sheet(cols, headRow(cols), body, {
+      selected: true,
+      hyperlinks: links.length ? "<hyperlinks>" + links.join("") + "</hyperlinks>" : "",
+      drawing,
+    });
+
+    // --- Sheet 2: labels ---
+    const cbCols = [
+      { head: S("colColor"), width: 9 },
+      { head: S("colLabel"), width: 32 },
+      { head: S("colCount"), width: 13 },
+      { head: S("colShown"), width: 16 },
+    ];
+    const cbRows = codebook.map((c, idx) => {
+      const rowNo = idx + 2;
+      const st = colorStyle.get(c.color);
+      return "<row r=\"" + rowNo + "\">"
+        + cell("A" + rowNo, c.color, st ? st.full : ST.plain)
+        + cell("B" + rowNo, c.label, st ? st.light : ST.wrap)
+        + cell("C" + rowNo, c.n, ST.plain, true)
+        + cell("D" + rowNo, c.shown ? S("yes") : S("no"), ST.plain)
+        + "</row>";
+    });
+    const sheet2 = sheet(cbCols, headRow(cbCols), cbRows);
+
+    // --- Sheet 3: info ---
+    const infoRows = [
+      [S("rowExported"), meta.date],
+      [S("rowProfile"), meta.profile],
+      [S("rowScope"), meta.scope],
+      [S("rowCount"), String(rows.length)],
+      [S("rowPlugin"), "Better Annotations " + (this.SB.version || "")],
+    ];
+    const infoCols = [{ head: S("rowKey"), width: 22 }, { head: S("rowValue"), width: 70 }];
+    const sheet3 = sheet(infoCols, headRow(infoCols), infoRows.map((r, idx) => "<row r=\"" + (idx + 2) + "\">"
+      + cell("A" + (idx + 2), r[0], ST.plain) + cell("B" + (idx + 2), r[1], ST.wrap) + "</row>"));
+
+    // --- Images ---
+    const EMU = 9525;
+    const drawingXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+      + "<xdr:wsDr xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" "
+      + "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" "
+      + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+      + anchors.map(a => "<xdr:oneCellAnchor><xdr:from><xdr:col>" + a.col + "</xdr:col><xdr:colOff>" + (3 * EMU) + "</xdr:colOff>"
+        + "<xdr:row>" + a.row + "</xdr:row><xdr:rowOff>" + (3 * EMU) + "</xdr:rowOff></xdr:from>"
+        + "<xdr:ext cx=\"" + a.w * EMU + "\" cy=\"" + a.h * EMU + "\"/>"
+        + "<xdr:pic><xdr:nvPicPr><xdr:cNvPr id=\"" + (a.n + 1) + "\" name=\"Image " + a.n + "\"/><xdr:cNvPicPr><a:picLocks noChangeAspect=\"1\"/></xdr:cNvPicPr></xdr:nvPicPr>"
+        + "<xdr:blipFill><a:blip r:embed=\"rIdImg" + a.n + "\"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>"
+        + "<xdr:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"" + a.w * EMU + "\" cy=\"" + a.h * EMU + "\"/></a:xfrm>"
+        + "<a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>").join("")
+      + "</xdr:wsDr>";
+    const drawingRels = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+      + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+      + anchors.map(a => "<Relationship Id=\"rIdImg" + a.n + "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"../media/image" + a.n + ".png\"/>").join("")
+      + "</Relationships>";
+
+    const sheetNames = [S("sheetAnnotations"), S("sheetLabels"), S("sheetInfo")]
+      .map(n => String(n).replace(/[\\/?*[\]:]/g, " ").slice(0, 31));
+    const files = [
+      ["[Content_Types].xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+        + "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
+        + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
+        + "<Default Extension=\"png\" ContentType=\"image/png\"/>"
+        + "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
+        + [1, 2, 3].map(i => "<Override PartName=\"/xl/worksheets/sheet" + i + ".xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>").join("")
+        + "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>"
+        + (drawing ? "<Override PartName=\"/xl/drawings/drawing1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawing+xml\"/>" : "")
+        + "<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>"
+        + "<Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>"
+        + "</Types>"],
+      ["_rels/.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+        + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>"
+        + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" Target=\"docProps/core.xml\"/>"
+        + "<Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties\" Target=\"docProps/app.xml\"/>"
+        + "</Relationships>"],
+      ["docProps/core.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" "
+        + "xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" "
+        + "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
+        + "<dc:title>" + x(S("exportTitle")) + "</dc:title><dc:creator>Better Annotations</dc:creator>"
+        + "<dcterms:created xsi:type=\"dcterms:W3CDTF\">" + new Date().toISOString().replace(/\.\d+Z$/, "Z") + "</dcterms:created>"
+        + "</cp:coreProperties>"],
+      ["docProps/app.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        + "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\"><Application>Better Annotations</Application></Properties>"],
+      ["xl/workbook.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        + "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+        + "<bookViews><workbookView activeTab=\"0\"/></bookViews><sheets>"
+        + sheetNames.map((n, i) => "<sheet name=\"" + x(n) + "\" sheetId=\"" + (i + 1) + "\" r:id=\"rId" + (i + 1) + "\"/>").join("")
+        + "</sheets>"
+        + "<definedNames>" + sheetNames.map((n, i) => "<definedName name=\"_xlnm._FilterDatabase\" localSheetId=\"" + i + "\" hidden=\"1\">'"
+          + x(n.replace(/'/g, "''")) + "'!$A$1:$" + this.colName((i === 0 ? cols : i === 1 ? cbCols : infoCols).length - 1) + "$"
+          + ((i === 0 ? rows.length : i === 1 ? codebook.length : infoRows.length) + 1) + "</definedName>").join("") + "</definedNames>"
+        + "</workbook>"],
+      ["xl/_rels/workbook.xml.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+        + [1, 2, 3].map(i => "<Relationship Id=\"rId" + i + "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet" + i + ".xml\"/>").join("")
+        + "<Relationship Id=\"rId4\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
+        + "</Relationships>"],
+      ["xl/styles.xml", styles],
+      ["xl/worksheets/sheet1.xml", sheet1],
+      ["xl/worksheets/sheet2.xml", sheet2],
+      ["xl/worksheets/sheet3.xml", sheet3],
+    ];
+    if (sheetRels.length) {
+      files.push(["xl/worksheets/_rels/sheet1.xml.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+        + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" + sheetRels.join("") + "</Relationships>"]);
+    }
+    if (drawing) {
+      files.push(["xl/drawings/drawing1.xml", drawingXml], ["xl/drawings/_rels/drawing1.xml.rels", drawingRels]);
+      media.forEach((bytes, i) => files.push(["xl/media/image" + (i + 1) + ".png", bytes]));
+    }
+    return this.zip(files);
+  },
+
+  // -------------------------------------------------------------------
+  // ZIP (uncompressed)
+  // -------------------------------------------------------------------
+
+  utf8(str) {
+    const out = [];
+    for (let i = 0; i < str.length; i++) {
+      let c = str.charCodeAt(i);
+      if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length) {
+        const d = str.charCodeAt(i + 1);
+        if (d >= 0xdc00 && d <= 0xdfff) {
+          c = 0x10000 + ((c - 0xd800) << 10) + (d - 0xdc00);
+          i++;
+        }
+      }
+      if (c < 0x80) {
+        out.push(c);
+      }
+      else if (c < 0x800) {
+        out.push(0xc0 | c >> 6, 0x80 | c & 63);
+      }
+      else if (c < 0x10000) {
+        out.push(0xe0 | c >> 12, 0x80 | c >> 6 & 63, 0x80 | c & 63);
+      }
+      else {
+        out.push(0xf0 | c >> 18, 0x80 | c >> 12 & 63, 0x80 | c >> 6 & 63, 0x80 | c & 63);
+      }
+    }
+    return Uint8Array.from(out);
+  },
+
+  crcTable: null,
+
+  crc32(bytes) {
+    if (!this.crcTable) {
+      this.crcTable = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) {
+          c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        }
+        this.crcTable[n] = c >>> 0;
+      }
+    }
+    let crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) {
+      crc = this.crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  },
+
+  zip(files) {
+    const chunks = [];
+    const central = [];
+    let offset = 0;
+    const d = new Date();
+    const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+    const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    const le = (n, size) => {
+      const a = new Uint8Array(size);
+      for (let i = 0; i < size; i++) {
+        a[i] = (n >>> (8 * i)) & 255;
+      }
+      return a;
+    };
+    const concat = (parts) => {
+      const len = parts.reduce((s, p) => s + p.length, 0);
+      const out = new Uint8Array(len);
+      let o = 0;
+      for (const p of parts) {
+        out.set(p, o);
+        o += p.length;
+      }
+      return out;
+    };
+    for (const [name, content] of files) {
+      const nameBytes = this.utf8(name);
+      const data = typeof content === "string" ? this.utf8(content) : content;
+      const crc = this.crc32(data);
+      const header = concat([
+        le(0x04034b50, 4), le(20, 2), le(0x0800, 2), le(0, 2), le(time, 2), le(date, 2),
+        le(crc, 4), le(data.length, 4), le(data.length, 4), le(nameBytes.length, 2), le(0, 2), nameBytes,
+      ]);
+      chunks.push(header, data);
+      central.push(concat([
+        le(0x02014b50, 4), le(20, 2), le(20, 2), le(0x0800, 2), le(0, 2), le(time, 2), le(date, 2),
+        le(crc, 4), le(data.length, 4), le(data.length, 4), le(nameBytes.length, 2), le(0, 2), le(0, 2),
+        le(0, 2), le(0, 2), le(0, 4), le(offset, 4), nameBytes,
+      ]));
+      offset += header.length + data.length;
+    }
+    const centralBytes = concat(central);
+    const end = concat([
+      le(0x06054b50, 4), le(0, 2), le(0, 2), le(files.length, 2), le(files.length, 2),
+      le(centralBytes.length, 4), le(offset, 4), le(0, 2),
+    ]);
+    return concat([...chunks, centralBytes, end]);
+  },
+
+  // -------------------------------------------------------------------
+  // Workflow
+  // -------------------------------------------------------------------
+
+  extension(format) {
+    return { xlsx: "xlsx", csv: "csv", html: "html" }[format] || "xlsx";
+  },
+
+  /** Writes the export file; returns the number of annotations. */
+  async write(path, format, rows, meta) {
+    if (format === "csv") {
+      await Zotero.File.putContentsAsync(path, this.toCSV(rows));
+    }
+    else if (format === "html") {
+      await Zotero.File.putContentsAsync(path, this.toHTML(rows, meta));
+    }
+    else {
+      const bytes = this.toXLSX(rows, this.codebook(rows, meta.profileObj), meta);
+      await this.IO().write(path, bytes);
+    }
+    return rows.length;
+  },
+};

@@ -1,0 +1,21 @@
+# Changelog
+
+All notable changes to Better Annotations are listed here.
+The project uses [Semantic Versioning](https://semver.org/).
+
+## 1.0.0-beta.1 – 2026-11-13
+
+First public release (beta). Please report problems in the [issue tracker](https://github.com/CorsiQa/zotero-better-annotations/issues).
+
+- Labels for annotation colors in the annotation context menu, the toolbar color menu, the selection popup and the sidebar color filter
+- Any number of colors in any order, with drag and drop, visibility per color and a submenu for extra colors
+- Profiles with the presets “Zotero+” and “Zotero Default”, profile switcher in the reader toolbar, import and export of single profiles
+- Template library with ready-made profiles, for example PICO and a reading workflow
+- Color picker with six palettes and recently used colors; apply a whole palette to a profile
+- Statistics of the annotations in the open document by label
+- Optional labels as tags, with tracking, renaming and removal of plugin tags
+- Recolor and merge colors by document, selected items, collection, parent collection, library or all libraries
+- Export of annotations to Excel (colored cells, images, links back to Zotero), CSV and HTML
+- Backups of annotation colors, an undoable history and a full backup for moving to a new computer
+- Update notice in the settings when automatic updates are turned off
+- 13 languages: English, German, Spanish, French, Italian, Japanese, Norwegian Bokmål, Polish, Portuguese, Russian, Swedish, Simplified and Traditional Chinese

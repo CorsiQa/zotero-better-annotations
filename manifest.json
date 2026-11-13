@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "Better Annotations",
+  "version": "1.0.0-beta.1",
+  "description": "Name and extend annotation colors, switch color profiles and export annotations.",
+  "author": "CorsiQa.",
+  "icons": {
+    "48": "content/icons/icon.svg",
+    "96": "content/icons/icon.svg"
+  },
+  "applications": {
+    "zotero": {
+      "id": "better-annotations@corsiqa.github.io",
+      "update_url": "https://github.com/CorsiQa/zotero-better-annotations/releases/latest/download/updates.json",
+      "strict_min_version": "7.0",
+      "strict_max_version": "10.*"
+    }
+  },
+  "homepage_url": "https://github.com/CorsiQa/zotero-better-annotations"
+}

@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Better Annotations for Zotero"
+abstract: "Zotero plugin to name, add and organize annotation colors, switch color profiles, turn labels into tags and export annotations to Excel, CSV and HTML."
+type: software
+authors:
+  - alias: "CorsiQa."
+repository-code: "https://github.com/CorsiQa/zotero-better-annotations"
+license: AGPL-3.0-or-later
+version: "1.0.0-beta.1"
+date-released: "2026-11-13"
+keywords:
+  - Zotero
+  - Zotero plugin
+  - annotation
+  - highlight colors
+  - qualitative research
+  - literature review
+  - annotation export

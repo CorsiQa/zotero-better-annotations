@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="120" viewBox="0 0 560 120">
+  <g transform="translate(12 12)">  <rect x="8" y="10" width="80" height="76" rx="14" fill="#f4f1ea" stroke="#c9c2b3" stroke-width="2"/>
+  <rect x="18" y="22" width="60" height="9" rx="4.5" fill="#ffd400"/>
+  <rect x="18" y="37" width="44" height="9" rx="4.5" fill="#ff6666"/>
+  <rect x="18" y="52" width="52" height="9" rx="4.5" fill="#2ea8e5"/>
+  <rect x="18" y="67" width="34" height="9" rx="4.5" fill="#5fb236"/>
+  <circle cx="72" cy="70" r="13" fill="#a28ae5" stroke="#f4f1ea" stroke-width="3"/>
+  <path d="M66 70h12M72 64v12" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="128" y="62" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="40" font-weight="700" fill="#F3F2F8" letter-spacing="-0.5">Better <tspan fill="#B3A8F2">Annotations</tspan></text>
+  <text x="130" y="94" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="19" font-weight="500" fill="#F3F2F8" fill-opacity="0.62">for Zotero</text>
+</svg>

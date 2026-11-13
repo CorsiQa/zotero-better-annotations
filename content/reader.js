@@ -1,0 +1,1525 @@
+/* Better Annotations – integration into the Zotero reader
+ *
+ * Uses the interface Zotero.Reader.registerEventListener:
+ *   - createAnnotationContextMenu   right-click on an existing annotation
+ *   - createColorContextMenu        color menu in the toolbar
+ *   - renderTextSelectionPopup      popup after selecting text
+ *   - renderSidebarAnnotationHeader tooltips for the color filter in the sidebar
+ *
+ * Approach for the menus: the plugin appends its entries via `append`
+ * (Zotero renders them and handles click and close). It then places
+ * visible proxy rows where the default colors are,
+ * hides the originals and forwards clicks to the hidden rows.
+ * If this step fails (e.g. after a Zotero update), the appended
+ * entries stay visible at the end of the menu and keep working.
+ *
+ * Creating annotations in arbitrary colors is adapted from
+ * “Just Enough Color” by MCXCC303 (AGPL-3.0-or-later), see createAnnotation().
+ */
+
+/* global Zotero, Components, BetterAnnotations */
+
+BetterAnnotations.Reader = {
+  _handlers: null,
+  _tip: null,
+  _popupState: new WeakMap(),
+  _menuSeq: 0,
+
+  get SB() {
+    return BetterAnnotations;
+  },
+
+  register() {
+    this._handlers = {
+      createAnnotationContextMenu: e => this._safe(() => this.onAnnotationMenu(e)),
+      createColorContextMenu: e => this._safe(() => this.onToolColorMenu(e)),
+      renderTextSelectionPopup: e => this._safe(() => this.onSelectionPopup(e)),
+      renderSidebarAnnotationHeader: e => this._safe(() => this.onSidebarHeader(e)),
+      renderToolbar: e => this._safe(() => this.onToolbar(e)),
+    };
+    this._unlisten = this.SB.Store.onChange(() => this._safe(() => this.refreshToolbars()));
+    this.startScan();
+    for (const [type, fn] of Object.entries(this._handlers)) {
+      try {
+        Zotero.Reader.registerEventListener(type, fn, this.SB.id);
+      }
+      catch (e) {
+        this.SB.log("reader event not available: " + type);
+      }
+    }
+  },
+
+  unregister() {
+    if (!this._handlers) {
+      return;
+    }
+    for (const [type, fn] of Object.entries(this._handlers)) {
+      try {
+        Zotero.Reader.unregisterEventListener(type, fn);
+      }
+      catch (e) {}
+    }
+    this._handlers = null;
+    this.hideTip();
+    this.stopScan();
+    if (this._unlisten) {
+      this._unlisten();
+      this._unlisten = null;
+    }
+    // Remove inserted elements from open readers
+    try {
+      for (const r of Zotero.Reader._readers || []) {
+        const doc = r._iframeWindow && r._iframeWindow.document;
+        if (doc) {
+          for (const el of doc.querySelectorAll("[data-bac-toolbar], [data-bac-panel], #bac-reader-style")) {
+            el.remove();
+          }
+        }
+      }
+    }
+    catch (e) {}
+  },
+
+  shutdown() {
+    this.unregister();
+  },
+
+  _safe(fn) {
+    try {
+      fn();
+    }
+    catch (e) {
+      this.SB.logError(e);
+    }
+  },
+
+  // -------------------------------------------------------------------
+  // DOM helpers
+  // -------------------------------------------------------------------
+
+  /** Get the color of a menu row or button from its color icon (SVG). */
+  colorOf(el) {
+    if (!el) {
+      return null;
+    }
+    try {
+      for (const node of el.querySelectorAll("[fill]")) {
+        const c = this.SB.normalize(node.getAttribute("fill"));
+        if (c) {
+          return c;
+        }
+      }
+    }
+    catch (e) {}
+    return null;
+  },
+
+  textOf(el) {
+    return (el.textContent || "").replace(/\s+/g, " ").trim();
+  },
+
+  /** Replace the text of a cloned row without changing its structure. */
+  replaceText(el, newText) {
+    const doc = el.ownerDocument;
+    const walker = doc.createTreeWalker(el, 4 /* SHOW_TEXT */);
+    let node;
+    let done = false;
+    while ((node = walker.nextNode())) {
+      if (!node.nodeValue.trim()) {
+        continue;
+      }
+      if (!done) {
+        node.nodeValue = newText;
+        done = true;
+      }
+      else {
+        node.nodeValue = "";
+      }
+    }
+    if (!done) {
+      el.append(doc.createTextNode(newText));
+    }
+  },
+
+  /** “Customize” icon (sliders), drawn in the text color. */
+  makeTuneIcon(doc, size) {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = doc.createElementNS(NS, "svg");
+    svg.setAttribute("width", String(size || 16));
+    svg.setAttribute("height", String(size || 16));
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.3");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("aria-hidden", "true");
+    const path = doc.createElementNS(NS, "path");
+    path.setAttribute("d", "M2 4h7M13 4h1M2 8h2M8 8h6M2 12h9M14 12h0");
+    path.setAttribute("style", "fill:none;stroke:currentColor");
+    svg.append(path);
+    for (const [cx, cy] of [[11, 4], [6, 8], [12.5, 12]]) {
+      const c = doc.createElementNS(NS, "circle");
+      c.setAttribute("cx", String(cx));
+      c.setAttribute("cy", String(cy));
+      c.setAttribute("r", "1.6");
+      c.setAttribute("style", "fill:none;stroke:currentColor");
+      svg.append(c);
+    }
+    return svg;
+  },
+
+  /** “More Colors” icon: up to four swatches in a square. */
+  makeStackIcon(doc, size, colors) {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = doc.createElementNS(NS, "svg");
+    svg.setAttribute("width", String(size || 16));
+    svg.setAttribute("height", String(size || 16));
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("aria-hidden", "true");
+    const cells = [[1, 1], [9, 1], [1, 9], [9, 9]];
+    cells.forEach(([x, y], i) => {
+      const r = doc.createElementNS(NS, "rect");
+      r.setAttribute("x", String(x));
+      r.setAttribute("y", String(y));
+      r.setAttribute("width", "6");
+      r.setAttribute("height", "6");
+      r.setAttribute("rx", "1.5");
+      // color via style instead of the fill attribute, so the row is not taken for a color row
+      r.setAttribute("style", "fill:" + (colors[i] || "rgba(127,127,127,.35)"));
+      svg.append(r);
+    });
+    return svg;
+  },
+
+  /** Replace the icon (SVG) of a cloned element and keep its size. */
+  swapIcon(el, makeIcon) {
+    const old = el.querySelector("svg");
+    let size = 16;
+    if (old) {
+      size = parseInt(old.getAttribute("width"), 10) || 16;
+    }
+    const icon = makeIcon(el.ownerDocument, size);
+    if (old) {
+      old.replaceWith(icon);
+    }
+    else {
+      el.prepend(icon);
+    }
+    return icon;
+  },
+
+  /**
+   * Copy a value into the reader iframe so that the reader's own code can use it.
+   * Adapted from “Just Enough Color” (MCXCC303, AGPL-3.0-or-later).
+   */
+  cloneIntoFrame(reader, value) {
+    const win = reader && reader._iframeWindow;
+    if (!win) {
+      return value;
+    }
+    try {
+      return Components.utils.cloneInto(value, win, { wrapReflectors: true });
+    }
+    catch (e) {
+      return value;
+    }
+  },
+
+  // -------------------------------------------------------------------
+  // Context menu of an annotation and color menu of the toolbar
+  // -------------------------------------------------------------------
+
+  onAnnotationMenu({ reader, params, append }) {
+    if (!reader || !params || typeof append !== "function") {
+      return;
+    }
+    const ids = Array.from(params.ids || []);
+    let annotations = [];
+    try {
+      annotations = Array.from(reader._state?.annotations || []).filter(a => ids.includes(a.id));
+    }
+    catch (e) {}
+    const current = annotations.length === 1 ? this.SB.normalize(annotations[0].color) : null;
+    let readOnly = false;
+    try {
+      readOnly = !!reader._state?.readOnly || annotations.some(a => a.readOnly);
+    }
+    catch (e) {}
+    this.buildColorMenu(reader, append, {
+      current,
+      readOnly,
+      command: color => this.setAnnotationColor(reader, ids, color),
+    });
+  },
+
+  onToolColorMenu({ reader, append }) {
+    if (!reader || typeof append !== "function") {
+      return;
+    }
+    let current = null;
+    try {
+      current = this.SB.normalize(reader._state?.tool?.color);
+    }
+    catch (e) {}
+    this.buildColorMenu(reader, append, {
+      current,
+      readOnly: false,
+      command: color => this.setToolColor(reader, color),
+    });
+  },
+
+  buildColorMenu(reader, append, opts) {
+    const SB = this.SB;
+    const profile = SB.Store.getActive();
+    this._menuSeq++;
+    const spec = {
+      seq: String(this._menuSeq),
+      standard: !!profile.standard,
+      colors: [],
+      settingsLabel: SB.S("menuCustomize"),
+      limit: SB.setting("menuLimit"),
+      showEntry: SB.setting("showMenuEntry"),
+    };
+    const items = [];
+    if (!profile.standard) {
+      for (const entry of SB.visibleColors(profile)) {
+        spec.colors.push({ color: entry.color, label: entry.label });
+        items.push({
+          label: entry.label,
+          color: entry.color,
+          checked: !!opts.current && entry.color === opts.current,
+          disabled: !!opts.readOnly,
+          onCommand: () => opts.command(entry.color),
+        });
+      }
+    }
+    // Always appended: also serves as a marker for rebuilding the menu
+    items.push({
+      label: spec.settingsLabel,
+      onCommand: () => SB.openPrefs(),
+    });
+    append(...items);
+    this.scheduleMenuFix(reader, spec);
+  },
+
+  scheduleMenuFix(reader, spec) {
+    let tries = 0;
+    const tick = () => {
+      let doc = null;
+      try {
+        doc = reader._iframeWindow && reader._iframeWindow.document;
+      }
+      catch (e) {}
+      let ok = false;
+      try {
+        ok = !!doc && this.fixMenu(doc, spec);
+      }
+      catch (e) {
+        this.SB.logError(e);
+        return;
+      }
+      if (!ok && ++tries < 30) {
+        this.SB.setTimeout(tick, 15);
+      }
+    };
+    this.SB.setTimeout(tick, 0);
+  },
+
+  /**
+   * Rebuild the menu: hide the default colors, put the own colors in their place,
+   * then the “More Colors” submenu and “Customize Annotation Colors…”.
+   * Returns true once the menu was found and changed.
+   */
+  fixMenu(doc, spec) {
+    const SB = this.SB;
+    for (const menu of doc.querySelectorAll(".context-menu")) {
+      if (menu.hasAttribute("data-bac-flyout") || menu.getAttribute("data-bac-done") === spec.seq) {
+        continue;
+      }
+      const rows = Array.from(menu.querySelectorAll(".row")).filter(r => !r.hasAttribute("data-bac-proxy"));
+      const settingsIndex = this.findLastIndex(rows, r => this.textOf(r) === spec.settingsLabel);
+      if (settingsIndex < 0) {
+        continue;
+      }
+      this.resetMenu(menu); // in case Zotero reuses the menu element
+      menu.setAttribute("data-bac-done", spec.seq);
+      const settingsRow = rows[settingsIndex];
+
+      // The own color rows rendered by Zotero come right before it
+      const n = spec.colors.length;
+      const ownRows = rows.slice(settingsIndex - n, settingsIndex);
+      if (ownRows.length !== n || ownRows.some((r, i) => this.colorOf(r) !== spec.colors[i].color)) {
+        SB.log("unknown menu structure – appended items stay visible");
+        return true;
+      }
+      const ownSet = new Set([...ownRows, settingsRow]);
+      const stockRows = this.findStockBlock(rows.filter(r => !ownSet.has(r)));
+      const stockByColor = new Map(stockRows.map(r => [this.colorOf(r), r]));
+      const iconTemplate = [...ownRows, ...stockRows].find(r => !r.classList.contains("checked")) || ownRows[0] || stockRows[0] || null;
+
+      const makeSettings = () => {
+        const proxy = iconTemplate
+          ? this.makeIconRow(iconTemplate, spec.settingsLabel, (d, s) => this.makeTuneIcon(d, s))
+          : this.makeProxy(settingsRow, null);
+        this.attachForward(proxy, settingsRow);
+        return proxy;
+      };
+
+      if (spec.standard) {
+        this.hideRows([settingsRow]);
+        if (spec.showEntry && stockRows.length) {
+          const last = stockRows[stockRows.length - 1];
+          last.parentNode.insertBefore(makeSettings(), last.nextSibling);
+        }
+        return true;
+      }
+
+      const anchor = stockRows[0] || ownRows[0] || settingsRow;
+      const parent = anchor.parentNode;
+      const limit = Math.max(1, spec.limit || 8);
+      const mainCount = n > limit ? limit : n;
+      const inserts = [];
+      let flyout = null;
+      const closeFlyout = () => flyout && flyout.hide(true);
+
+      for (let i = 0; i < mainCount; i++) {
+        const target = stockByColor.get(spec.colors[i].color) || ownRows[i];
+        const p = this.makeProxy(ownRows[i], target);
+        p.addEventListener("mouseenter", closeFlyout);
+        inserts.push(p);
+      }
+      if (n > limit) {
+        const extraColors = spec.colors.slice(limit).map(c => c.color);
+        const more = iconTemplate
+          ? this.makeIconRow(iconTemplate, SB.S("menuMore"), (d, s) => this.makeStackIcon(d, s, extraColors))
+          : this.makeProxy(settingsRow, null);
+        if (!iconTemplate) {
+          this.replaceText(more, SB.S("menuMore"));
+        }
+        this.addSubmenuArrow(more);
+        const extra = [];
+        for (let i = limit; i < n; i++) {
+          const target = stockByColor.get(spec.colors[i].color) || ownRows[i];
+          extra.push(this.makeProxy(ownRows[i], target));
+        }
+        flyout = this.makeFlyout(menu, more, extra, iconTemplate);
+        inserts.push(more);
+      }
+      if (spec.showEntry) {
+        const s = makeSettings();
+        s.addEventListener("mouseenter", closeFlyout);
+        inserts.push(s);
+      }
+      for (const p of inserts) {
+        parent.insertBefore(p, anchor);
+      }
+      for (const r of stockRows) {
+        this.hide(r);
+      }
+      this.hideRows([...ownRows, settingsRow]);
+      return true;
+    }
+    return false;
+  },
+
+  findLastIndex(arr, fn) {
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (fn(arr[i])) {
+        return i;
+      }
+    }
+    return -1;
+  },
+
+  /** Contiguous block of rows with Zotero's default colors. */
+  findStockBlock(rows) {
+    const stock = new Set(this.SB.STOCK_COLORS);
+    let best = [];
+    let run = [];
+    for (const r of rows) {
+      const c = this.colorOf(r);
+      const isStock = !!c && stock.has(c);
+      if (isStock && (!run.length || run[run.length - 1].parentNode === r.parentNode)) {
+        run.push(r);
+        continue;
+      }
+      if (run.length > best.length) {
+        best = run;
+      }
+      run = isStock ? [r] : [];
+    }
+    if (run.length > best.length) {
+      best = run;
+    }
+    return best.length >= 2 ? best : [];
+  },
+
+  hide(el) {
+    el.setAttribute("data-bac-hidden", "1");
+    el.style.display = "none";
+  },
+
+  resetMenu(menu) {
+    const doc = menu.ownerDocument;
+    for (const el of doc.querySelectorAll("[data-bac-flyout]")) {
+      el.remove();
+    }
+    for (const el of menu.querySelectorAll("[data-bac-proxy]")) {
+      el.remove();
+    }
+    for (const el of menu.querySelectorAll("[data-bac-hidden]")) {
+      el.removeAttribute("data-bac-hidden");
+      el.style.removeProperty("display");
+    }
+  },
+
+  /** Hide the appended original rows (with their group and divider). */
+  hideRows(rows) {
+    if (!rows.length) {
+      return;
+    }
+    const group = rows[0].parentNode;
+    const onlyOurs = group
+      && !group.classList.contains("context-menu")
+      && Array.from(group.children).every(ch => rows.includes(ch));
+    if (onlyOurs) {
+      this.hide(group);
+      const prev = group.previousElementSibling;
+      const next = group.nextElementSibling;
+      if (prev && /separator/.test(prev.className)) {
+        this.hide(prev);
+      }
+      else if (!prev && next && /separator/.test(next.className)) {
+        this.hide(next);
+      }
+      return;
+    }
+    for (const r of rows) {
+      this.hide(r);
+    }
+  },
+
+  cleanClone(source) {
+    const p = source.cloneNode(true);
+    p.setAttribute("data-bac-proxy", "1");
+    p.removeAttribute("id");
+    p.removeAttribute("aria-checked");
+    p.style.removeProperty("display");
+    return p;
+  },
+
+  /** Visible copy of a row whose click is forwarded to `target`. */
+  makeProxy(source, target) {
+    const p = this.cleanClone(source);
+    if (target) {
+      this.attachForward(p, target);
+    }
+    return p;
+  },
+
+  /** Row in the style of a color row with its own icon and text. */
+  makeIconRow(template, label, makeIcon) {
+    const row = this.cleanClone(template);
+    row.classList.remove("checked", "active", "focused", "selected");
+    const icon = this.swapIcon(row, makeIcon);
+    // draw the icon in the menu's text color, not in the color of the template row
+    for (let el = icon.parentElement; el && el !== row.parentElement; el = el.parentElement) {
+      el.style.removeProperty("color");
+      el.style.removeProperty("fill");
+    }
+    try {
+      const menu = template.closest(".context-menu") || template;
+      icon.style.color = template.ownerDocument.defaultView.getComputedStyle(menu).color;
+    }
+    catch (e) {}
+    this.replaceText(row, label);
+    return row;
+  },
+
+  addSubmenuArrow(row) {
+    const arrow = row.ownerDocument.createElement("span");
+    arrow.textContent = "›";
+    arrow.setAttribute("aria-hidden", "true");
+    arrow.style.cssText = "margin-inline-start:auto;padding-inline-start:18px;opacity:.75;font-size:1.15em;line-height:1;";
+    row.append(arrow);
+    const display = row.ownerDocument.defaultView.getComputedStyle(row).display;
+    if (!/flex|grid/.test(display)) {
+      row.style.display = "flex";
+      row.style.alignItems = "center";
+    }
+  },
+
+  attachForward(el, target) {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.forwardClick(target);
+    });
+  },
+
+  forwardClick(target) {
+    const doc = target.ownerDocument;
+    const win = doc.defaultView;
+    const menu = target.closest(".context-menu");
+    const fire = (type) => {
+      try {
+        target.dispatchEvent(new win.MouseEvent(type, { bubbles: true, cancelable: true, view: win, button: 0, detail: 1 }));
+      }
+      catch (e) {
+        this.SB.logError(e);
+      }
+    };
+    fire("click");
+    // fallback in case Zotero triggers rows on mouseup instead of click
+    this.SB.setTimeout(() => {
+      if (menu && menu.isConnected && !target.hasAttribute("disabled") && !target.classList.contains("disabled")) {
+        fire("mouseup");
+      }
+    }, 80);
+  },
+
+  /**
+   * Submenu that opens to the side. Entries are arranged in columns of
+   * at most eight rows, so the submenu does not grow out of the window.
+   * Height and position are adapted to the window.
+   */
+  makeFlyout(menu, moreRow, entries, sampleRow) {
+    const doc = menu.ownerDocument;
+    const win = doc.defaultView;
+    const fly = menu.cloneNode(false);
+    fly.removeAttribute("id");
+    fly.removeAttribute("data-bac-done");
+    fly.setAttribute("data-bac-flyout", "1");
+    fly.style.cssText = "position:fixed;display:none;margin:0;right:auto;bottom:auto;transform:none;"
+      + "z-index:2147483647;overflow:auto;width:auto;height:auto;";
+    let holder = fly;
+    const sampleGroup = sampleRow && sampleRow.parentNode;
+    if (sampleGroup && sampleGroup !== menu) {
+      holder = sampleGroup.cloneNode(false);
+      holder.removeAttribute("id");
+      holder.removeAttribute("data-bac-hidden");
+      holder.style.removeProperty("display");
+      fly.append(holder);
+    }
+    holder.style.display = "grid";
+    holder.style.gridAutoFlow = "column";
+    holder.style.columnGap = "2px";
+    for (const e of entries) {
+      e.style.minWidth = "0";
+      holder.append(e);
+    }
+    menu.append(fly);
+
+    let hideTimer = null;
+    let movedOut = false;
+    const cancelHide = () => {
+      if (hideTimer) {
+        win.clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    };
+    const api = {
+      show: () => {
+        cancelHide();
+        fly.style.display = "";
+        const rowH = Math.max(18, moreRow.getBoundingClientRect().height || 24);
+        const fit = Math.max(1, Math.floor((win.innerHeight - 24) / rowH));
+        const perColumn = Math.max(1, Math.min(8, fit, entries.length));
+        holder.style.gridTemplateRows = "repeat(" + perColumn + ", auto)";
+        fly.style.maxHeight = Math.max(80, win.innerHeight - 8) + "px";
+        fly.style.maxWidth = Math.max(160, win.innerWidth - 8) + "px";
+        const mr = menu.getBoundingClientRect();
+        const rr = moreRow.getBoundingClientRect();
+        const fr = fly.getBoundingClientRect();
+        let left = mr.right - 3;
+        if (left + fr.width > win.innerWidth - 4) {
+          left = Math.max(4, mr.left - fr.width + 3);
+        }
+        let top = rr.top - 4;
+        if (top + fr.height > win.innerHeight - 4) {
+          top = Math.max(4, win.innerHeight - fr.height - 4);
+        }
+        fly.style.left = left + "px";
+        fly.style.top = top + "px";
+        // correction if a parent element forms its own containing block
+        const actual = fly.getBoundingClientRect();
+        const dx = actual.left - left;
+        const dy = actual.top - top;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          fly.style.left = (left - dx) + "px";
+          fly.style.top = (top - dy) + "px";
+        }
+        // if the menu clips the submenu, attach it one level higher
+        if (!movedOut) {
+          const check = fly.getBoundingClientRect();
+          const hit = doc.elementFromPoint(check.left + check.width / 2, check.top + Math.min(10, check.height / 2));
+          if (hit && !fly.contains(hit) && menu.parentNode) {
+            movedOut = true;
+            menu.parentNode.append(fly);
+            api.show();
+          }
+        }
+      },
+      hide: (now) => {
+        cancelHide();
+        if (now) {
+          fly.style.display = "none";
+          return;
+        }
+        hideTimer = win.setTimeout(() => {
+          fly.style.display = "none";
+        }, 250);
+      },
+    };
+    moreRow.addEventListener("mouseenter", api.show);
+    moreRow.addEventListener("mouseleave", () => api.hide(false));
+    moreRow.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (fly.style.display === "none") {
+        api.show();
+      }
+      else {
+        api.hide(true);
+      }
+    });
+    fly.addEventListener("mouseenter", cancelHide);
+    fly.addEventListener("mouseleave", () => api.hide(false));
+    for (const type of ["mousedown", "pointerdown"]) {
+      fly.addEventListener(type, e => e.stopPropagation());
+    }
+    return api;
+  },
+
+  // -------------------------------------------------------------------
+  // Actions in the reader
+  // -------------------------------------------------------------------
+
+  setAnnotationColor(reader, ids, color) {
+    try {
+      const internal = reader._internalReader;
+      if (!internal || !internal._annotationManager) {
+        throw new Error("_internalReader._annotationManager missing");
+      }
+      internal._annotationManager.updateAnnotations(
+        this.cloneIntoFrame(reader, ids.map(id => ({ id, color })))
+      );
+    }
+    catch (e) {
+      this.SB.logError(e);
+      this.SB.notify(this.SB.S("errorAnnotation"));
+    }
+  },
+
+  setToolColor(reader, color) {
+    try {
+      const arg = this.cloneIntoFrame(reader, { color });
+      const internal = reader._internalReader;
+      if (internal && typeof internal.setTool === "function") {
+        internal.setTool(arg);
+      }
+      else if (typeof reader.setTool === "function") {
+        reader.setTool(arg);
+      }
+      else {
+        throw new Error("setTool not available");
+      }
+    }
+    catch (e) {
+      this.SB.logError(e);
+    }
+  },
+
+  /**
+   * Create an annotation in any color (like Zotero's color buttons).
+   * Uses the reader's internal annotation manager, as “Just Enough Color”
+   * (MCXCC303, AGPL-3.0-or-later) does; this approach is adapted from there.
+   * Internal API: check after Zotero updates.
+   */
+  createAnnotation(reader, annotation, color) {
+    const SB = this.SB;
+    try {
+      if (reader._state?.readOnly) {
+        return;
+      }
+      const internal = reader._internalReader;
+      if (!internal || !internal._annotationManager) {
+        throw new Error("_internalReader._annotationManager missing");
+      }
+      const type = reader._state?.textSelectionAnnotationMode === "underline" ? "underline" : "highlight";
+      const payload = Object.assign(JSON.parse(JSON.stringify(annotation)), { type, color });
+      const result = internal._annotationManager.addAnnotation(this.cloneIntoFrame(reader, payload));
+      if (!result) {
+        throw new Error("addAnnotation returned nothing (read-only?)");
+      }
+      try {
+        reader.setSelectedAnnotations?.(this.cloneIntoFrame(reader, []));
+      }
+      catch (e) {}
+    }
+    catch (e) {
+      SB.logError(e);
+      SB.notify(SB.S("errorAnnotation"));
+    }
+  },
+
+  // -------------------------------------------------------------------
+  // Popup after selecting text
+  // -------------------------------------------------------------------
+
+  onSelectionPopup({ reader, doc, params, append }) {
+    if (!reader || !doc || typeof append !== "function") {
+      return;
+    }
+    const anchor = doc.createElement("span");
+    anchor.setAttribute("data-bac-anchor", "1");
+    anchor.style.display = "none";
+    append(anchor);
+    const place = (attempt) => {
+      const popup = anchor.isConnected ? anchor.closest(".selection-popup") : null;
+      if (!popup) {
+        if (attempt < 20) {
+          this.SB.setTimeout(() => place(attempt + 1), 15);
+        }
+        return;
+      }
+      this._popupState.set(popup, { reader, params });
+      if (popup.hasAttribute("data-bac-done")) {
+        return;
+      }
+      popup.setAttribute("data-bac-done", "1");
+      this._safe(() => this.enhancePopup(doc, popup));
+    };
+    place(0);
+  },
+
+  /**
+   * Color grid in the selection popup: N colors per row (left-aligned),
+   * followed by the “Customize Annotation Colors…” button.
+   */
+  enhancePopup(doc, popup) {
+    const SB = this.SB;
+    const profile = SB.Store.getActive();
+    const instant = SB.setting("instantTooltip") !== false;
+    const fixedLayout = SB.setting("popupLayout") === "fixed";
+    const columns = Math.max(1, (fixedLayout ? SB.setting("popupFixedColumns") : SB.setting("popupColumns")) || 8);
+    const showButton = SB.setting("showPopupButton") !== false;
+    const stockWrap = popup.querySelector(".colors");
+    const stockButtons = stockWrap ? Array.from(stockWrap.querySelectorAll("button")) : [];
+    const stockByColor = new Map();
+    for (const b of stockButtons) {
+      const c = this.colorOf(b);
+      if (c) {
+        stockByColor.set(c, b);
+      }
+    }
+
+    let entries;
+    if (profile.standard) {
+      entries = stockButtons.filter(b => this.colorOf(b)).map(b => {
+        const color = this.colorOf(b);
+        return { color, label: b.getAttribute("title") || SB.stockName(color) || color };
+      });
+      if (!entries.length) {
+        entries = profile.colors;
+      }
+    }
+    else {
+      entries = SB.visibleColors(profile);
+    }
+
+    const grid = stockWrap ? stockWrap.cloneNode(false) : doc.createElement("div");
+    grid.removeAttribute("id");
+    grid.removeAttribute("data-tabstop");
+    if (!stockWrap) {
+      grid.className = "colors";
+    }
+    grid.classList.add("bac-colors");
+    let gap = "4px";
+    try {
+      if (stockWrap) {
+        const cs = doc.defaultView.getComputedStyle(stockWrap);
+        gap = cs.columnGap && cs.columnGap !== "normal" ? cs.columnGap : gap;
+      }
+    }
+    catch (e) {}
+    const template = stockButtons.find(b => this.colorOf(b)) || null;
+    // Measure the width of a color button while the original buttons are still visible
+    let buttonWidth = 24;
+    try {
+      buttonWidth = Math.round(template ? template.getBoundingClientRect().width : 0) || 24;
+    }
+    catch (e) {}
+    const gapPx = parseFloat(gap) || 4;
+    const fixed = SB.setting("popupLayout") === "fixed";
+    grid.style.display = "grid";
+    grid.style.justifyContent = "start";
+    grid.style.alignItems = "center";
+    grid.style.gap = gap;
+
+    const buttons = entries.map(entry => this.makePopupButton(doc, popup, template, entry, stockByColor.get(entry.color), instant));
+    const gear = showButton ? this.makeSettingsButton(doc, template, instant) : null;
+    if (fixed) {
+      // Fixed number of columns; the button comes last, after the last color
+      const items = entries.length + (gear ? 1 : 0);
+      grid.style.gridTemplateColumns = "repeat(" + Math.max(1, Math.min(columns, items)) + ", " + buttonWidth + "px)";
+    }
+    else {
+      // Colors fill the available width, the button follows the last color.
+      // The minimum width equals `columns` colors plus the button.
+      const minCols = Math.min(columns, Math.max(1, entries.length)) + (gear ? 1 : 0);
+      grid.style.gridTemplateColumns = "repeat(auto-fill, " + buttonWidth + "px)";
+      grid.style.minWidth = (minCols * buttonWidth + (minCols - 1) * gapPx) + "px";
+    }
+    grid.append(...buttons);
+    if (gear) {
+      grid.append(gear);
+    }
+
+    if (stockWrap && stockWrap.parentNode) {
+      stockWrap.parentNode.insertBefore(grid, stockWrap.nextSibling);
+      this.hide(stockWrap);
+    }
+    else {
+      popup.insertBefore(grid, popup.firstChild);
+    }
+    popup.style.maxWidth = "none";
+    if (fixed) {
+      this.ensureReaderStyle(doc);
+      popup.setAttribute("data-bac-fixed", "1");
+      try {
+        const cs = doc.defaultView.getComputedStyle(popup);
+        let width = grid.getBoundingClientRect().width;
+        if (cs.boxSizing === "border-box") {
+          width += ["paddingLeft", "paddingRight", "borderLeftWidth", "borderRightWidth"]
+            .reduce((sum, k) => sum + (parseFloat(cs[k]) || 0), 0);
+        }
+        popup.style.width = Math.ceil(width) + "px";
+      }
+      catch (e) {}
+    }
+  },
+
+  makePopupButton(doc, popup, template, entry, stockButton, instant) {
+    const label = entry.label;
+    const shown = label && label.trim() ? label : "";
+    let b;
+    if (template) {
+      b = template.cloneNode(true);
+      const tColor = this.colorOf(template);
+      let replaced = false;
+      for (const node of b.querySelectorAll("[fill]")) {
+        if (this.SB.normalize(node.getAttribute("fill")) === tColor) {
+          node.setAttribute("fill", entry.color);
+          replaced = true;
+        }
+      }
+      if (!replaced) {
+        b.textContent = "";
+        b.append(this.makeSwatch(doc, entry.color));
+      }
+      b.classList.remove("active");
+    }
+    else {
+      b = doc.createElement("button");
+      b.className = "toolbar-button color-button";
+      b.append(this.makeSwatch(doc, entry.color));
+    }
+    b.removeAttribute("id");
+    b.removeAttribute("title");
+    b.style.removeProperty("display");
+    b.setAttribute("tabindex", "-1");
+    b.setAttribute("aria-label", shown || entry.color);
+    b.setAttribute("data-bac-color", entry.color);
+    if (!instant && shown) {
+      b.setAttribute("title", shown);
+    }
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.hideTip();
+      if (stockButton && stockButton.isConnected) {
+        stockButton.click(); // Zotero's own handling for default colors
+        return;
+      }
+      const state = this._popupState.get(popup);
+      if (state && state.params && state.params.annotation) {
+        this.createAnnotation(state.reader, state.params.annotation, entry.color);
+      }
+    });
+    if (instant && shown) {
+      b.addEventListener("mouseenter", () => this.showTip(doc, b, shown, entry.color));
+      b.addEventListener("mouseleave", () => this.hideTip());
+    }
+    return b;
+  },
+
+  makeSwatch(doc, color) {
+    const s = doc.createElement("span");
+    s.style.cssText = "display:inline-block;width:16px;height:16px;border-radius:3px;"
+      + "border:1px solid rgba(0,0,0,.12);box-sizing:border-box;background:" + color + ";";
+    return s;
+  },
+
+  /** Button the size of a color button with the “Customize” icon. */
+  makeSettingsButton(doc, template, instant) {
+    const SB = this.SB;
+    const label = SB.S("menuCustomize");
+    let b;
+    if (template) {
+      b = template.cloneNode(true);
+      b.classList.remove("active");
+      this.swapIcon(b, (d, s) => this.makeTuneIcon(d, s));
+    }
+    else {
+      b = doc.createElement("button");
+      b.className = "toolbar-button";
+      b.append(this.makeTuneIcon(doc, 16));
+    }
+    b.removeAttribute("id");
+    b.removeAttribute("title");
+    b.style.removeProperty("display");
+    b.setAttribute("tabindex", "-1");
+    b.setAttribute("aria-label", label);
+    b.setAttribute("data-bac-settings", "1");
+    if (!instant) {
+      b.setAttribute("title", label);
+    }
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.hideTip();
+      SB.openPrefs();
+    });
+    if (instant) {
+      b.addEventListener("mouseenter", () => this.showTip(doc, b, label, null));
+      b.addEventListener("mouseleave", () => this.hideTip());
+    }
+    return b;
+  },
+
+  // -------------------------------------------------------------------
+  // Instant tooltip
+  // -------------------------------------------------------------------
+
+  showTip(doc, el, text, color) {
+    this.hideTip();
+    const win = doc.defaultView;
+    if (!win || !doc.body) {
+      return;
+    }
+    const tip = doc.createElement("div");
+    tip.setAttribute("data-bac-tip", "1");
+    tip.style.cssText = "position:fixed;z-index:2147483647;pointer-events:none;display:flex;align-items:center;gap:6px;"
+      + "padding:4px 8px;border-radius:5px;font:12px/1.3 system-ui,-apple-system,'Segoe UI',sans-serif;"
+      + "background:rgba(32,32,32,.94);color:#fff;white-space:nowrap;max-width:340px;"
+      + "box-shadow:0 2px 8px rgba(0,0,0,.28);left:0;top:0;";
+    if (color) {
+      const dot = doc.createElement("span");
+      dot.style.cssText = "flex:none;width:10px;height:10px;border-radius:2px;border:1px solid rgba(255,255,255,.35);background:" + color + ";";
+      tip.append(dot);
+    }
+    const t = doc.createElement("span");
+    t.style.cssText = "overflow:hidden;text-overflow:ellipsis;";
+    t.textContent = text;
+    tip.append(t);
+    doc.body.append(tip);
+    const r = el.getBoundingClientRect();
+    const tr = tip.getBoundingClientRect();
+    let left = r.left + r.width / 2 - tr.width / 2;
+    left = Math.max(4, Math.min(left, win.innerWidth - tr.width - 4));
+    let top = r.top - tr.height - 6;
+    if (top < 4) {
+      top = r.bottom + 6;
+    }
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+    const timer = win.setInterval(() => {
+      if (!el.isConnected) {
+        this.hideTip();
+      }
+    }, 200);
+    this._tip = { tip, win, timer };
+  },
+
+  hideTip() {
+    const t = this._tip;
+    this._tip = null;
+    if (!t) {
+      return;
+    }
+    try {
+      t.win.clearInterval(t.timer);
+    }
+    catch (e) {}
+    try {
+      t.tip.remove();
+    }
+    catch (e) {}
+  },
+
+  // -------------------------------------------------------------------
+  // Styles in the reader (toolbar, menus, fixed popup width)
+  // -------------------------------------------------------------------
+
+  ensureReaderStyle(doc) {
+    if (doc.getElementById("bac-reader-style")) {
+      return;
+    }
+    const style = doc.createElement("style");
+    style.id = "bac-reader-style";
+    style.textContent = `
+.selection-popup[data-bac-fixed] > :not(.bac-colors) { max-width: 100%; min-width: 0; box-sizing: border-box; overflow-wrap: anywhere; }
+.selection-popup[data-bac-fixed] textarea, .selection-popup[data-bac-fixed] input[type="text"] { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+.selection-popup[data-bac-fixed] pre, .selection-popup[data-bac-fixed] table, .selection-popup[data-bac-fixed] img { max-width: 100%; overflow: auto; }
+.bac-tb-profile { display: flex; align-items: center; gap: 4px; width: auto !important; max-width: 220px; padding-inline: 6px !important; }
+.bac-tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.bac-tb-caret { display: flex; align-items: center; margin-inline-start: 2px; }
+.bac-tb-stats { display: flex; align-items: center; gap: 4px; width: auto !important; padding-inline: 6px !important; }
+.bac-tb-count { font-size: 12px; font-variant-numeric: tabular-nums; }
+[data-bac-panel] { position: fixed; z-index: 2147483646; min-width: 200px; max-width: 360px; max-height: calc(100vh - 16px); overflow: auto;
+  padding: 4px 0; border-radius: 6px; box-sizing: border-box;
+  font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--material-background, Canvas); color: var(--fill-primary, CanvasText);
+  border: 1px solid var(--fill-quinary, rgba(127,127,127,.35)); box-shadow: 0 6px 20px rgba(0,0,0,.22); }
+[data-bac-panel] .bac-item { display: flex; align-items: center; gap: 8px; padding: 4px 12px; cursor: default; white-space: nowrap; }
+[data-bac-panel] .bac-item:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
+[data-bac-panel] .bac-check { width: 12px; text-align: center; }
+[data-bac-panel] .bac-sep { height: 1px; margin: 4px 0; background: var(--fill-quinary, rgba(127,127,127,.3)); }
+[data-bac-panel] .bac-head { padding: 4px 12px 6px; font-weight: 600; }
+[data-bac-panel] .bac-sub { padding: 0 12px 6px; opacity: .7; font-size: 12px; }
+[data-bac-panel] .bac-stat { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding: 3px 12px; }
+[data-bac-panel] .bac-dot { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
+[data-bac-panel] .bac-stat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-bac-panel] .bac-stat-name i { opacity: .6; }
+[data-bac-panel] .bac-stat-n { font-variant-numeric: tabular-nums; opacity: .8; }
+[data-bac-panel] .bac-bar { grid-column: 2 / 4; height: 3px; border-radius: 2px; margin-top: 2px; }
+`;
+    (doc.head || doc.documentElement).append(style);
+  },
+
+  // -------------------------------------------------------------------
+  // Toolbar: profile switcher and statistics
+  // -------------------------------------------------------------------
+
+  _toolbars: new Set(),
+
+  makeIcon(doc, kind) {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = doc.createElementNS(NS, "svg");
+    svg.setAttribute("width", "16");
+    svg.setAttribute("height", "16");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("aria-hidden", "true");
+    const add = (tag, attrs) => {
+      const el = doc.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, String(v));
+      }
+      svg.append(el);
+    };
+    if (kind === "palette") {
+      add("path", { d: "M8 1.8a6.2 6.2 0 1 0 0 12.4c.9 0 1.4-.6 1.4-1.3 0-.9-.8-1.2-.8-2 0-.7.6-1.2 1.3-1.2h1.6c1.6 0 2.7-1.1 2.7-2.6C14.2 4.1 11.4 1.8 8 1.8z",
+        fill: "none", stroke: "currentColor", "stroke-width": "1.2", "stroke-linejoin": "round" });
+      add("circle", { cx: 4.8, cy: 8.2, r: 1.1, style: "fill:currentColor" });
+      add("circle", { cx: 6.2, cy: 5, r: 1.1, style: "fill:currentColor" });
+      add("circle", { cx: 9.6, cy: 4.6, r: 1.1, style: "fill:currentColor" });
+    }
+    else if (kind === "chevron") {
+      // Arrow like Zotero's dropdown buttons
+      svg.setAttribute("width", "8");
+      svg.setAttribute("height", "8");
+      svg.setAttribute("viewBox", "0 0 8 8");
+      add("path", { d: "M1 2.75 4 5.75 7 2.75", style: "fill:none;stroke:currentColor;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round" });
+    }
+    else {
+      for (const [x, h] of [[2.5, 6], [6.5, 10], [10.5, 4]]) {
+        add("rect", { x, y: 14 - h, width: 3, height: h, rx: 0.8, style: "fill:currentColor" });
+      }
+    }
+    return svg;
+  },
+
+  onToolbar({ reader, doc, append }) {
+    if (!reader || !doc || typeof append !== "function") {
+      return;
+    }
+    // Replace an element inserted by the fallback with the officially appended one
+    for (const el of doc.querySelectorAll("[data-bac-toolbar]")) {
+      el.remove();
+    }
+    append(this.buildToolbar(reader, doc));
+  },
+
+  /**
+   * Fallback for readers whose toolbar was rendered before the plugin started
+   * (e.g. when tabs are restored after a restart).
+   */
+  scanReaders() {
+    const SB = this.SB;
+    if (!SB.setting("showToolbarProfile") && !SB.setting("showToolbarStats")) {
+      return;
+    }
+    let readers = [];
+    try {
+      readers = Zotero.Reader._readers || [];
+    }
+    catch (e) {}
+    for (const reader of readers) {
+      try {
+        const doc = reader._iframeWindow && reader._iframeWindow.document;
+        if (!doc || doc.querySelector("[data-bac-toolbar]")) {
+          continue;
+        }
+        const end = doc.querySelector(".toolbar .end") || doc.querySelector(".toolbar > :last-child");
+        if (!end) {
+          continue;
+        }
+        end.insertBefore(this.buildToolbar(reader, doc), end.firstChild);
+      }
+      catch (e) {
+        SB.logError(e);
+      }
+    }
+  },
+
+  startScan() {
+    this.stopScan();
+    const win = Zotero.getMainWindow && Zotero.getMainWindow();
+    this._safe(() => this.scanReaders());
+    if (win) {
+      this._scanWin = win;
+      this._scanTimer = win.setInterval(() => {
+        this._safe(() => this.scanReaders());
+        this._safe(() => this.refreshCounts());
+      }, 1000);
+    }
+  },
+
+  stopScan() {
+    if (this._scanTimer && this._scanWin) {
+      try {
+        this._scanWin.clearInterval(this._scanTimer);
+      }
+      catch (e) {}
+    }
+    this._scanTimer = null;
+    this._scanWin = null;
+  },
+
+  buildToolbar(reader, doc) {
+    const SB = this.SB;
+    this.ensureReaderStyle(doc);
+    const wrap = doc.createElement("div");
+    wrap.setAttribute("data-bac-toolbar", "1");
+    wrap.style.cssText = "display:flex;align-items:center;gap:2px;";
+
+    const profileBtn = doc.createElement("button");
+    profileBtn.className = "toolbar-button bac-tb-profile";
+    profileBtn.setAttribute("tabindex", "-1");
+    profileBtn.setAttribute("title", SB.S("tbProfileTip"));
+    const name = doc.createElement("span");
+    name.className = "bac-tb-name";
+    const caret = doc.createElement("span");
+    caret.className = "bac-tb-caret";
+    caret.append(this.makeIcon(doc, "chevron"));
+    profileBtn.append(this.makeIcon(doc, "palette"), name, caret);
+    profileBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleProfileMenu(doc, profileBtn);
+    });
+
+    const statsBtn = doc.createElement("button");
+    statsBtn.className = "toolbar-button bac-tb-stats";
+    statsBtn.setAttribute("tabindex", "-1");
+    statsBtn.setAttribute("aria-label", SB.S("tbStatsTip"));
+    const count = doc.createElement("span");
+    count.className = "bac-tb-count";
+    statsBtn.append(this.makeIcon(doc, "stats"), count);
+    let hoverTimer = null;
+    let pinned = false;
+    statsBtn.addEventListener("mouseenter", () => {
+      hoverTimer = doc.defaultView.setTimeout(() => this.showStats(reader, doc, statsBtn), 150);
+    });
+    statsBtn.addEventListener("mouseleave", () => {
+      doc.defaultView.clearTimeout(hoverTimer);
+      if (!pinned) {
+        this.closePanel(doc, "stats");
+      }
+    });
+    statsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      pinned = !pinned;
+      if (pinned) {
+        this.showStats(reader, doc, statsBtn, () => {
+          pinned = false;
+        });
+      }
+      else {
+        this.closePanel(doc, "stats");
+      }
+    });
+
+    wrap.append(profileBtn, statsBtn);
+    const record = { wrap, name, profileBtn, statsBtn, count, reader };
+    this._toolbars.add(record);
+    this.updateToolbar(record);
+    return wrap;
+  },
+
+  annotationCount(reader) {
+    try {
+      return Array.from(reader._state?.annotations || []).length;
+    }
+    catch (e) {
+      return null;
+    }
+  },
+
+  /** Update the number of annotations next to the statistics icon. */
+  refreshCounts() {
+    for (const rec of [...this._toolbars]) {
+      if (!rec.wrap.isConnected) {
+        this._toolbars.delete(rec);
+        continue;
+      }
+      const n = this.annotationCount(rec.reader);
+      const text = n === null ? "" : String(n);
+      if (rec.count.textContent !== text) {
+        rec.count.textContent = text;
+      }
+    }
+  },
+
+  updateToolbar(rec) {
+    const SB = this.SB;
+    rec.name.textContent = SB.Store.getActive().name;
+    rec.profileBtn.style.display = SB.setting("showToolbarProfile") ? "" : "none";
+    rec.statsBtn.style.display = SB.setting("showToolbarStats") ? "" : "none";
+    const n = this.annotationCount(rec.reader);
+    rec.count.textContent = n === null ? "" : String(n);
+  },
+
+  refreshToolbars() {
+    for (const rec of [...this._toolbars]) {
+      if (!rec.wrap.isConnected) {
+        this._toolbars.delete(rec);
+        continue;
+      }
+      this.updateToolbar(rec);
+    }
+  },
+
+  _panels: [],
+
+  closePanel(doc, kind) {
+    const keep = [];
+    for (const rec of this._panels) {
+      if (rec.doc === doc && (!kind || rec.kind === kind)) {
+        try {
+          rec.cleanup();
+        }
+        catch (e) {}
+        rec.panel.remove();
+      }
+      else if (rec.panel.isConnected) {
+        keep.push(rec);
+      }
+    }
+    this._panels = keep;
+  },
+
+  /** Open a panel below a button; closes on a click outside or Esc. */
+  openPanel(doc, anchor, kind, onClose) {
+    this.closePanel(doc);
+    const win = doc.defaultView;
+    const panel = doc.createElement("div");
+    panel.setAttribute("data-bac-panel", kind);
+    doc.body.append(panel);
+    const place = () => {
+      const r = anchor.getBoundingClientRect();
+      const pr = panel.getBoundingClientRect();
+      let left = Math.min(r.left, win.innerWidth - pr.width - 6);
+      left = Math.max(6, left);
+      let top = r.bottom + 4;
+      if (top + pr.height > win.innerHeight - 6) {
+        top = Math.max(6, r.top - pr.height - 4);
+      }
+      panel.style.left = left + "px";
+      panel.style.top = top + "px";
+    };
+    const onDown = (e) => {
+      if (!panel.contains(e.target) && !anchor.contains(e.target)) {
+        this.closePanel(doc, kind);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        this.closePanel(doc, kind);
+      }
+    };
+    doc.addEventListener("mousedown", onDown, true);
+    doc.addEventListener("keydown", onKey, true);
+    this._panels.push({
+      doc,
+      kind,
+      panel,
+      cleanup: () => {
+        doc.removeEventListener("mousedown", onDown, true);
+        doc.removeEventListener("keydown", onKey, true);
+        if (onClose) {
+          onClose();
+        }
+      },
+    });
+    return { panel, place };
+  },
+
+  toggleProfileMenu(doc, anchor) {
+    if (doc.querySelector("[data-bac-panel=\"profile\"]")) {
+      this.closePanel(doc, "profile");
+      return;
+    }
+    const SB = this.SB;
+    const { panel, place } = this.openPanel(doc, anchor, "profile");
+    const active = SB.Store.data.activeProfileId;
+    const list = SB.Store.listForMenu();
+    list.forEach((p, i) => {
+      if (i === 2) {
+        const sep = doc.createElement("div");
+        sep.className = "bac-sep";
+        panel.append(sep);
+      }
+      const item = doc.createElement("div");
+      item.className = "bac-item";
+      item.setAttribute("role", "menuitemradio");
+      const check = doc.createElement("span");
+      check.className = "bac-check";
+      check.textContent = p.id === active ? "✓" : "";
+      const label = doc.createElement("span");
+      label.textContent = p.name;
+      item.append(check, label);
+      item.addEventListener("click", async () => {
+        this.closePanel(doc, "profile");
+        try {
+          await SB.Store.setActive(p.id);
+        }
+        catch (e) {
+          SB.logError(e);
+        }
+      });
+      panel.append(item);
+    });
+    const sep = doc.createElement("div");
+    sep.className = "bac-sep";
+    const custom = doc.createElement("div");
+    custom.className = "bac-item";
+    const icon = doc.createElement("span");
+    icon.className = "bac-check";
+    icon.append(this.makeTuneIcon(doc, 12));
+    const label = doc.createElement("span");
+    label.textContent = SB.S("menuCustomize");
+    custom.append(icon, label);
+    custom.addEventListener("click", () => {
+      this.closePanel(doc, "profile");
+      SB.openPrefs();
+    });
+    panel.append(sep, custom);
+    place();
+  },
+
+  showStats(reader, doc, anchor, onClose) {
+    const SB = this.SB;
+    const { panel, place } = this.openPanel(doc, anchor, "stats", onClose);
+    let annotations = [];
+    try {
+      annotations = Array.from(reader._state?.annotations || []);
+    }
+    catch (e) {}
+    const counts = new Map();
+    for (const a of annotations) {
+      const c = SB.normalize(a.color);
+      if (c) {
+        counts.set(c, (counts.get(c) || 0) + 1);
+      }
+    }
+    const head = doc.createElement("div");
+    head.className = "bac-head";
+    head.textContent = SB.S("statsTitle");
+    const sub = doc.createElement("div");
+    sub.className = "bac-sub";
+    sub.textContent = annotations.length ? SB.S("statsTotal", { n: annotations.length }) : SB.S("statsEmpty");
+    panel.append(head, sub);
+    const profile = SB.Store.getActive();
+    const order = profile.colors.map(c => c.color);
+    const rows = [...counts.entries()].sort((a, b) => {
+      const ia = order.indexOf(a[0]);
+      const ib = order.indexOf(b[0]);
+      if (ia >= 0 && ib >= 0) {
+        return ia - ib;
+      }
+      if (ia >= 0 || ib >= 0) {
+        return ia >= 0 ? -1 : 1;
+      }
+      return b[1] - a[1];
+    });
+    const max = Math.max(1, ...counts.values());
+    for (const [color, n] of rows) {
+      const entry = profile.colors.find(c => c.color === color);
+      const row = doc.createElement("div");
+      row.className = "bac-stat";
+      const dot = doc.createElement("span");
+      dot.className = "bac-dot";
+      dot.style.background = color;
+      const name = doc.createElement("span");
+      name.className = "bac-stat-name";
+      name.textContent = SB.displayName(color, profile);
+      if (entry && !SB.isVisible(entry)) {
+        const hidden = doc.createElement("i");
+        hidden.textContent = " (" + SB.S("statsHidden") + ")";
+        name.append(hidden);
+      }
+      const count = doc.createElement("span");
+      count.className = "bac-stat-n";
+      count.textContent = String(n);
+      const bar = doc.createElement("span");
+      bar.className = "bac-bar";
+      bar.style.background = color;
+      bar.style.width = Math.max(4, Math.round(n / max * 100)) + "%";
+      row.append(dot, name, count, bar);
+      panel.append(row);
+    }
+    place();
+  },
+
+  // -------------------------------------------------------------------
+  // Sidebar: tooltips for the color filter
+  // -------------------------------------------------------------------
+
+  onSidebarHeader({ doc }) {
+    if (!doc || this._sidebarPending) {
+      return;
+    }
+    this._sidebarPending = true;
+    this.SB.setTimeout(() => {
+      this._sidebarPending = false;
+      this._safe(() => this.labelSidebar(doc));
+    }, 60);
+  },
+
+  labelSidebar(doc) {
+    const profile = this.SB.Store.getActive();
+    if (profile.standard) {
+      return;
+    }
+    const map = new Map(profile.colors.filter(c => c.label && c.label.trim()).map(c => [c.color, c.label.trim()]));
+    for (const el of doc.querySelectorAll(".selector button, .selector .color")) {
+      const c = this.colorOf(el);
+      if (c && map.has(c)) {
+        el.setAttribute("title", map.get(c));
+      }
+    }
+  },
+};
