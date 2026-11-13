@@ -1,0 +1,48 @@
+# Builds the plugin when you publish a release on GitHub and attaches
+#   - better-annotations-<version>.xpi  (the file users install)
+#   - updates.json                            (read by Zotero to find updates)
+#
+# How to release: raise "version" in manifest.json, add a section to
+# CHANGELOG.md, then on GitHub choose Releases → Draft a new release, create the
+# tag v<version> (e.g. v1.0.0-beta.1) and publish. Leave "Set as a pre-release"
+# unchecked: Zotero finds updates via releases/latest, which skips pre-releases.
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check that the tag matches manifest.json
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          if [ "v$VERSION" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match manifest version $VERSION. Delete the release and tag, fix one of them and try again."
+            exit 1
+          fi
+
+      - name: Check translations
+        run: node scripts/check-locales.mjs
+
+      - name: Build
+        run: node scripts/build.mjs
+
+      - name: Attach files to the release
+        run: gh release upload "$TAG" dist/*.xpi dist/updates.json --clobber --repo "$GITHUB_REPOSITORY"
