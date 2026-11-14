@@ -292,6 +292,8 @@ Copyright © 2026 CorsiQa.
 
 [GNU Affero General Public License v3.0 or later](LICENSE). You may use, share and change the plugin; changed versions that you distribute must be published under the same license.
 
+The name Better Annotations and its logo are not covered by the AGPL license. Please do not use them for other projects without permission.
+
 Zotero is a registered trademark of the [Corporation for Digital Scholarship](https://digitalscholar.org). This plugin is an independent project and not affiliated with Zotero.
 
 If the plugin helps your research, you can cite it with the information in [CITATION.cff](CITATION.cff) or the “Cite this repository” button on GitHub.
