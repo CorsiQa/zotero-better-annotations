@@ -427,9 +427,9 @@ BetterAnnotations.Reader = {
 
   /** Tooltip with the label's description (shortened). */
   describeRow(row, entry) {
-    const desc = this.SB.shortDescription(entry && entry.description);
-    if (desc) {
-      row.setAttribute("title", entry.label.trim() + "\n" + desc);
+    const text = this.SB.tooltipText(entry && entry.label, entry && entry.description);
+    if (text && entry.description) {
+      row.setAttribute("title", text);
     }
   },
 
@@ -722,6 +722,54 @@ BetterAnnotations.Reader = {
     }
   },
 
+  /** Tool types that use a color. */
+  COLOR_TOOLS: ["highlight", "underline", "note", "text", "image", "ink"],
+
+  /** Tool color of a reader if an annotation tool is active, else null. */
+  activeToolColor(reader) {
+    try {
+      const tool = reader._state?.tool;
+      return tool && this.COLOR_TOOLS.includes(tool.type) ? this.SB.normalize(tool.color) : null;
+    }
+    catch (e) {
+      return null;
+    }
+  },
+
+  /**
+   * Select a color in the reader: turn on an annotation tool with this color
+   * (highlight, or underline if that is the text selection mode). If the color
+   * is already active, switch back to the pointer.
+   */
+  pickToolColor(reader, color) {
+    const SB = this.SB;
+    try {
+      const internal = reader._internalReader;
+      const set = (params) => {
+        const arg = this.cloneIntoFrame(reader, params);
+        if (internal && typeof internal.setTool === "function") {
+          internal.setTool(arg);
+        }
+        else {
+          reader.setTool(arg);
+        }
+      };
+      if (this.activeToolColor(reader) === SB.normalize(color)) {
+        set({ type: "pointer" });
+        return;
+      }
+      const current = reader._state?.tool?.type;
+      let type = current;
+      if (!this.COLOR_TOOLS.includes(current)) {
+        type = reader._state?.textSelectionAnnotationMode === "underline" ? "underline" : "highlight";
+      }
+      set({ type, color });
+    }
+    catch (e) {
+      SB.logError(e);
+    }
+  },
+
   setToolColor(reader, color) {
     try {
       const arg = this.cloneIntoFrame(reader, { color });
@@ -947,7 +995,7 @@ BetterAnnotations.Reader = {
     }
     b.setAttribute("data-bac-color", entry.color);
     if (!instant && shown) {
-      b.setAttribute("title", desc ? shown + "\n" + desc : shown);
+      b.setAttribute("title", this.SB.tooltipText(shown, entry.description));
     }
     b.addEventListener("click", (e) => {
       e.preventDefault();
@@ -1025,32 +1073,26 @@ BetterAnnotations.Reader = {
     }
     const tip = doc.createElement("div");
     tip.setAttribute("data-bac-tip", "1");
-    tip.style.cssText = "position:fixed;z-index:2147483647;pointer-events:none;display:flex;align-items:center;gap:6px;"
-      + "padding:4px 8px;border-radius:5px;font:12px/1.3 system-ui,-apple-system,'Segoe UI',sans-serif;"
-      + "background:rgba(32,32,32,.94);color:#fff;white-space:nowrap;max-width:340px;"
-      + "box-shadow:0 2px 8px rgba(0,0,0,.28);left:0;top:0;";
+    this.ensureReaderStyle(doc);
+    tip.className = "bac-tip";
+    tip.style.cssText = "left:0;top:0;";
     if (color) {
       const dot = doc.createElement("span");
-      dot.style.cssText = "flex:none;width:10px;height:10px;border-radius:2px;border:1px solid rgba(255,255,255,.35);background:" + color + ";";
+      dot.className = "bac-tip-dot";
+      dot.style.background = color;
       tip.append(dot);
     }
     const t = doc.createElement("span");
-    t.style.cssText = "overflow:hidden;text-overflow:ellipsis;";
+    t.className = "bac-tip-label";
     t.textContent = text;
+    tip.append(t);
     if (description) {
-      // Label on the first line, the description below in a lighter tone
-      tip.style.flexWrap = "wrap";
-      tip.style.whiteSpace = "normal";
-      tip.style.width = "max-content";
-      t.style.whiteSpace = "nowrap";
-      t.style.maxWidth = "310px";
+      // Label in bold on the first line, the description below in a secondary tone
+      tip.classList.add("bac-tip-desc");
       const d = doc.createElement("span");
-      d.style.cssText = "flex-basis:100%;white-space:pre-line;opacity:.82;max-width:324px;padding-bottom:1px;";
+      d.className = "bac-tip-text";
       d.textContent = description;
-      tip.append(t, d);
-    }
-    else {
-      tip.append(t);
+      tip.append(d);
     }
     doc.body.append(tip);
     const r = el.getBoundingClientRect();
@@ -1123,6 +1165,17 @@ BetterAnnotations.Reader = {
 [data-bac-panel] .bac-stat-name i { opacity: .6; }
 [data-bac-panel] .bac-stat-n { font-variant-numeric: tabular-nums; opacity: .8; }
 [data-bac-panel] .bac-bar { grid-column: 2 / 4; height: 3px; border-radius: 2px; margin-top: 2px; }
+[data-bac-panel] .bac-stat-desc { grid-column: 2 / 4; margin: 1px 0 3px; font-size: 12px; line-height: 1.3; white-space: pre-line;
+  color: var(--fill-secondary, GrayText); }
+.bac-tip { position: fixed; z-index: 2147483647; pointer-events: none; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px;
+  box-sizing: border-box; width: max-content; max-width: 340px; padding: 4px 8px; border-radius: 5px;
+  font: 12px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--material-menu, var(--material-background, Canvas)); color: var(--fill-primary, CanvasText);
+  border: var(--material-border-quarternary, 1px solid rgba(127,127,127,.35)); box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+.bac-tip-dot { flex: none; width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
+.bac-tip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 310px; }
+.bac-tip-desc .bac-tip-label { font-weight: 600; }
+.bac-tip-text { flex-basis: 100%; white-space: pre-line; color: var(--fill-secondary, GrayText); padding-bottom: 1px; }
 `;
     (doc.head || doc.documentElement).append(style);
   },
@@ -1482,6 +1535,7 @@ BetterAnnotations.Reader = {
     sub.textContent = annotations.length ? SB.S("statsTotal", { n: annotations.length }) : SB.S("statsEmpty");
     panel.append(head, sub);
     const profile = SB.Store.getActive();
+    const showDesc = SB.setting("statsDescriptions") !== false;
     const order = profile.colors.map(c => c.color);
     const rows = [...counts.entries()].sort((a, b) => {
       const ia = order.indexOf(a[0]);
@@ -1518,9 +1572,15 @@ BetterAnnotations.Reader = {
       bar.style.background = color;
       bar.style.width = Math.max(4, Math.round(n / max * 100)) + "%";
       row.append(dot, name, count, bar);
-      const desc = entry && this.SB.shortDescription(entry.description);
-      if (desc) {
-        row.setAttribute("title", SB.displayName(color, profile) + "\n" + desc);
+      const desc = entry && SB.isVisible(entry) ? SB.shortDescription(entry.description) : "";
+      if (desc && showDesc) {
+        const d = doc.createElement("span");
+        d.className = "bac-stat-desc";
+        d.textContent = desc;
+        row.insertBefore(d, bar);
+      }
+      else if (desc) {
+        row.setAttribute("title", SB.tooltipText(SB.displayName(color, profile), entry.description));
       }
       panel.append(row);
     }
@@ -1548,8 +1608,7 @@ BetterAnnotations.Reader = {
       return;
     }
     const map = new Map(profile.colors.filter(c => c.label && c.label.trim()).map((c) => {
-      const desc = this.SB.shortDescription(c.description);
-      return [c.color, c.label.trim() + (desc ? "\n" + desc : "")];
+      return [c.color, this.SB.tooltipText(c.label.trim(), c.description)];
     }));
     for (const el of doc.querySelectorAll(".selector button, .selector .color")) {
       const c = this.colorOf(el);

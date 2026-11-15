@@ -212,6 +212,8 @@ BetterAnnotations.PaneController = class {
         }
       }, 250);
     });
+    // Ask before the settings window closes with unsaved changes
+    this.win.addEventListener("close", (e) => this.onWindowClose(e));
     this.win.addEventListener("unload", () => {
       this._unlisten();
       this._unlistenUpdates();
@@ -219,6 +221,31 @@ BetterAnnotations.PaneController = class {
       this.closePopover();
       if (this.isDirty()) {
         this.Store.pendingDraft = { baseId: this.baseId, draft: this.clone(this.draft) };
+      }
+    });
+  }
+
+  onWindowClose(e) {
+    if (this._closing || !this.isDirty()) {
+      return;
+    }
+    e.preventDefault();
+    const choice = this.askUnsaved();
+    if (choice === 1) {
+      return;
+    }
+    const close = () => {
+      this._closing = true;
+      this.win.close();
+    };
+    if (choice === 2) {
+      this.loadDraft(this.baseId);
+      close();
+      return;
+    }
+    this.save({ rerender: false }).then((ok) => {
+      if (ok) {
+        close();
       }
     });
   }
@@ -342,6 +369,7 @@ BetterAnnotations.PaneController = class {
     this.addBtn = this.button(S("btnAddColor"), () => this.addColor());
     this.statusEl = this.h("span", { class: "bac-status" });
     this.saveBtn = this.button(S("btnSave"), () => this.save());
+    this.saveBtn.classList.add("bac-save");
     this.discardBtn = this.button(S("btnDiscard"), () => this.discard());
     const paletteBtn = this.button(S("btnApplyPalette"), () => this.openPaletteMenu(paletteBtn), { tooltip: S("applyPaletteHint") });
     colors.append(this.card(S("secColors"), S("infoColors") + "\n\n" + S("infoDescriptions"), null,
@@ -350,10 +378,6 @@ BetterAnnotations.PaneController = class {
       this.h("div", { class: "bac-bar bac-actions" },
         this.button(S("btnResetPlus"), () => this.resetToPlus()),
         paletteBtn,
-        this.h("span", { class: "bac-spacer" }),
-        this.statusEl,
-        this.discardBtn,
-        this.saveBtn,
       ),
       this.h("div", { class: "bac-sub" },
         this.checkbox(S("optShowUsage"), settings.showUsage !== false, v => set("showUsage", v,
@@ -400,6 +424,8 @@ BetterAnnotations.PaneController = class {
       this.card(S("secToolbar"), S("infoToolbar"), null,
         this.checkbox(S("optToolbarProfile"), settings.showToolbarProfile !== false, v => set("showToolbarProfile", v)),
         this.checkbox(S("optToolbarStats"), settings.showToolbarStats !== false, v => set("showToolbarStats", v)),
+        this.h("div", { class: "bac-indent" },
+          this.checkbox(S("optStatsDescriptions"), settings.statsDescriptions !== false, v => set("statsDescriptions", v))),
       ),
       this.card(S("secItemPane"), S("infoItemPane"), null,
         this.checkbox(S("optItemPaneSection"), settings.showItemPaneSection !== false, v => set("showItemPaneSection", v)),
@@ -472,6 +498,16 @@ BetterAnnotations.PaneController = class {
         ),
       ),
     );
+
+    // Save bar for the profile: appears in every tab while there are unsaved
+    // changes and stays at the bottom of the visible area
+    this.actionsBar = this.h("div", { class: "bac-bar bac-savebar", role: "region", "aria-label": S("unsaved") },
+      this.statusEl,
+      this.h("span", { class: "bac-spacer" }),
+      this.discardBtn,
+      this.saveBtn,
+    );
+    this.root.append(this.actionsBar);
 
     if (message) {
       const panel = this.panels.get(this.tab);
@@ -1008,6 +1044,7 @@ BetterAnnotations.PaneController = class {
       });
       this.notice = this.S("exportDone", { n, file: String(path).split(/[\\/]/).pop() });
       this.render();
+      this.revealFile(path);
     }
     catch (e) {
       SB.logError(e);
@@ -1364,8 +1401,8 @@ BetterAnnotations.PaneController = class {
   /** Map colors onto another palette by their position in the Zotero+ order. */
   applyPalette(pal) {
     const slotOf = (color) => {
-      for (const p of this.SB.PALETTES) {
-        const i = p.colors.indexOf(color);
+      for (const p of [...this.SB.PALETTES.map(x => x.colors), ...this.SB.LEGACY_PALETTES]) {
+        const i = p.indexOf(color);
         if (i >= 0) {
           return i;
         }
@@ -1468,66 +1505,45 @@ BetterAnnotations.PaneController = class {
   }
 
   /**
-   * Description below the label: a button with the first line (or
-   * “Add description”) opens a multi-line field. Plain text with line breaks.
+   * Description below the label: grey text that becomes a field when
+   * clicked. Lines wrap as needed; plain text with line breaks.
    */
   descriptionEditor(entry) {
     const S = (k, a) => this.S(k, a);
-    const id = "bac-desc-" + entry.id;
-    const summary = this.h("span", { class: "bac-desc-text" });
-    const caret = this.h("span", { class: "bac-desc-caret", "aria-hidden": "true", text: "›" });
-    const toggle = this.h("button", {
-      class: "bac-desc-toggle",
-      type: "button",
-      "aria-expanded": "false",
-      "aria-controls": id,
-    }, caret, summary);
     const area = this.h("textarea", {
-      id,
-      class: "bac-desc-area",
-      rows: "3",
+      class: "bac-desc",
+      rows: "1",
       maxlength: String(this.SB.MAX_DESCRIPTION),
-      placeholder: S("phDescription"),
+      placeholder: S("btnAddDescription"),
       "aria-label": S("ariaDescription", { label: entry.label.trim() || entry.color }),
-      hidden: true,
+      spellcheck: "true",
     });
     area.value = entry.description || "";
-    const update = () => {
-      const first = this.SB.cleanDescription(entry.description).split("\n")[0];
-      summary.textContent = first || S("btnAddDescription");
-      toggle.classList.toggle("bac-desc-empty", !first);
-      toggle.setAttribute("title", first ? this.SB.shortDescription(entry.description, 8, 600) : S("btnAddDescription"));
-    };
-    const grow = () => {
-      area.style.height = "auto";
-      area.style.height = Math.min(240, area.scrollHeight + 2) + "px";
-    };
-    const setOpen = (open) => {
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      area.hidden = !open;
-      toggle.classList.toggle("bac-desc-open", open);
-      if (open) {
-        grow();
-        area.focus();
-      }
-    };
-    toggle.addEventListener("click", () => setOpen(area.hidden));
+    this.SB.autoGrow(area);
+    let original = area.value;
+    area.addEventListener("focus", () => {
+      original = area.value;
+    });
     area.addEventListener("input", () => {
       entry.description = area.value;
-      update();
-      grow();
       this.updateDirty();
     });
     area.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
+        // Esc restores the text from before the field was entered
         e.preventDefault();
         e.stopPropagation();
-        setOpen(false);
-        toggle.focus();
+        area.value = original;
+        entry.description = original;
+        this.updateDirty();
+        area.blur();
+      }
+      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        area.blur();
       }
     });
-    update();
-    return this.h("div", { class: "bac-desc" }, toggle, area);
+    return area;
   }
 
   rowFor(id) {
@@ -1595,7 +1611,17 @@ BetterAnnotations.PaneController = class {
       return;
     }
     const dirty = this.isDirty();
-    this.statusEl.textContent = dirty ? this.S("unsaved") : "";
+    this.statusEl.textContent = dirty ? this.S("unsavedProfile", { name: this.draft.name }) : "";
+    if (this.actionsBar) {
+      // While there are changes, the bar stays at the bottom of the visible area
+      this.actionsBar.classList.toggle("bac-actions-dirty", dirty);
+    }
+    if (dirty) {
+      this.saveBtn.setAttribute("default", "true");
+    }
+    else {
+      this.saveBtn.removeAttribute("default");
+    }
     if (this.tabButtons && this.tabButtons.get("colors")) {
       this.tabButtons.get("colors").classList.toggle("bac-tab-dirty", dirty);
     }
@@ -2169,6 +2195,21 @@ BetterAnnotations.PaneController = class {
   // -------------------------------------------------------------------
   // Files
   // -------------------------------------------------------------------
+  /** Show a file in the system's file manager (folder opened, file selected). */
+  revealFile(path) {
+    try {
+      if (Zotero.File.reveal) {
+        Zotero.File.reveal(path);
+        return;
+      }
+      const file = Zotero.File.pathToFile(path);
+      file.reveal();
+    }
+    catch (e) {
+      this.SB.logError(e);
+    }
+  }
+
   showFolder() {
     try {
       if (Zotero.File.reveal) {

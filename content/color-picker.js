@@ -148,7 +148,7 @@ BetterAnnotations.ColorPicker = class {
     }
     this.presetButtons = [];
     this.paletteBox.replaceChildren(...SB.PALETTES.map((pal) => {
-      const colors = pal.fixed || order !== "rainbow" ? pal.colors : SB.rainbowSort(pal.colors);
+      const colors = SB.paletteDisplay(pal, order);
       return h("div", {},
         h("div", { class: "bac-pal-name", text: p.S(pal.key) }),
         h("div", { class: "bac-presets" }, colors.map((c) => {
