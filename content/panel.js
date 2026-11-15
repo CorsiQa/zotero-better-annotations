@@ -1,15 +1,19 @@
 /* Better Annotations – labels of the active profile with counts
  *
  * Shown in two places with the same content:
- *  - a section in Zotero's item pane (library and reader), registered with
- *    Zotero.ItemPaneManager.registerSection
+ *  - a section “Better Annotations” in Zotero's item pane (library and
+ *    reader), registered with Zotero.ItemPaneManager.registerSection
  *  - a separate window that follows the active reader tab, e.g. for a
  *    second screen
  *
- * Content: profile selection, one row per label with color and number of
- * annotations. In the reader, a click on a row makes the color the tool
- * color for the next annotation. In the library, the section counts the
- * annotations of all files of the selected item.
+ * Content: profile selection, one row per label with color, number of
+ * annotations and (optionally) the description, which can be edited in
+ * place. In the reader, a click on a row turns on an annotation tool with
+ * this color; a second click switches back to the pointer. In the library,
+ * the section counts the annotations of all files of the selected item.
+ *
+ * The icons pin.svg and new-window.svg are Zotero's own icons
+ * (AGPL-3.0, Corporation for Digital Scholarship).
  */
 
 /* global Zotero, BetterAnnotations */
@@ -23,6 +27,9 @@ BetterAnnotations.Panel = {
   _refreshTimer: null,
   _pollTimer: null,
   _pollWin: null,
+  _lastTabID: null,
+  _collapsedContextPane: false,
+  POPOUT_MAX_WIDTH: 520,
 
   get SB() {
     return BetterAnnotations;
@@ -124,7 +131,7 @@ BetterAnnotations.Panel = {
       SB.log("item pane sections not available");
       return;
     }
-    const args = JSON.stringify({ label: SB.S("sectionTitle") });
+    const args = JSON.stringify({ label: SB.S("pluginName") });
     const icon = SB.rootURI + "content/icons/labels.svg";
     const darkIcon = SB.rootURI + "content/icons/labels-dark.svg";
     try {
@@ -133,6 +140,21 @@ BetterAnnotations.Panel = {
         pluginID: SB.id,
         header: { l10nID: "better-annotations-section-header", l10nArgs: args, icon, darkIcon },
         sidenav: { l10nID: "better-annotations-section-sidenav", l10nArgs: args, icon, darkIcon },
+        // Tooltips of header buttons come from Fluent only (locale/*/better-annotations.ftl)
+        sectionButtons: [
+          {
+            type: "bac-pin",
+            icon: "chrome://better-annotations/content/icons/pin.svg",
+            l10nID: "better-annotations-pin",
+            onClick: ({ body }) => this.togglePin(body),
+          },
+          {
+            type: "bac-popout",
+            icon: "chrome://better-annotations/content/icons/new-window.svg",
+            l10nID: "better-annotations-popout",
+            onClick: ({ body, tabType }) => this.openPopout({ collapse: String(tabType || "").startsWith("reader") }),
+          },
+        ],
         onInit: ({ body }) => {
           body.bacView = new BetterAnnotations.PanelView(body, "section");
           this._views.add(body.bacView);
@@ -181,6 +203,29 @@ BetterAnnotations.Panel = {
       if (view.kind === "section") {
         this._views.delete(view);
       }
+    }
+  },
+
+  /**
+   * Pin the section with Zotero's own mechanism (as “Pin Section” in the side
+   * navigation): it moves to the top and stays there. A second click unpins it.
+   */
+  togglePin(body) {
+    try {
+      const details = body.closest("item-details");
+      if (!details || !this._sectionKey) {
+        return;
+      }
+      if (details.pinnedPane === this._sectionKey) {
+        details.pinnedPane = "";
+      }
+      else {
+        details.pinnedPane = this._sectionKey;
+        details.scrollToPane?.(this._sectionKey, "smooth");
+      }
+    }
+    catch (e) {
+      this.SB.logError(e);
     }
   },
 
@@ -301,13 +346,25 @@ BetterAnnotations.Panel = {
   // Separate window
   // -------------------------------------------------------------------
 
-  openPopout() {
+  openPopout({ collapse = false } = {}) {
     const SB = this.SB;
+    const main = Zotero.getMainWindow();
+    if (collapse) {
+      // The list now lives in its own window: make room for the document
+      try {
+        if (main.ZoteroContextPane && !main.ZoteroContextPane.collapsed) {
+          main.ZoteroContextPane.collapsed = true;
+          this._collapsedContextPane = true;
+        }
+      }
+      catch (e) {
+        SB.logError(e);
+      }
+    }
     if (this._popout && !this._popout.closed) {
       this._popout.focus();
       return;
     }
-    const main = Zotero.getMainWindow();
     if (!main) {
       return;
     }
@@ -324,6 +381,7 @@ BetterAnnotations.Panel = {
     this._popout = win;
     win.addEventListener("load", () => {
       try {
+        this.limitPopoutSize(win);
         const root = win.document.getElementById("bac-popout-root");
         const view = new BetterAnnotations.PanelView(root, "popout");
         view.target = this._popoutTarget;
@@ -335,15 +393,60 @@ BetterAnnotations.Panel = {
         SB.logError(e);
       }
     }, { once: true });
-    win.addEventListener("unload", () => {
+    const onUnload = () => {
+      // Some engines unload the initial blank document first: ignore that
+      try {
+        if (win.location.href === "about:blank") {
+          return;
+        }
+      }
+      catch (e) {}
+      win.removeEventListener("unload", onUnload);
       if (win.bacView) {
         this._views.delete(win.bacView);
         win.bacView = null;
       }
       if (this._popout === win) {
         this._popout = null;
+        this.restoreContextPane();
       }
-    }, { once: true });
+    };
+    win.addEventListener("unload", onUnload);
+  },
+
+  /** A narrow list: limited width, no maximizing (also not by double-clicking the title bar). */
+  limitPopoutSize(win) {
+    const max = this.POPOUT_MAX_WIDTH;
+    const clamp = () => {
+      try {
+        if (win.windowState === win.STATE_MAXIMIZED || win.windowState === win.STATE_FULLSCREEN) {
+          win.restore();
+          return;
+        }
+        if (win.outerWidth > max) {
+          win.resizeTo(max, win.outerHeight);
+        }
+      }
+      catch (e) {}
+    };
+    win.addEventListener("resize", clamp);
+    win.addEventListener("sizemodechange", clamp);
+    clamp();
+  },
+
+  /** Open the right-hand pane of the reader again if the window had closed it. */
+  restoreContextPane() {
+    if (!this._collapsedContextPane) {
+      return;
+    }
+    this._collapsedContextPane = false;
+    try {
+      const main = Zotero.getMainWindow();
+      if (main && main.ZoteroContextPane && main.ZoteroContextPane.collapsed) {
+        main.ZoteroContextPane.collapsed = false;
+      }
+    }
+    catch (e) {}
   },
 
   closePopout() {
@@ -354,6 +457,7 @@ BetterAnnotations.Panel = {
       catch (e) {}
     }
     this._popout = null;
+    this.restoreContextPane();
   },
 
   /** Target of the selected tab if it is a reader tab. */
@@ -385,8 +489,12 @@ BetterAnnotations.Panel = {
       // The tab was closed: keep the document, without the click action
       this._popoutTarget = Object.assign({}, this._popoutTarget, { mode: "library" });
     }
+    const same = view.target && this._popoutTarget && view.target.tabID === this._popoutTarget.tabID
+      && view.target.mode === this._popoutTarget.mode;
     view.target = this._popoutTarget;
-    view.render();
+    if (!same) {
+      view.render();
+    }
   },
 
   // -------------------------------------------------------------------
@@ -436,8 +544,17 @@ BetterAnnotations.Panel = {
     }
   },
 
-  /** Update the marked tool color and the counts of open readers. */
+  /** Update the marked tool color and the counts of open readers; follow tab changes. */
   poll() {
+    try {
+      const tabs = Zotero.getMainWindow()?.Zotero_Tabs;
+      const id = tabs ? tabs.selectedID : null;
+      if (id !== this._lastTabID) {
+        this._lastTabID = id;
+        this.retargetPopout();
+      }
+    }
+    catch (e) {}
     for (const view of [...this._views]) {
       if (!view.root.isConnected) {
         this._views.delete(view);
@@ -462,6 +579,8 @@ BetterAnnotations.PanelView = class {
     this.setSummary = null;
     this.lastSignature = null;
     this.doc = root.ownerDocument;
+    this.editing = null; // id of the color entry whose description has the focus
+    this.reveal = null; // id of an entry without description whose field is shown for adding one
   }
 
   get SB() {
@@ -505,6 +624,7 @@ BetterAnnotations.PanelView = class {
     return el;
   }
 
+  /** Line icons drawn in the current text color (follow light and dark mode). */
   icon(kind) {
     const NS = "http://www.w3.org/2000/svg";
     const svg = this.doc.createElementNS(NS, "svg");
@@ -512,17 +632,25 @@ BetterAnnotations.PanelView = class {
     svg.setAttribute("height", "16");
     svg.setAttribute("viewBox", "0 0 16 16");
     svg.setAttribute("aria-hidden", "true");
-    const path = (d) => {
+    const path = (d, width) => {
       const p = this.doc.createElementNS(NS, "path");
       p.setAttribute("d", d);
-      p.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round");
+      p.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:" + (width || 1.1) + ";stroke-linecap:round;stroke-linejoin:round");
       svg.append(p);
     };
-    if (kind === "popout") {
-      path("M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v3.2c0 .5-.4.8-.8.8H3.3c-.5 0-.8-.3-.8-.8V4.8c0-.4.3-.8.8-.8h3.2");
-    }
-    else if (kind === "describe") {
+    if (kind === "describe") {
       path("M2.5 3.5h11M2.5 6.5h11M2.5 9.5h7M2.5 12.5h5");
+    }
+    else if (kind === "edit") {
+      svg.setAttribute("width", "14");
+      svg.setAttribute("height", "14");
+      path("M10.6 2.4l3 3-8.2 8.2-3.7.7.7-3.7z M9.2 3.8l3 3");
+    }
+    else if (kind === "chevron") {
+      svg.setAttribute("width", "8");
+      svg.setAttribute("height", "8");
+      svg.setAttribute("viewBox", "0 0 8 8");
+      path("M1 2.75 4 5.75 7 2.75");
     }
     else {
       return this.SB.Reader.makeTuneIcon(this.doc, 16);
@@ -555,11 +683,11 @@ BetterAnnotations.PanelView = class {
     let tool = "";
     let n = "";
     try {
-      tool = reader ? String(reader._state?.tool?.color || "") : "";
+      tool = reader ? String(this.SB.Reader.activeToolColor(reader) || "") : "";
       n = reader ? String(Array.from(reader._state?.annotations || []).length) : "";
     }
     catch (e) {}
-    return [this.SB.Store.data.activeProfileId, tool, n].join("|");
+    return [this.SB.Store.data.activeProfileId, this.target ? this.target.tabID || this.target.attachmentIDs.join(",") : "", tool, n].join("|");
   }
 
   render() {
@@ -586,13 +714,89 @@ BetterAnnotations.PanelView = class {
       }
     }
     catch (e) {}
+    this.pendingRender = false;
     this._build();
     if (focusKey) {
-      const el = Array.from(this.root.querySelectorAll("[data-key]")).find(x => x.getAttribute("data-key") === focusKey);
-      if (el) {
-        el.focus();
-      }
+      this.focusKey(focusKey);
     }
+  }
+
+  focusKey(key) {
+    const el = Array.from(this.root.querySelectorAll("[data-key]")).find(x => x.getAttribute("data-key") === key);
+    if (el) {
+      el.focus();
+    }
+    return el;
+  }
+
+  /** Profile selection: a flat button like the reader's profile button, with a native menu. */
+  profileButton(profile) {
+    const SB = this.SB;
+    const S = (k, a) => this.S(k, a);
+    const b = this.h("button", {
+      class: "bac-p-menu",
+      "data-key": "profile",
+      title: S("panelProfile"),
+      "aria-haspopup": "menu",
+      "aria-label": S("panelProfile") + ": " + profile.name,
+    }, this.h("span", { class: "bac-p-menu-name", text: profile.name }), this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.openProfileMenu(b);
+    });
+    return b;
+  }
+
+  openProfileMenu(anchor) {
+    const SB = this.SB;
+    const doc = this.doc;
+    const list = SB.Store.listForMenu();
+    const active = SB.Store.data.activeProfileId;
+    const choose = (id) => {
+      if (id && id !== active) {
+        SB.Store.setActive(id).catch(err => SB.logError(err));
+      }
+    };
+    let popup = null;
+    try {
+      popup = doc.createXULElement ? doc.createXULElement("menupopup") : null;
+    }
+    catch (e) {}
+    if (popup && typeof popup.openPopup === "function") {
+      list.forEach((p, i) => {
+        if (i === 2) {
+          popup.append(doc.createXULElement("menuseparator"));
+        }
+        const mi = doc.createXULElement("menuitem");
+        mi.setAttribute("type", "radio");
+        mi.setAttribute("label", p.name);
+        if (p.id === active) {
+          mi.setAttribute("checked", "true");
+        }
+        mi.addEventListener("command", () => choose(p.id));
+        popup.append(mi);
+      });
+      popup.addEventListener("popuphidden", () => popup.remove(), { once: true });
+      (doc.getElementById("mainPopupSet") || doc.documentElement).append(popup);
+      popup.openPopup(anchor, "after_start", 0, 2, false, false);
+      return;
+    }
+    // Fallback without XUL (e.g. tests in a browser): a simple list below the button
+    this.root.querySelector(".bac-p-fallback")?.remove();
+    const menu = this.h("div", { class: "bac-p-fallback", role: "menu" });
+    for (const p of list) {
+      menu.append(this.h("button", {
+        role: "menuitemradio",
+        "aria-checked": p.id === active ? "true" : "false",
+        on: {
+          click: () => {
+            menu.remove();
+            choose(p.id);
+          },
+        },
+      }, (p.id === active ? "✓ " : "") + p.name));
+    }
+    anchor.after(menu);
   }
 
   _build() {
@@ -604,53 +808,25 @@ BetterAnnotations.PanelView = class {
     const reader = Panel.readerOf(target);
     const counts = Panel.countColors(target);
     const total = [...counts.values()].reduce((a, b) => a + b, 0);
-    let toolColor = null;
-    try {
-      toolColor = reader ? SB.normalize(reader._state?.tool?.color) : null;
-    }
-    catch (e) {}
+    const toolColor = reader ? SB.Reader.activeToolColor(reader) : null;
     this.lastSignature = this.signature();
 
-    // Toolbar: profile, separate window, settings
-    const select = this.h("select", {
-      class: "bac-p-profile",
-      "data-key": "profile",
-      "aria-label": S("panelProfile"),
-      title: S("panelProfile"),
-      on: {
-        change: (e) => {
-          SB.Store.setActive(e.target.value).catch(err => SB.logError(err));
-        },
-      },
-    });
-    const list = SB.Store.listForMenu();
-    list.forEach((p, i) => {
-      if (i === 2) {
-        select.append(this.h("option", { disabled: true, text: "──────────" }));
-      }
-      const opt = this.h("option", { value: p.id, text: p.name });
-      if (p.id === SB.Store.data.activeProfileId) {
-        opt.setAttribute("selected", "true");
-      }
-      select.append(opt);
-    });
+    // Toolbar: profile, descriptions, settings
     const descKey = this.kind === "section" ? "sectionDescriptions" : "popoutDescriptions";
     const showDesc = SB.setting(descKey) === true;
-    const bar = this.h("div", { class: "bac-p-bar" }, select,
+    const bar = this.h("div", { class: "bac-p-bar" },
+      this.profileButton(profile),
       this.iconButton("describe", S("panelDescriptions"), () => {
         SB.Store.setSetting(descKey, !showDesc).catch(err => SB.logError(err));
-      }, showDesc));
-    if (this.kind === "section") {
-      bar.append(this.iconButton("popout", S("panelPopout"), () => Panel.openPopout()));
-    }
-    bar.append(this.iconButton("settings", S("panelSettings"), () => SB.openPrefs()));
+      }, showDesc),
+      this.iconButton("settings", S("panelSettings"), () => SB.openPrefs()));
 
     const parts = [this.style()];
     if (this.kind === "popout") {
       const title = target ? Panel.targetTitle(target) : "";
       parts.push(this.h("div", { class: "bac-p-doc", text: title || S("panelNoDoc") }));
       try {
-        this.doc.title = S("sectionTitle") + (title ? " – " + title : "");
+        this.doc.title = S("pluginName") + (title ? " – " + title : "");
       }
       catch (e) {}
     }
@@ -667,9 +843,10 @@ BetterAnnotations.PanelView = class {
     for (const [color, n] of counts) {
       if (!seen.has(color)) {
         const entry = profile.colors.find(c => c.color === color);
-        rows.push({ color, name: SB.displayName(color, profile), n, hidden: !!entry, other: !entry, entry });
+        rows.push({ color, name: SB.displayName(color, profile), n, hidden: !!entry, entry });
       }
     }
+    const editable = showDesc && !profile.preset && !!SB.Store.getProfile(profile.id);
     const clickable = !!reader && !reader._state?.readOnly;
     const listEl = this.h("div", { class: "bac-p-list", role: "list" });
     for (const r of rows) {
@@ -685,7 +862,7 @@ BetterAnnotations.PanelView = class {
       const description = r.entry ? SB.cleanDescription(r.entry.description) : "";
       let tip = S("panelRowTip", { label: r.name, n: r.n });
       if (description && !showDesc) {
-        tip += "\n" + SB.shortDescription(description);
+        tip = SB.tooltipText(tip, description);
       }
       let row;
       if (clickable) {
@@ -694,11 +871,11 @@ BetterAnnotations.PanelView = class {
           class: "bac-p-row" + (active ? " bac-p-active" : ""),
           "data-key": "row-" + r.color,
           "aria-pressed": active ? "true" : "false",
-          title: tip + "\n" + S("panelClickHint"),
+          title: tip + "\n" + S(active ? "panelClickHintOff" : "panelClickHint"),
           on: {
             click: () => {
-              SB.Reader.setToolColor(reader, r.color);
-              this.SB.setTimeout(() => this.render(), 30);
+              SB.Reader.pickToolColor(reader, r.color);
+              SB.setTimeout(() => this.render(), 30);
             },
           },
         }, content);
@@ -707,22 +884,20 @@ BetterAnnotations.PanelView = class {
         row = this.h("div", { class: "bac-p-row", title: tip }, content);
       }
       const item = this.h("div", { role: "listitem", class: "bac-p-item" }, row);
-      if (showDesc && description && !(this.editing && r.entry && this.editing.id === r.entry.id)) {
-        item.append(this.h("div", { class: "bac-p-desc" + (this.kind === "section" ? " bac-p-clamp" : ""), text: description, title: this.kind === "section" ? description : null }));
+      const canEdit = editable && r.entry && profile.colors.some(c => c.id === r.entry.id);
+      if (canEdit) {
+        item.append(this.iconButtonEdit(r));
       }
-      if (showDesc && this.kind === "popout" && r.entry && !profile.preset) {
-        item.append(this.descriptionControls(profile, r.entry, description));
+      if (showDesc && r.entry && (description || this.reveal === r.entry.id)) {
+        item.append(this.descriptionField(profile, r.entry, description, canEdit));
       }
       listEl.append(item);
     }
     parts.push(listEl);
-    if (showDesc && this.kind === "popout" && profile.preset) {
+    if (showDesc && profile.preset) {
       parts.push(this.h("div", { class: "bac-p-hint", text: S("panelPresetDescHint") }));
     }
-    if (!target && this.kind === "popout") {
-      // nothing more to say: the line above asks to open a document
-    }
-    else if (target && target.mode === "library" && target.attachmentIDs.length > 1) {
+    if (target && target.mode === "library" && target.attachmentIDs.length > 1) {
       parts.push(this.h("div", { class: "bac-p-hint", text: S("panelLibraryHint", { n: target.attachmentIDs.length }) }));
     }
     this.root.replaceChildren(...parts);
@@ -735,73 +910,104 @@ BetterAnnotations.PanelView = class {
     }
   }
 
-  /** Separate window: add or edit the description of a label (saved to the profile right away). */
-  descriptionControls(profile, entry, description) {
-    const S = (k, a) => this.S(k, a);
-    const SB = this.SB;
-    const key = "desc-" + entry.id;
-    if (!this.editing || this.editing.id !== entry.id) {
-      return this.h("button", {
-        class: "bac-p-link",
-        "data-key": key,
-        "aria-label": S(description ? "panelEditDescriptionFor" : "panelAddDescriptionFor", { label: entry.label.trim() || entry.color }),
-        on: {
-          click: () => {
-            this.editing = { id: entry.id };
+  /** Pencil next to a row: edit (or add) the description. Visible on hover and keyboard focus. */
+  iconButtonEdit(r) {
+    const label = this.S("panelEditDescriptionFor", { label: r.name });
+    return this.h("button", {
+      class: "bac-p-edit-btn",
+      "data-key": "edit-" + r.entry.id,
+      title: label,
+      "aria-label": label,
+      on: {
+        click: (e) => {
+          e.preventDefault();
+          if (!this.SB.cleanDescription(r.entry.description)) {
+            this.reveal = r.entry.id;
             this._render();
-            this.root.querySelector(".bac-p-area")?.focus();
-          },
+          }
+          this.focusKey("desc-" + r.entry.id);
         },
-      }, S(description ? "panelEditDescription" : "btnAddDescription"));
-    }
+      },
+    }, this.icon("edit"));
+  }
+
+  /**
+   * Description as text that turns into a field on click: plain text with line
+   * breaks, saved to the profile when the field loses the focus.
+   * Esc restores the previous text, Ctrl/Cmd+Enter finishes.
+   */
+  descriptionField(profile, entry, description, canEdit) {
+    const SB = this.SB;
+    const S = (k, a) => this.S(k, a);
     const area = this.h("textarea", {
-      class: "bac-p-area",
-      rows: "4",
+      class: "bac-p-desc" + (this.kind === "section" ? " bac-p-clamp" : ""),
+      "data-key": "desc-" + entry.id,
+      rows: "1",
       maxlength: String(SB.MAX_DESCRIPTION),
-      placeholder: S("phDescription"),
+      placeholder: S("btnAddDescription"),
       "aria-label": S("ariaDescription", { label: entry.label.trim() || entry.color }),
+      readonly: canEdit ? null : true,
+      spellcheck: "true",
     });
-    area.value = this.editing.draft ?? description;
-    area.addEventListener("input", () => {
-      this.editing.draft = area.value;
+    area.value = description;
+    const grow = () => {
+      area.style.height = "auto";
+      area.style.height = area.scrollHeight + "px";
+    };
+    let original = description;
+    let cancelled = false;
+    area.addEventListener("focus", () => {
+      if (!canEdit) {
+        return;
+      }
+      this.editing = entry.id;
+      original = area.value;
+      area.setAttribute("placeholder", S("phDescription"));
+      grow();
     });
-    const finish = async (save) => {
-      const value = area.value;
+    area.addEventListener("input", grow);
+    area.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        cancelled = true;
+        area.value = original;
+        area.blur();
+      }
+      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        area.blur();
+      }
+    });
+    area.addEventListener("blur", async () => {
+      if (!canEdit) {
+        return;
+      }
+      const value = SB.cleanDescription(area.value);
+      const changed = !cancelled && value !== SB.cleanDescription(original);
+      cancelled = false;
       this.editing = null;
-      if (save) {
+      this.reveal = null;
+      if (changed) {
         try {
           const stored = SB.Store.getProfile(profile.id);
-          if (stored && !SB.Store.isPreset(profile.id)) {
-            const copy = JSON.parse(JSON.stringify(stored));
-            const target = copy.colors.find(c => c.id === entry.id);
-            if (target) {
-              target.description = SB.cleanDescription(value);
-              await SB.Store.saveProfile(copy);
-            }
+          const copy = stored && !SB.Store.isPreset(profile.id) ? JSON.parse(JSON.stringify(stored)) : null;
+          const target = copy && copy.colors.find(c => c.id === entry.id);
+          if (target) {
+            target.description = value;
+            await SB.Store.saveProfile(copy); // all views update through the store
+            return;
           }
         }
         catch (e) {
           SB.logError(e);
         }
       }
-      this.pendingRender = false;
       this._render();
-      this.root.querySelector("[data-key=\"" + key + "\"]")?.focus();
-    };
-    area.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        finish(false);
-      }
-      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        finish(true);
-      }
     });
-    return this.h("div", { class: "bac-p-edit" }, area,
-      this.h("div", { class: "bac-p-edit-bar" },
-        this.h("button", { class: "bac-p-btn", on: { click: () => finish(false) } }, S("dlgCancel")),
-        this.h("button", { class: "bac-p-btn bac-p-primary", on: { click: () => finish(true) } }, S("btnSave"))));
+    // Size the field once it is in the document
+    SB.setTimeout(grow, 0);
+    return area;
   }
 
   style() {
@@ -809,36 +1015,46 @@ BetterAnnotations.PanelView = class {
     st.textContent = `
 .bac-p-root { font: inherit; color: var(--fill-primary, CanvasText); }
 .bac-p-popout { padding: 8px 10px; box-sizing: border-box; }
-.bac-p-bar { display: flex; align-items: center; gap: 4px; margin: 0 0 6px; }
-.bac-p-profile { flex: 1; min-width: 0; font: inherit; }
-.bac-p-icon { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px;
-  padding: 0; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--fill-secondary, #666); }
-.bac-p-icon:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); color: var(--fill-primary, CanvasText); }
-.bac-p-icon[aria-pressed="true"] { background: var(--fill-quinary, rgba(127,127,127,.2)); color: var(--fill-primary, CanvasText); border-color: var(--fill-quarternary, rgba(127,127,127,.35)); }
-.bac-p-icon:focus-visible, .bac-p-row:focus-visible { outline: 2px solid var(--color-focus-border, var(--accent-blue, #2e7bd1)); outline-offset: -1px; }
+.bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; }
+.bac-p-menu { appearance: none; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px 0 0;
+  padding: 0 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
+.bac-p-menu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bac-p-caret { display: flex; align-items: center; color: var(--fill-secondary, GrayText); }
+.bac-p-menu:hover, .bac-p-icon:hover, .bac-p-edit-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
+.bac-p-menu:active, .bac-p-icon:active, .bac-p-edit-btn:active, .bac-p-menu[open] { background: var(--fill-quarternary, rgba(127,127,127,.25)); }
+.bac-p-icon { appearance: none; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px;
+  margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--fill-secondary, GrayText); }
+.bac-p-icon[aria-pressed="true"] { background: var(--fill-quinary, rgba(127,127,127,.2)); color: var(--fill-primary, CanvasText); }
+.bac-p-menu:focus-visible, .bac-p-icon:focus-visible, .bac-p-row:focus-visible, .bac-p-edit-btn:focus-visible {
+  outline: var(--width-focus-border, 2px) solid var(--color-focus-border, var(--accent-blue, #2e7bd1)); outline-offset: -1px; }
+.bac-p-fallback { display: flex; flex-direction: column; margin: 0 0 6px; padding: 4px 0; border: 1px solid var(--fill-quinary, #ccc); border-radius: 6px; }
+.bac-p-fallback button { appearance: none; border: 0; background: none; text-align: start; padding: 3px 10px; font: inherit; color: inherit; }
 .bac-p-doc { font-weight: 600; margin: 2px 0 8px; overflow-wrap: anywhere; }
 .bac-p-list { display: flex; flex-direction: column; gap: 1px; }
-.bac-p-row { appearance: none; display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center;
+.bac-p-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.bac-p-row { appearance: none; grid-column: 1; display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center;
   width: 100%; box-sizing: border-box; margin: 0; padding: 3px 6px; border: 1px solid transparent; border-radius: 5px;
   background: transparent; color: inherit; font: inherit; text-align: start; }
 button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
-.bac-p-row.bac-p-active { border-color: var(--accent-blue, #2e7bd1); background: color-mix(in srgb, var(--accent-blue, #2e7bd1) 10%, transparent); }
+.bac-p-row.bac-p-active { background: color-mix(in srgb, var(--accent-blue, #2e7bd1) 14%, transparent); border-color: color-mix(in srgb, var(--accent-blue, #2e7bd1) 45%, transparent); }
 .bac-p-dot { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
 .bac-p-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bac-p-name i { color: var(--fill-secondary, #777); }
-.bac-p-n { font-variant-numeric: tabular-nums; color: var(--fill-secondary, #666); }
+.bac-p-name i { color: var(--fill-secondary, GrayText); }
+.bac-p-n { font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
 .bac-p-zero { opacity: .55; }
-.bac-p-desc { margin: 0 6px 4px 26px; color: var(--fill-secondary, #666); white-space: pre-line; overflow-wrap: anywhere; font-size: .95em; line-height: 1.35; }
-.bac-p-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-.bac-p-link { appearance: none; margin: 0 6px 4px 26px; padding: 0; border: 0; background: none; color: var(--accent-blue, #2e7bd1);
-  font: inherit; font-size: .92em; cursor: pointer; text-align: start; }
-.bac-p-link:hover { text-decoration: underline; }
-.bac-p-link:focus-visible, .bac-p-btn:focus-visible { outline: 2px solid var(--color-focus-border, var(--accent-blue, #2e7bd1)); outline-offset: 1px; }
-.bac-p-edit { margin: 2px 6px 8px 26px; display: flex; flex-direction: column; gap: 4px; }
-.bac-p-area { box-sizing: border-box; width: 100%; resize: vertical; min-height: 5em; font: inherit; line-height: 1.4; padding: 4px 6px; }
-.bac-p-edit-bar { display: flex; justify-content: flex-end; gap: 6px; }
-.bac-p-btn { font: inherit; }
-.bac-p-hint { margin-top: 6px; color: var(--fill-secondary, #666); font-size: .92em; }
+.bac-p-edit-btn { appearance: none; grid-column: 2; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
+  margin: 0 0 0 2px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--fill-secondary, GrayText); opacity: 0; }
+.bac-p-item:hover .bac-p-edit-btn, .bac-p-item:focus-within .bac-p-edit-btn, .bac-p-edit-btn:focus-visible { opacity: 1; }
+.bac-p-desc { grid-column: 1; display: block; box-sizing: border-box; width: calc(100% - 20px); margin: 0 0 3px 20px; padding: 1px 5px;
+  min-height: 0; resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 4px; background: transparent;
+  color: var(--fill-secondary, GrayText); font: inherit; font-size: .95em; line-height: 1.35; }
+.bac-p-desc::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .8; }
+.bac-p-desc:not([readonly]):hover { border-color: var(--fill-quinary, rgba(127,127,127,.3)); }
+.bac-p-desc:focus { outline: none; border-color: var(--color-focus-border, var(--accent-blue, #2e7bd1)); background: var(--material-background, Field);
+  color: var(--fill-primary, FieldText); }
+.bac-p-desc[readonly]:focus { border-color: transparent; background: transparent; color: var(--fill-secondary, GrayText); }
+.bac-p-clamp:not(:focus) { max-height: calc(3 * 1.35em + 4px); }
+.bac-p-hint { margin-top: 6px; color: var(--fill-secondary, GrayText); font-size: .92em; }
 `;
     return st;
   }

@@ -30,11 +30,32 @@ var BetterAnnotations = {
     return [
       { key: "palZoteroPlus", fixed: true, colors: [...this.STOCK_COLORS, ...this.PLUS_COLORS] },
       { key: "palPastel", colors: ["#ffe9a3", "#ffb8b8", "#bfe8b5", "#aedaf2", "#cfc2f5", "#f3bdf2", "#ffd0a6", "#d9d9d9", "#aeeadb", "#ffc6de", "#bcc6f7", "#dcefa6"] },
-      { key: "palLight", colors: ["#ede1a6", "#eda6a6", "#a6eda6", "#a6d0ed", "#c0a6ed", "#e4a6ed", "#edc7a6", "#d4d4d4", "#a6eddf", "#eda6ca", "#a6b2ed", "#d8eda6"] },
+      { key: "palPastelBold", colors: ["#ffd966", "#ff8f8f", "#93d67f", "#7dc4ee", "#b29df2", "#eb8fe8", "#ffb26b", "#bdbdbd", "#73d9c1", "#ff9fc8", "#98a6f4", "#c8e36a"] },
+      { key: "palNeon", colors: ["#ffff33", "#ff4d4d", "#39ff14", "#00e5ff", "#bf5fff", "#ff3fd2", "#ff9f1c", "#c8c8c8", "#00ffc6", "#ff6ec7", "#6e7bff", "#c6ff00"] },
       { key: "palStrong", colors: ["#fad51e", "#fa1e1e", "#1efa1e", "#1e9efa", "#6f1efa", "#dd1efa", "#fa851e", "#8c8c8c", "#1eface", "#fa1e8c", "#1e43fa", "#b8fa1e"] },
       { key: "palMuted", colors: ["#b8ae7d", "#b87d7d", "#7db87d", "#7d9fb8", "#927db8", "#b07db8", "#b8987d", "#a8a8a8", "#7db8ac", "#b87d9a", "#7d87b8", "#a6b87d"] },
       { key: "palEarth", colors: ["#d4a62a", "#c0613f", "#7a9a52", "#4f8a96", "#8d74a8", "#a35c8a", "#d9935f", "#a39b86", "#5f9e8f", "#c98a8a", "#5e6b9e", "#a3ad5a"] },
     ];
+  },
+
+  /**
+   * Palettes that are no longer offered. Their colors still map onto the
+   * slots of the other palettes when a palette is applied to a profile.
+   */
+  LEGACY_PALETTES: [
+    ["#ede1a6", "#eda6a6", "#a6eda6", "#a6d0ed", "#c0a6ed", "#e4a6ed", "#edc7a6", "#d4d4d4", "#a6eddf", "#eda6ca", "#a6b2ed", "#d8eda6"],
+  ],
+
+  /** Index of the gray slot in every palette (it is always shown last when sorted). */
+  GRAY_SLOT: 7,
+
+  /** Colors of a palette in display order: Zotero order, or by hue with gray last. */
+  paletteDisplay(pal, order) {
+    if (pal.fixed || order !== "rainbow") {
+      return pal.colors;
+    }
+    const gray = pal.colors[this.GRAY_SLOT];
+    return [...this.rainbowSort(pal.colors.filter((c, i) => i !== this.GRAY_SLOT)), gray].filter(Boolean);
   },
 
   DEFAULT_SETTINGS: {
@@ -49,6 +70,7 @@ var BetterAnnotations = {
     showUsage: true,
     showToolbarProfile: true,
     showToolbarStats: true,
+    statsDescriptions: true,
     showItemPaneSection: true,
     sectionDescriptions: false,
     popoutDescriptions: true,
@@ -391,6 +413,19 @@ var BetterAnnotations = {
     return out.length < clean.length ? out.replace(/[\s.,;:]+$/, "") + "…" : out;
   },
 
+  /**
+   * Text for a system tooltip: the label, then the shortened description
+   * after an empty line, each line marked with “›”.
+   */
+  tooltipText(label, description) {
+    const name = String(label || "").trim();
+    const desc = this.shortDescription(description);
+    if (!desc) {
+      return name;
+    }
+    return name + "\n\n" + desc.split("\n").map(l => "› " + l).join("\n");
+  },
+
   /** Name under which a color is shown (e.g. in lists and statistics). */
   displayName(color, profile) {
     const p = profile || this.Store.getActive();
@@ -569,7 +604,7 @@ BetterAnnotations.Store = {
       .map(c => SB.normalize(c)).filter(Boolean).filter((c, i, a) => a.indexOf(c) === i).slice(0, 12);
     for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "showUsage",
       "showToolbarProfile", "showToolbarStats", "showItemPaneSection",
-      "sectionDescriptions", "popoutDescriptions", "tagsEnabled"]) {
+      "statsDescriptions", "sectionDescriptions", "popoutDescriptions", "tagsEnabled"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
       }

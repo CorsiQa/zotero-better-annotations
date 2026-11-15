@@ -289,36 +289,49 @@ BetterAnnotations.Export = {
    * Columns of the annotation table. min and max limit the width in
    * characters; within these limits the width follows the heading and the
    * content (see fitWidths).
+   *
+   * Order: content first, then two groups that Excel can fold away:
+   * “details” (description, tags, dates, creator) and “source” (title,
+   * authors, year, collections, file). Visible columns sit between the groups
+   * so that Excel keeps them apart.
+   * options: { descriptions, xlsx } – in Excel the colored number replaces the
+   * hex code; CSV keeps the hex code as the only color information.
    */
   columns(rows, options = {}) {
     const S = k => this.SB.S(k);
     const cols = [
-      { key: "no", head: S("colNo"), min: 4, max: 8, get: r => r.no, num: true },
-      { key: "color", head: S("colColor"), min: 9, max: 10, get: r => r.color, colorCell: true },
-      { key: "label", head: S("colLabel"), min: 10, max: 30, get: r => r.label, labelCell: true, wrap: true },
+      { key: "no", head: S("colNo"), min: options.xlsx ? 5 : 4, max: 8, get: r => r.no, num: true, colorCell: !!options.xlsx },
     ];
-    if (options.descriptions) {
-      cols.push({ key: "description", head: S("colDescription"), min: 16, max: 50, get: r => r.description, wrap: true });
+    if (!options.xlsx) {
+      cols.push({ key: "color", head: S("colColor"), min: 9, max: 10, get: r => r.color });
     }
     cols.push(
+      { key: "label", head: S("colLabel"), min: 10, max: 30, get: r => r.label, labelCell: true, wrap: true },
       { key: "type", head: S("colType"), min: 8, max: 16, get: r => this.typeName(r.type) },
       { key: "extract", head: S("colExtract"), min: 30, max: 70, get: r => this.extractText(r), wrap: true, extract: true },
       { key: "comment", head: S("colComment"), min: 16, max: 50, get: r => r.comment, wrap: true },
-      { key: "tags", head: S("colTags"), min: 8, max: 30, get: r => r.tags.join("; "), wrap: true },
-      { key: "page", head: S("colPage"), min: 5, max: 10, get: r => r.page, num: r => /^\d{1,6}$/.test(r.page) },
-      { key: "citation", head: S("colCitation"), min: 12, max: 30, get: r => r.doc.citation, wrap: true },
-      { key: "title", head: S("colTitle"), min: 16, max: 50, get: r => r.doc.title, wrap: true },
-      { key: "authors", head: S("colAuthors"), min: 12, max: 40, get: r => r.doc.authors, wrap: true },
-      { key: "year", head: S("colYear"), min: 5, max: 8, get: r => r.doc.year },
-      { key: "collections", head: S("colCollections"), min: 12, max: 30, get: r => r.doc.collections, wrap: true },
-      { key: "file", head: S("colFile"), min: 12, max: 40, get: r => r.doc.file, wrap: true },
-      { key: "link", head: S("colLink"), min: 10, max: 18, get: r => r.link, link: true },
-      { key: "created", head: S("colCreated"), min: 16, max: 18, get: r => r.created },
-      { key: "modified", head: S("colModified"), min: 16, max: 18, get: r => r.modified },
+    );
+    if (options.descriptions) {
+      cols.push({ key: "description", head: S("colDescription"), min: 16, max: 50, get: r => r.description, wrap: true, group: "details" });
+    }
+    cols.push(
+      { key: "tags", head: S("colTags"), min: 8, max: 30, get: r => r.tags.join("; "), wrap: true, group: "details" },
+      { key: "created", head: S("colCreated"), min: 16, max: 18, get: r => r.created, group: "details" },
+      { key: "modified", head: S("colModified"), min: 16, max: 18, get: r => r.modified, group: "details" },
     );
     if (rows.some(r => r.author)) {
-      cols.push({ key: "author", head: S("colAuthor"), min: 10, max: 25, get: r => r.author });
+      cols.push({ key: "author", head: S("colAuthor"), min: 10, max: 25, get: r => r.author, group: "details" });
     }
+    cols.push(
+      { key: "page", head: S("colPage"), min: 5, max: 10, get: r => r.page, num: r => /^\d{1,6}$/.test(r.page) },
+      { key: "citation", head: S("colCitation"), min: 12, max: 30, get: r => r.doc.citation, wrap: true },
+      { key: "title", head: S("colTitle"), min: 16, max: 50, get: r => r.doc.title, wrap: true, group: "source" },
+      { key: "authors", head: S("colAuthors"), min: 12, max: 40, get: r => r.doc.authors, wrap: true, group: "source" },
+      { key: "year", head: S("colYear"), min: 5, max: 8, get: r => r.doc.year, group: "source" },
+      { key: "collections", head: S("colCollections"), min: 12, max: 30, get: r => r.doc.collections, wrap: true, group: "source" },
+      { key: "file", head: S("colFile"), min: 12, max: 40, get: r => r.doc.file, wrap: true, group: "source" },
+      { key: "link", head: S("colLink"), min: 10, max: 18, get: r => r.link, link: true },
+    );
     return cols;
   },
 
@@ -533,7 +546,7 @@ BetterAnnotations.Export = {
     const S = (k, a) => this.SB.S(k, a);
     const x = s => this.xml(s);
     const withImages = meta.images !== false;
-    const cols = this.fitWidths(this.columns(rows, { descriptions: meta.descriptions }), rows, (c, r) => {
+    const cols = this.fitWidths(this.columns(rows, { descriptions: meta.descriptions, xlsx: true }), rows, (c, r) => {
       if (c.link) {
         return r.link ? S("linkOpen") : "";
       }
@@ -610,12 +623,14 @@ BetterAnnotations.Export = {
       return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
         + "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
         + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+        + (colDefs.some(c => c.group) ? "<sheetPr><outlinePr summaryRight=\"1\"/></sheetPr>" : "")
         + "<dimension ref=\"A1:" + last + n + "\"/>"
         + "<sheetViews><sheetView workbookViewId=\"0\"" + (extra.selected ? " tabSelected=\"1\"" : "") + ">"
         + "<pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/>"
         + "<selection pane=\"bottomLeft\" activeCell=\"A2\" sqref=\"A2\"/></sheetView></sheetViews>"
-        + "<sheetFormatPr defaultRowHeight=\"15\"/>"
-        + "<cols>" + colDefs.map((c, i) => "<col min=\"" + (i + 1) + "\" max=\"" + (i + 1) + "\" width=\"" + c.width + "\" customWidth=\"1\"/>").join("") + "</cols>"
+        + "<sheetFormatPr defaultRowHeight=\"15\"" + (colDefs.some(c => c.group) ? " outlineLevelCol=\"1\"" : "") + "/>"
+        + "<cols>" + colDefs.map((c, i) => "<col min=\"" + (i + 1) + "\" max=\"" + (i + 1) + "\" width=\"" + c.width + "\" customWidth=\"1\""
+          + (c.group ? " outlineLevel=\"1\"" : "") + "/>").join("") + "</cols>"
         + "<sheetData>" + headRow + bodyRows.join("") + "</sheetData>"
         + "<autoFilter ref=\"A1:" + last + n + "\"/>"
         + (extra.hyperlinks || "")
@@ -643,7 +658,8 @@ BetterAnnotations.Export = {
       const cells = cols.map((c, i) => {
         const ref = this.colName(i) + rowNo;
         if (c.colorCell) {
-          return cell(ref, r.color, r.color ? colorStyle.get(r.color).full : ST.plain);
+          // The number carries the annotation color (replaces a column with the hex code)
+          return cell(ref, c.get(r), r.color ? colorStyle.get(r.color).full : ST.plain, true);
         }
         if (c.labelCell) {
           lines = Math.max(lines, this.lineCount(r.label, c.width));
