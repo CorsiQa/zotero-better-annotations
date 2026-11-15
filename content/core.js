@@ -50,6 +50,8 @@ var BetterAnnotations = {
     showToolbarProfile: true,
     showToolbarStats: true,
     showItemPaneSection: true,
+    sectionDescriptions: false,
+    popoutDescriptions: true,
     tagsEnabled: false,
     tagPrefix: "",
     paletteOrder: "rainbow",
@@ -59,6 +61,7 @@ var BetterAnnotations = {
     exportSort: "doc",
     exportImages: true,
     exportLabeledOnly: false,
+    exportDescriptions: false,
   },
 
   // ---------------------------------------------------------------------
@@ -365,6 +368,29 @@ var BetterAnnotations = {
     return profile.colors.filter(c => this.isVisible(c));
   },
 
+  MAX_DESCRIPTION: 2000,
+
+  /** Description of a label: plain text with line breaks, without trailing spaces. */
+  cleanDescription(text) {
+    if (typeof text !== "string") {
+      return "";
+    }
+    return text.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/^\n+|\s+$/g, "").slice(0, this.MAX_DESCRIPTION);
+  },
+
+  /** Shortened description for tooltips: at most `lines` lines and `chars` characters. */
+  shortDescription(text, lines = 4, chars = 220) {
+    const clean = this.cleanDescription(text);
+    if (!clean) {
+      return "";
+    }
+    let out = clean.split("\n").slice(0, lines).join("\n");
+    if (out.length > chars) {
+      out = out.slice(0, chars).replace(/\s+\S*$/, "");
+    }
+    return out.length < clean.length ? out.replace(/[\s.,;:]+$/, "") + "…" : out;
+  },
+
   /** Name under which a color is shown (e.g. in lists and statistics). */
   displayName(color, profile) {
     const p = profile || this.Store.getActive();
@@ -542,7 +568,8 @@ BetterAnnotations.Store = {
     out.settings.recentColors = (Array.isArray(s.recentColors) ? s.recentColors : [])
       .map(c => SB.normalize(c)).filter(Boolean).filter((c, i, a) => a.indexOf(c) === i).slice(0, 12);
     for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "showUsage",
-      "showToolbarProfile", "showToolbarStats", "showItemPaneSection", "tagsEnabled"]) {
+      "showToolbarProfile", "showToolbarStats", "showItemPaneSection",
+      "sectionDescriptions", "popoutDescriptions", "tagsEnabled"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
       }
@@ -559,7 +586,7 @@ BetterAnnotations.Store = {
     out.settings.menuLimit = this.clampInt(s.menuLimit, 1, 20, SB.DEFAULT_SETTINGS.menuLimit);
     out.settings.popupColumns = this.clampInt(s.popupColumns, 4, 16, SB.DEFAULT_SETTINGS.popupColumns);
     out.settings.popupFixedColumns = this.clampInt(s.popupFixedColumns, 4, 17, SB.DEFAULT_SETTINGS.popupFixedColumns);
-    for (const key of ["scopeSubcollections", "exportImages", "exportLabeledOnly"]) {
+    for (const key of ["scopeSubcollections", "exportImages", "exportLabeledOnly", "exportDescriptions"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
       }
@@ -620,12 +647,17 @@ BetterAnnotations.Store = {
       }
       seen.add(color);
       const label = typeof c.label === "string" ? c.label.slice(0, 200) : "";
-      colors.push({
+      const entry = {
         id: typeof c.id === "string" && c.id ? c.id : SB.uid("c"),
         color,
         label,
         enabled: c.enabled !== false,
-      });
+      };
+      const description = SB.cleanDescription(c.description);
+      if (description) {
+        entry.description = description;
+      }
+      colors.push(entry);
       if (colors.length >= SB.MAX_COLORS) {
         break;
       }
@@ -819,7 +851,13 @@ BetterAnnotations.Store = {
       plugin: this.SB.version,
       exported: new Date().toISOString(),
       name: profile.name,
-      colors: profile.colors.map(c => ({ color: c.color, label: c.label, enabled: c.enabled !== false })),
+      colors: profile.colors.map((c) => {
+        const out = { color: c.color, label: c.label, enabled: c.enabled !== false };
+        if (c.description) {
+          out.description = c.description;
+        }
+        return out;
+      }),
     };
   },
 

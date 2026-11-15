@@ -283,7 +283,7 @@ BetterAnnotations.Reader = {
     const items = [];
     if (!profile.standard) {
       for (const entry of SB.visibleColors(profile)) {
-        spec.colors.push({ color: entry.color, label: entry.label });
+        spec.colors.push({ color: entry.color, label: entry.label, description: entry.description || "" });
         items.push({
           label: entry.label,
           color: entry.color,
@@ -385,6 +385,7 @@ BetterAnnotations.Reader = {
       for (let i = 0; i < mainCount; i++) {
         const target = stockByColor.get(spec.colors[i].color) || ownRows[i];
         const p = this.makeProxy(ownRows[i], target);
+        this.describeRow(p, spec.colors[i]);
         p.addEventListener("mouseenter", closeFlyout);
         inserts.push(p);
       }
@@ -400,7 +401,9 @@ BetterAnnotations.Reader = {
         const extra = [];
         for (let i = limit; i < n; i++) {
           const target = stockByColor.get(spec.colors[i].color) || ownRows[i];
-          extra.push(this.makeProxy(ownRows[i], target));
+          const p = this.makeProxy(ownRows[i], target);
+          this.describeRow(p, spec.colors[i]);
+          extra.push(p);
         }
         flyout = this.makeFlyout(menu, more, extra, iconTemplate);
         inserts.push(more);
@@ -420,6 +423,14 @@ BetterAnnotations.Reader = {
       return true;
     }
     return false;
+  },
+
+  /** Tooltip with the label's description (shortened). */
+  describeRow(row, entry) {
+    const desc = this.SB.shortDescription(entry && entry.description);
+    if (desc) {
+      row.setAttribute("title", entry.label.trim() + "\n" + desc);
+    }
   },
 
   findLastIndex(arr, fn) {
@@ -929,10 +940,14 @@ BetterAnnotations.Reader = {
     b.removeAttribute("title");
     b.style.removeProperty("display");
     b.setAttribute("tabindex", "-1");
+    const desc = this.SB.shortDescription(entry.description);
     b.setAttribute("aria-label", shown || entry.color);
+    if (desc) {
+      b.setAttribute("aria-description", desc);
+    }
     b.setAttribute("data-bac-color", entry.color);
     if (!instant && shown) {
-      b.setAttribute("title", shown);
+      b.setAttribute("title", desc ? shown + "\n" + desc : shown);
     }
     b.addEventListener("click", (e) => {
       e.preventDefault();
@@ -948,7 +963,7 @@ BetterAnnotations.Reader = {
       }
     });
     if (instant && shown) {
-      b.addEventListener("mouseenter", () => this.showTip(doc, b, shown, entry.color));
+      b.addEventListener("mouseenter", () => this.showTip(doc, b, shown, entry.color, desc));
       b.addEventListener("mouseleave", () => this.hideTip());
     }
     return b;
@@ -1002,7 +1017,7 @@ BetterAnnotations.Reader = {
   // Instant tooltip
   // -------------------------------------------------------------------
 
-  showTip(doc, el, text, color) {
+  showTip(doc, el, text, color, description) {
     this.hideTip();
     const win = doc.defaultView;
     if (!win || !doc.body) {
@@ -1022,7 +1037,21 @@ BetterAnnotations.Reader = {
     const t = doc.createElement("span");
     t.style.cssText = "overflow:hidden;text-overflow:ellipsis;";
     t.textContent = text;
-    tip.append(t);
+    if (description) {
+      // Label on the first line, the description below in a lighter tone
+      tip.style.flexWrap = "wrap";
+      tip.style.whiteSpace = "normal";
+      tip.style.width = "max-content";
+      t.style.whiteSpace = "nowrap";
+      t.style.maxWidth = "310px";
+      const d = doc.createElement("span");
+      d.style.cssText = "flex-basis:100%;white-space:pre-line;opacity:.82;max-width:324px;padding-bottom:1px;";
+      d.textContent = description;
+      tip.append(t, d);
+    }
+    else {
+      tip.append(t);
+    }
     doc.body.append(tip);
     const r = el.getBoundingClientRect();
     const tr = tip.getBoundingClientRect();
@@ -1489,6 +1518,10 @@ BetterAnnotations.Reader = {
       bar.style.background = color;
       bar.style.width = Math.max(4, Math.round(n / max * 100)) + "%";
       row.append(dot, name, count, bar);
+      const desc = entry && this.SB.shortDescription(entry.description);
+      if (desc) {
+        row.setAttribute("title", SB.displayName(color, profile) + "\n" + desc);
+      }
       panel.append(row);
     }
     place();
@@ -1514,7 +1547,10 @@ BetterAnnotations.Reader = {
     if (profile.standard) {
       return;
     }
-    const map = new Map(profile.colors.filter(c => c.label && c.label.trim()).map(c => [c.color, c.label.trim()]));
+    const map = new Map(profile.colors.filter(c => c.label && c.label.trim()).map((c) => {
+      const desc = this.SB.shortDescription(c.description);
+      return [c.color, c.label.trim() + (desc ? "\n" + desc : "")];
+    }));
     for (const el of doc.querySelectorAll(".selector button, .selector .color")) {
       const c = this.colorOf(el);
       if (c && map.has(c)) {

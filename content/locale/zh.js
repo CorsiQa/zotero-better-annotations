@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS.zh = {
   "panelRowTip": "{label}：{n} 条注释",
   "secItemPane": "条目窗格",
   "infoItemPane": "在 Zotero 的条目窗格（文库中以及阅读器旁）添加“注释名称”部分。它显示当前配置方案的名称以及每个名称下的注释数量。在阅读器中点击某个名称，即可为下一条注释选择其颜色。\n\n带箭头的按钮会在独立窗口中打开同一列表。该窗口跟随当前阅读器标签页，因此你可以把它放在第二块屏幕上。",
-  "optItemPaneSection": "在条目窗格中显示“注释名称”部分"
+  "optItemPaneSection": "在条目窗格中显示“注释名称”部分",
+  "btnAddDescription": "添加说明",
+  "phDescription": "这个名称代表什么？什么时候使用？",
+  "ariaDescription": "“{label}”的说明",
+  "panelDescriptions": "显示说明",
+  "panelEditDescription": "编辑说明",
+  "panelEditDescriptionFor": "编辑“{label}”的说明",
+  "panelAddDescriptionFor": "为“{label}”添加说明",
+  "panelPresetDescHint": "内置配置方案无法更改。如需添加说明，请在设置中创建自己的配置方案。",
+  "colDescription": "说明",
+  "optExportDescriptions": "将名称的说明添加为一列",
+  "infoDescriptions": "你可以在每个名称下方添加说明，例如该名称代表什么、何时使用。说明会显示在工具提示、“注释名称”部分以及导出文件中。"
 };

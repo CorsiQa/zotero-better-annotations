@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS.de = {
   "panelRowTip": "{label}: {n} Annotation(en)",
   "secItemPane": "Eintragsbereich",
   "infoItemPane": "Fügt dem Eintragsbereich von Zotero den Abschnitt „Annotationslabels“ hinzu, in der Bibliothek und neben dem Reader. Er zeigt die Labels des aktiven Profils und wie viele Annotationen jedes Label tragen. Im Reader wählt ein Klick auf ein Label die Farbe für die nächste Annotation.\n\nDer Knopf mit dem Pfeil öffnet dieselbe Liste in einem eigenen Fenster. Das Fenster folgt dem aktiven Reader-Tab, du kannst es also auf einen zweiten Bildschirm legen.",
-  "optItemPaneSection": "Abschnitt „Annotationslabels“ im Eintragsbereich anzeigen"
+  "optItemPaneSection": "Abschnitt „Annotationslabels“ im Eintragsbereich anzeigen",
+  "btnAddDescription": "Beschreibung hinzufügen",
+  "phDescription": "Wofür steht dieses Label? Wann verwendest du es?",
+  "ariaDescription": "Beschreibung von „{label}“",
+  "panelDescriptions": "Beschreibungen anzeigen",
+  "panelEditDescription": "Beschreibung bearbeiten",
+  "panelEditDescriptionFor": "Beschreibung von „{label}“ bearbeiten",
+  "panelAddDescriptionFor": "Beschreibung zu „{label}“ hinzufügen",
+  "panelPresetDescHint": "Eingebaute Profile lassen sich nicht ändern. Für Beschreibungen leg in den Einstellungen ein eigenes Profil an.",
+  "colDescription": "Beschreibung",
+  "optExportDescriptions": "Beschreibungen der Labels als Spalte hinzufügen",
+  "infoDescriptions": "Unter jedem Label kannst du eine Beschreibung hinzufügen, etwa wofür das Label steht und wann du es verwendest. Beschreibungen erscheinen in Tooltips, im Abschnitt „Annotationslabels“ und in Exporten."
 };

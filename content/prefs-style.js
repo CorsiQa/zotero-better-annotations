@@ -45,7 +45,7 @@ BetterAnnotations.PREFS_CSS = `
   background: color-mix(in srgb, var(--bac-accent) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--bac-accent) 30%, transparent); }
 #bac-root .bac-list { position: relative; display: flex; flex-direction: column; gap: 3px; }
-#bac-root .bac-row { position: relative; display: flex; align-items: center; gap: 8px; padding: 3px 6px;
+#bac-root .bac-row { position: relative; display: flex; align-items: flex-start; gap: 8px; padding: 3px 6px;
   border-radius: 7px; border: 1px solid transparent; background: var(--bac-bg); box-sizing: border-box;
   transition: opacity 180ms ease, height 180ms ease, margin 180ms ease, padding 180ms ease, box-shadow 160ms ease; }
 #bac-root .bac-row:hover { border-color: var(--bac-border); }
@@ -74,6 +74,26 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-label::placeholder { color: var(--bac-muted); opacity: .6; font-style: italic; }
 #bac-root .bac-label:focus::placeholder { color: transparent; }
 #bac-root .bac-label:focus { outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
+#bac-root .bac-handle, #bac-root .bac-pos, #bac-root .bac-usage { height: 26px; box-sizing: border-box; display: inline-flex; align-items: center; }
+#bac-root .bac-pos, #bac-root .bac-usage { justify-content: flex-end; }
+#bac-root .bac-visible { margin-top: 6px !important; }
+#bac-root .bac-swatch { margin-top: 2px !important; }
+#bac-root .bac-del { margin-top: 1px !important; }
+#bac-root .bac-labelcol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#bac-root .bac-labelcol .bac-label { flex: none; }
+#bac-root .bac-desc { display: flex; flex-direction: column; min-width: 0; }
+#bac-root .bac-desc-toggle { -moz-appearance: none; appearance: none; display: flex; align-items: baseline; gap: 5px; max-width: 100%;
+  margin: 1px 0 0; padding: 1px 7px; border: 0; border-radius: 4px; background: transparent; color: var(--bac-muted);
+  font: inherit; font-size: 12px; text-align: start; cursor: pointer; min-width: 0; min-height: 0; }
+#bac-root .bac-desc-toggle:hover { color: var(--fill-primary, CanvasText); background: var(--bac-raise); }
+#bac-root .bac-desc-toggle:focus-visible { outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); }
+#bac-root .bac-desc-caret { flex: none; display: inline-block; transition: transform 120ms ease; }
+#bac-root .bac-desc-open .bac-desc-caret { transform: rotate(90deg); }
+#bac-root .bac-desc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#bac-root .bac-desc-empty .bac-desc-text { font-style: italic; opacity: .75; }
+#bac-root .bac-desc-area { box-sizing: border-box; width: 100%; margin: 3px 0 4px; padding: 4px 7px; resize: vertical; min-height: 3.6em;
+  font: inherit; line-height: 1.4; border-radius: 5px; border: 1px solid var(--bac-border); background: var(--bac-bg); color: inherit; }
+#bac-root .bac-desc-area:focus { outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
 #bac-root .bac-usage { font-size: 11px; color: var(--bac-muted); width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; }
 #bac-root .bac-del { -moz-appearance: none; appearance: none; border: none; background: transparent; color: var(--bac-muted);
   cursor: pointer; font-size: 12px; width: 24px; height: 24px; border-radius: 50%; padding: 0; margin: 0; min-width: 0; }

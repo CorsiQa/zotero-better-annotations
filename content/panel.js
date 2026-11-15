@@ -563,6 +563,11 @@ BetterAnnotations.PanelView = class {
   }
 
   render() {
+    if (this.editing) {
+      // Do not rebuild while a description is being edited
+      this.pendingRender = true;
+      return;
+    }
     try {
       this._render();
     }
@@ -629,7 +634,12 @@ BetterAnnotations.PanelView = class {
       }
       select.append(opt);
     });
-    const bar = this.h("div", { class: "bac-p-bar" }, select);
+    const descKey = this.kind === "section" ? "sectionDescriptions" : "popoutDescriptions";
+    const showDesc = SB.setting(descKey) === true;
+    const bar = this.h("div", { class: "bac-p-bar" }, select,
+      this.iconButton("describe", S("panelDescriptions"), () => {
+        SB.Store.setSetting(descKey, !showDesc).catch(err => SB.logError(err));
+      }, showDesc));
     if (this.kind === "section") {
       bar.append(this.iconButton("popout", S("panelPopout"), () => Panel.openPopout()));
     }
@@ -652,12 +662,12 @@ BetterAnnotations.PanelView = class {
     const entries = profile.standard ? profile.colors : SB.visibleColors(profile);
     for (const entry of entries) {
       seen.add(entry.color);
-      rows.push({ color: entry.color, name: entry.label.trim() || SB.stockName(entry.color) || entry.color, n: counts.get(entry.color) || 0, hidden: false });
+      rows.push({ color: entry.color, name: entry.label.trim() || SB.stockName(entry.color) || entry.color, n: counts.get(entry.color) || 0, hidden: false, entry });
     }
     for (const [color, n] of counts) {
       if (!seen.has(color)) {
         const entry = profile.colors.find(c => c.color === color);
-        rows.push({ color, name: SB.displayName(color, profile), n, hidden: !!entry, other: !entry });
+        rows.push({ color, name: SB.displayName(color, profile), n, hidden: !!entry, other: !entry, entry });
       }
     }
     const clickable = !!reader && !reader._state?.readOnly;
@@ -672,7 +682,11 @@ BetterAnnotations.PanelView = class {
         name,
         this.h("span", { class: "bac-p-n" + (r.n ? "" : " bac-p-zero"), text: String(r.n) }),
       ];
-      const tip = S("panelRowTip", { label: r.name, n: r.n });
+      const description = r.entry ? SB.cleanDescription(r.entry.description) : "";
+      let tip = S("panelRowTip", { label: r.name, n: r.n });
+      if (description && !showDesc) {
+        tip += "\n" + SB.shortDescription(description);
+      }
       let row;
       if (clickable) {
         const active = toolColor === r.color;
@@ -692,9 +706,19 @@ BetterAnnotations.PanelView = class {
       else {
         row = this.h("div", { class: "bac-p-row", title: tip }, content);
       }
-      listEl.append(this.h("div", { role: "listitem" }, row));
+      const item = this.h("div", { role: "listitem", class: "bac-p-item" }, row);
+      if (showDesc && description && !(this.editing && r.entry && this.editing.id === r.entry.id)) {
+        item.append(this.h("div", { class: "bac-p-desc" + (this.kind === "section" ? " bac-p-clamp" : ""), text: description, title: this.kind === "section" ? description : null }));
+      }
+      if (showDesc && this.kind === "popout" && r.entry && !profile.preset) {
+        item.append(this.descriptionControls(profile, r.entry, description));
+      }
+      listEl.append(item);
     }
     parts.push(listEl);
+    if (showDesc && this.kind === "popout" && profile.preset) {
+      parts.push(this.h("div", { class: "bac-p-hint", text: S("panelPresetDescHint") }));
+    }
     if (!target && this.kind === "popout") {
       // nothing more to say: the line above asks to open a document
     }
@@ -709,6 +733,75 @@ BetterAnnotations.PanelView = class {
       }
       catch (e) {}
     }
+  }
+
+  /** Separate window: add or edit the description of a label (saved to the profile right away). */
+  descriptionControls(profile, entry, description) {
+    const S = (k, a) => this.S(k, a);
+    const SB = this.SB;
+    const key = "desc-" + entry.id;
+    if (!this.editing || this.editing.id !== entry.id) {
+      return this.h("button", {
+        class: "bac-p-link",
+        "data-key": key,
+        "aria-label": S(description ? "panelEditDescriptionFor" : "panelAddDescriptionFor", { label: entry.label.trim() || entry.color }),
+        on: {
+          click: () => {
+            this.editing = { id: entry.id };
+            this._render();
+            this.root.querySelector(".bac-p-area")?.focus();
+          },
+        },
+      }, S(description ? "panelEditDescription" : "btnAddDescription"));
+    }
+    const area = this.h("textarea", {
+      class: "bac-p-area",
+      rows: "4",
+      maxlength: String(SB.MAX_DESCRIPTION),
+      placeholder: S("phDescription"),
+      "aria-label": S("ariaDescription", { label: entry.label.trim() || entry.color }),
+    });
+    area.value = this.editing.draft ?? description;
+    area.addEventListener("input", () => {
+      this.editing.draft = area.value;
+    });
+    const finish = async (save) => {
+      const value = area.value;
+      this.editing = null;
+      if (save) {
+        try {
+          const stored = SB.Store.getProfile(profile.id);
+          if (stored && !SB.Store.isPreset(profile.id)) {
+            const copy = JSON.parse(JSON.stringify(stored));
+            const target = copy.colors.find(c => c.id === entry.id);
+            if (target) {
+              target.description = SB.cleanDescription(value);
+              await SB.Store.saveProfile(copy);
+            }
+          }
+        }
+        catch (e) {
+          SB.logError(e);
+        }
+      }
+      this.pendingRender = false;
+      this._render();
+      this.root.querySelector("[data-key=\"" + key + "\"]")?.focus();
+    };
+    area.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        finish(false);
+      }
+      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        finish(true);
+      }
+    });
+    return this.h("div", { class: "bac-p-edit" }, area,
+      this.h("div", { class: "bac-p-edit-bar" },
+        this.h("button", { class: "bac-p-btn", on: { click: () => finish(false) } }, S("dlgCancel")),
+        this.h("button", { class: "bac-p-btn bac-p-primary", on: { click: () => finish(true) } }, S("btnSave"))));
   }
 
   style() {
@@ -735,6 +828,16 @@ button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15));
 .bac-p-name i { color: var(--fill-secondary, #777); }
 .bac-p-n { font-variant-numeric: tabular-nums; color: var(--fill-secondary, #666); }
 .bac-p-zero { opacity: .55; }
+.bac-p-desc { margin: 0 6px 4px 26px; color: var(--fill-secondary, #666); white-space: pre-line; overflow-wrap: anywhere; font-size: .95em; line-height: 1.35; }
+.bac-p-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.bac-p-link { appearance: none; margin: 0 6px 4px 26px; padding: 0; border: 0; background: none; color: var(--accent-blue, #2e7bd1);
+  font: inherit; font-size: .92em; cursor: pointer; text-align: start; }
+.bac-p-link:hover { text-decoration: underline; }
+.bac-p-link:focus-visible, .bac-p-btn:focus-visible { outline: 2px solid var(--color-focus-border, var(--accent-blue, #2e7bd1)); outline-offset: 1px; }
+.bac-p-edit { margin: 2px 6px 8px 26px; display: flex; flex-direction: column; gap: 4px; }
+.bac-p-area { box-sizing: border-box; width: 100%; resize: vertical; min-height: 5em; font: inherit; line-height: 1.4; padding: 4px 6px; }
+.bac-p-edit-bar { display: flex; justify-content: flex-end; gap: 6px; }
+.bac-p-btn { font: inherit; }
 .bac-p-hint { margin-top: 6px; color: var(--fill-secondary, #666); font-size: .92em; }
 `;
     return st;

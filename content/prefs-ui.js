@@ -230,12 +230,13 @@ BetterAnnotations.PaneController = class {
     for (const c of this.draft.colors) {
       c.label = typeof c.label === "string" ? c.label : "";
       c.enabled = c.enabled !== false;
+      c.description = typeof c.description === "string" ? c.description : "";
     }
     this.snapshot = this.serialize(this.draft);
   }
 
   serialize(d) {
-    return JSON.stringify(d.colors.map(c => [c.id, c.color, c.label, c.enabled !== false]));
+    return JSON.stringify(d.colors.map(c => [c.id, c.color, c.label, c.enabled !== false, this.SB.cleanDescription(c.description)]));
   }
 
   isDirty() {
@@ -343,7 +344,7 @@ BetterAnnotations.PaneController = class {
     this.saveBtn = this.button(S("btnSave"), () => this.save());
     this.discardBtn = this.button(S("btnDiscard"), () => this.discard());
     const paletteBtn = this.button(S("btnApplyPalette"), () => this.openPaletteMenu(paletteBtn), { tooltip: S("applyPaletteHint") });
-    colors.append(this.card(S("secColors"), S("infoColors"), null,
+    colors.append(this.card(S("secColors"), S("infoColors") + "\n\n" + S("infoDescriptions"), null,
       this.listEl,
       this.h("div", { class: "bac-bar bac-end" }, this.addBtn),
       this.h("div", { class: "bac-bar bac-actions" },
@@ -773,7 +774,20 @@ BetterAnnotations.PaneController = class {
   }
 
   onStoreChange(what) {
-    if (this._self || what !== "active" || this.Store.data.activeProfileId === this.baseId) {
+    if (this._self) {
+      return;
+    }
+    // A description was edited elsewhere (separate window): take it over if nothing is pending here
+    if (what === "profiles" && !this.isDirty() && this.Store.getProfile(this.baseId)
+      && this.serialize(this.Store.getProfile(this.baseId)) !== this.snapshot) {
+      this.loadDraft(this.baseId);
+      if (this.listEl) {
+        this.renderList();
+        this.updateDirty();
+      }
+      return;
+    }
+    if (what !== "active" || this.Store.data.activeProfileId === this.baseId) {
       return;
     }
     if (!this.isDirty()) {
@@ -896,6 +910,9 @@ BetterAnnotations.PaneController = class {
     const format = SB.setting("exportFormat");
     const images = this.checkbox(S("optExportImages"), SB.setting("exportImages") !== false, v => set("exportImages", v));
     images.hidden = format === "csv";
+    // HTML shows the descriptions in the legend at the top
+    const descriptions = this.checkbox(S("optExportDescriptions"), SB.setting("exportDescriptions") === true, v => set("exportDescriptions", v));
+    descriptions.hidden = format === "html";
     const formatMenu = this.menulist([
       { value: "xlsx", label: S("fmtXlsx") },
       { value: "csv", label: S("fmtCsv") },
@@ -903,6 +920,7 @@ BetterAnnotations.PaneController = class {
     ], format, (v) => {
       set("exportFormat", v);
       images.hidden = v === "csv";
+      descriptions.hidden = v === "html";
       formatHint.textContent = S(v === "csv" ? "fmtCsvHint" : v === "html" ? "fmtHtmlHint" : "fmtXlsxHint");
     });
     const formatHint = this.h("div", { class: "bac-hint", text: S(format === "csv" ? "fmtCsvHint" : format === "html" ? "fmtHtmlHint" : "fmtXlsxHint") });
@@ -922,6 +940,7 @@ BetterAnnotations.PaneController = class {
       formatHint,
       this.h("div", { class: "bac-sub" },
         images,
+        descriptions,
         this.checkbox(S("optExportLabeled"), SB.setting("exportLabeledOnly") === true, (v) => {
           set("exportLabeledOnly", v).then(() => this.updateExportCount());
         }),
@@ -980,6 +999,7 @@ BetterAnnotations.PaneController = class {
       }
       const n = await E.write(path, format, rows, {
         images: SB.setting("exportImages") !== false,
+        descriptions: format !== "html" && SB.setting("exportDescriptions") === true,
         sort: SB.setting("exportSort"),
         profile: profile.name,
         profileObj: profile,
@@ -1434,6 +1454,7 @@ BetterAnnotations.PaneController = class {
         },
       },
     });
+    const labelCol = this.h("div", { class: "bac-labelcol" }, input, this.descriptionEditor(entry));
     const usage = this.h("span", { class: "bac-usage" });
     const del = this.h("button", {
       class: "bac-del",
@@ -1442,8 +1463,71 @@ BetterAnnotations.PaneController = class {
       text: "✕",
       on: { click: () => this.removeColor(entry.id) },
     });
-    row.append(handle, visible, pos, swatch, input, usage, del);
+    row.append(handle, visible, pos, swatch, labelCol, usage, del);
     return row;
+  }
+
+  /**
+   * Description below the label: a button with the first line (or
+   * “Add description”) opens a multi-line field. Plain text with line breaks.
+   */
+  descriptionEditor(entry) {
+    const S = (k, a) => this.S(k, a);
+    const id = "bac-desc-" + entry.id;
+    const summary = this.h("span", { class: "bac-desc-text" });
+    const caret = this.h("span", { class: "bac-desc-caret", "aria-hidden": "true", text: "›" });
+    const toggle = this.h("button", {
+      class: "bac-desc-toggle",
+      type: "button",
+      "aria-expanded": "false",
+      "aria-controls": id,
+    }, caret, summary);
+    const area = this.h("textarea", {
+      id,
+      class: "bac-desc-area",
+      rows: "3",
+      maxlength: String(this.SB.MAX_DESCRIPTION),
+      placeholder: S("phDescription"),
+      "aria-label": S("ariaDescription", { label: entry.label.trim() || entry.color }),
+      hidden: true,
+    });
+    area.value = entry.description || "";
+    const update = () => {
+      const first = this.SB.cleanDescription(entry.description).split("\n")[0];
+      summary.textContent = first || S("btnAddDescription");
+      toggle.classList.toggle("bac-desc-empty", !first);
+      toggle.setAttribute("title", first ? this.SB.shortDescription(entry.description, 8, 600) : S("btnAddDescription"));
+    };
+    const grow = () => {
+      area.style.height = "auto";
+      area.style.height = Math.min(240, area.scrollHeight + 2) + "px";
+    };
+    const setOpen = (open) => {
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      area.hidden = !open;
+      toggle.classList.toggle("bac-desc-open", open);
+      if (open) {
+        grow();
+        area.focus();
+      }
+    };
+    toggle.addEventListener("click", () => setOpen(area.hidden));
+    area.addEventListener("input", () => {
+      entry.description = area.value;
+      update();
+      grow();
+      this.updateDirty();
+    });
+    area.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        toggle.focus();
+      }
+    });
+    update();
+    return this.h("div", { class: "bac-desc" }, toggle, area);
   }
 
   rowFor(id) {
@@ -1897,6 +1981,20 @@ BetterAnnotations.PaneController = class {
     const Library = this.Library;
     const base = this.Store.getProfile(this.baseId);
     const baseEntry = c => base && base.colors.find(x => x.id === c.id);
+    // Descriptions edited in the separate window meanwhile win over unchanged ones here
+    try {
+      const loaded = new Map(JSON.parse(this.snapshot).map(([id, , , , desc]) => [id, desc]));
+      for (const c of this.draft.colors) {
+        const o = baseEntry(c);
+        if (o && loaded.has(c.id) && SB.cleanDescription(c.description) === loaded.get(c.id)
+          && SB.cleanDescription(o.description) !== loaded.get(c.id)) {
+          c.description = o.description || "";
+        }
+      }
+    }
+    catch (e) {
+      SB.logError(e);
+    }
 
     // 1. Changed colors that are already in use
     const used = [];

@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS.pt = {
   "panelRowTip": "{label}: {n} anotação(ões)",
   "secItemPane": "Painel do item",
   "infoItemPane": "Adiciona a seção “Rótulos de anotação” ao painel do item do Zotero, na biblioteca e ao lado do leitor. Mostra os rótulos do perfil ativo e quantas anotações cada rótulo tem. No leitor, um clique em um rótulo seleciona sua cor para a próxima anotação.\n\nO botão com a seta abre a mesma lista em uma janela separada. A janela acompanha a aba ativa do leitor, então você pode colocá-la em uma segunda tela.",
-  "optItemPaneSection": "Mostrar a seção “Rótulos de anotação” no painel do item"
+  "optItemPaneSection": "Mostrar a seção “Rótulos de anotação” no painel do item",
+  "btnAddDescription": "Adicionar descrição",
+  "phDescription": "O que este rótulo representa? Quando você o usa?",
+  "ariaDescription": "Descrição de “{label}”",
+  "panelDescriptions": "Mostrar descrições",
+  "panelEditDescription": "Editar descrição",
+  "panelEditDescriptionFor": "Editar a descrição de “{label}”",
+  "panelAddDescriptionFor": "Adicionar uma descrição a “{label}”",
+  "panelPresetDescHint": "Os perfis integrados não podem ser alterados. Para adicionar descrições, crie seu próprio perfil nas configurações.",
+  "colDescription": "Descrição",
+  "optExportDescriptions": "Adicionar as descrições dos rótulos como coluna",
+  "infoDescriptions": "Abaixo de cada rótulo você pode adicionar uma descrição, por exemplo o que o rótulo representa e quando você o usa. As descrições aparecem nas dicas, na seção “Rótulos de anotação” e nas exportações."
 };

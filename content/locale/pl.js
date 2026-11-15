@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS.pl = {
   "panelRowTip": "{label}: adnotacje: {n}",
   "secItemPane": "Panel pozycji",
   "infoItemPane": "Dodaje sekcję „Etykiety adnotacji” do panelu pozycji w Zotero, w bibliotece i obok czytnika. Pokazuje etykiety aktywnego profilu i liczbę adnotacji z każdą etykietą. W czytniku kliknięcie etykiety wybiera jej kolor dla następnej adnotacji.\n\nPrzycisk ze strzałką otwiera tę samą listę w osobnym oknie. Okno podąża za aktywną kartą czytnika, więc możesz umieścić je na drugim ekranie.",
-  "optItemPaneSection": "Pokazuj sekcję „Etykiety adnotacji” w panelu pozycji"
+  "optItemPaneSection": "Pokazuj sekcję „Etykiety adnotacji” w panelu pozycji",
+  "btnAddDescription": "Dodaj opis",
+  "phDescription": "Co oznacza ta etykieta? Kiedy jej używasz?",
+  "ariaDescription": "Opis etykiety „{label}”",
+  "panelDescriptions": "Pokaż opisy",
+  "panelEditDescription": "Edytuj opis",
+  "panelEditDescriptionFor": "Edytuj opis etykiety „{label}”",
+  "panelAddDescriptionFor": "Dodaj opis do etykiety „{label}”",
+  "panelPresetDescHint": "Wbudowanych profili nie można zmieniać. Aby dodać opisy, utwórz własny profil w ustawieniach.",
+  "colDescription": "Opis",
+  "optExportDescriptions": "Dodaj opisy etykiet jako kolumnę",
+  "infoDescriptions": "Pod każdą etykietą możesz dodać opis, na przykład co oznacza etykieta i kiedy jej używasz. Opisy pojawiają się w podpowiedziach, w sekcji „Etykiety adnotacji” i w eksportach."
 };

@@ -11,6 +11,9 @@ Changes for the next release are collected here. The section is renamed to the v
 - Excel export: column widths follow the heading and the typical content, within sensible limits; images are scaled to the width of the column
 - New section “Annotation Labels” in the item pane, in the library and next to the reader: labels of the active profile with the number of annotations, profile selection and a link to the settings. In the reader, a click on a label selects its color for the next annotation. Can be turned off under “Menus & Reader”
 - The same list in a separate window that follows the active reader tab, for example on a second screen
+- Descriptions for labels: add a description below each label in the settings, for example what the label stands for and when to use it. Descriptions appear in the tooltips of the selection popup, the context menu, the statistics and the sidebar filter, in the section “Annotation Labels” (can be shown and hidden) and in the separate window, where they can also be edited
+- Export: the “Labels” sheet lists the descriptions, the HTML report starts with a legend of the labels, and Excel and CSV can add a column “Description”
+- Profile files and full backups include the descriptions; older files remain valid
 
 ## 1.0.0-beta.1 – 2026-11-13
 
