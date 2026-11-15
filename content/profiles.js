@@ -28,7 +28,7 @@ BetterAnnotations.Profiles = {
   _readers: new WeakMap(), // reader -> { id, source, ctx, token }
   _files: new Map(), // attachment ID -> { id, source, token } (library)
   _restored: new WeakSet(), // readers that were open before the plugin started
-  _wrapped: new Map(), // reader -> original addAnnotation
+  _wrapped: new Map(), // reader -> { manager, original, token }
   _observerID: null,
   _saveTimer: null,
   _token: 0,
@@ -745,18 +745,14 @@ BetterAnnotations.Profiles = {
   },
 
   /**
-   * Entries for a profile menu: profiles with annotations in the document
-   * (with their number), then the other profiles.
+   * Entries for a profile menu, always in the order of the profiles: each
+   * with its number of annotations in the document (0 without the function).
    */
-  menuGroups(summary) {
-    const all = this.Store.listForMenu();
-    if (!this.enabled()) {
-      return { inDoc: [], others: all };
-    }
-    const inDoc = all.filter(p => summary.byProfile.get(p.id)).map(p => Object.assign({}, p, { n: summary.byProfile.get(p.id) }));
-    const others = all.filter(p => !summary.byProfile.get(p.id));
-    return { inDoc, others };
+  menuEntries(summary) {
+    const enabled = this.enabled();
+    return this.Store.listForMenu().map(p => Object.assign({}, p, { n: enabled ? summary.byProfile.get(p.id) || 0 : 0 }));
   },
+
 
   // -------------------------------------------------------------------
   // Profile tag for new annotations
@@ -771,6 +767,12 @@ BetterAnnotations.Profiles = {
    * active profile is added before the reader saves the new annotation.
    * Internal API: check after Zotero updates. Without it, onItems() adds
    * the tag afterwards.
+   *
+   * The wrapper does as little as possible while the reader is adding the
+   * annotation: it reads the profile from the cache and adds the tag.
+   * Everything else (tag color, filter) runs afterwards. The reader's own
+   * function is kept on the manager (__bacOriginal), so a wrapper is never
+   * wrapped again, not even one left by an earlier version of the plugin.
    */
   wrap(reader) {
     try {
@@ -780,24 +782,20 @@ BetterAnnotations.Profiles = {
         return;
       }
       const known = this._wrapped.get(reader);
-      if (known && manager.__bacWrapToken === known.token) {
+      if (known && known.manager === manager && manager.__bacWrapToken === known.token) {
         return;
       }
-      const original = manager.addAnnotation;
+      const original = typeof manager.__bacOriginal === "function" ? manager.__bacOriginal : manager.addAnnotation;
       const self = this;
       const wrapped = Components.utils.exportFunction(function (annotation) {
-        try {
-          self.addTagToNew(reader, annotation);
-        }
-        catch (e) {
-          self.SB.logError(e);
-        }
+        self.tagIncoming(reader, annotation);
         return original.call(manager, annotation);
       }, win);
       const token = "w" + (++this._token);
+      manager.__bacOriginal = original;
       manager.addAnnotation = wrapped;
       manager.__bacWrapToken = token;
-      this._wrapped.set(reader, { manager, original, wrapped, token });
+      this._wrapped.set(reader, { manager, original, token });
     }
     catch (e) {
       this.SB.log("could not wrap addAnnotation: " + e);
@@ -812,29 +810,95 @@ BetterAnnotations.Profiles = {
     }
     try {
       if (w.manager.__bacWrapToken === w.token) {
-        w.manager.addAnnotation = w.original;
+        w.manager.addAnnotation = w.manager.__bacOriginal || w.original;
+        delete w.manager.__bacOriginal;
         delete w.manager.__bacWrapToken;
       }
     }
     catch (e) {}
   },
 
-  addTagToNew(reader, annotation) {
-    if (!this.tagsEnabled()) {
+  /** The reader's own addAnnotation, without the wrapper. */
+  originalAdd(reader) {
+    const manager = reader._internalReader && reader._internalReader._annotationManager;
+    if (!manager) {
+      return null;
+    }
+    const fn = typeof manager.__bacOriginal === "function" ? manager.__bacOriginal : manager.addAnnotation;
+    return typeof fn === "function" ? { manager, fn } : null;
+  },
+
+  /** Profile of a reader from the cache, without starting anything (safe inside the reader's calls). */
+  cachedId(reader) {
+    if (!this.enabled()) {
+      return this.defaultId();
+    }
+    const entry = this._readers.get(reader);
+    return entry && this.Store.getProfile(entry.id) ? entry.id : this.defaultId();
+  },
+
+  /** Tags of a new annotation: without other profile tags, with the tag of the reader's profile. */
+  tagsForNew(reader, tags) {
+    const tag = this.tagFor(this.cachedId(reader));
+    const list = Array.from(tags || []).map(t => ({ name: String(t.name) })).filter(t => !this.isProfileTag(t.name));
+    if (tag) {
+      list.push({ name: tag });
+      this.colorLater(reader, tag);
+    }
+    return list;
+  },
+
+  /** Called by the wrapper for annotations the reader creates itself. */
+  tagIncoming(reader, annotation) {
+    if (this._tagging || !this.tagsEnabled()) {
       return;
     }
-    const tag = this.tagFor(this.forReader(reader));
-    if (!tag) {
+    this._tagging = true;
+    try {
+      const raw = Components.utils.waiveXrays(annotation);
+      if (!raw || typeof raw !== "object") {
+        return;
+      }
+      raw.tags = Components.utils.cloneInto(this.tagsForNew(reader, raw.tags), reader._iframeWindow);
+    }
+    catch (e) {
+      this.SB.logError(e);
+    }
+    finally {
+      this._tagging = false;
+    }
+  },
+
+  /**
+   * Create an annotation from the plugin (colors that are not Zotero's own):
+   * the tag is added here and the reader's own function is called directly,
+   * not through the wrapper.
+   */
+  addAnnotation(reader, payload) {
+    const target = this.originalAdd(reader);
+    if (!target) {
+      throw new Error("_internalReader._annotationManager missing");
+    }
+    const data = Object.assign({}, payload);
+    if (this.tagsEnabled()) {
+      data.tags = this.tagsForNew(reader, data.tags);
+    }
+    return target.fn.call(target.manager, Components.utils.cloneInto(data, reader._iframeWindow));
+  },
+
+  /** Give the tag its color after the reader has saved the annotation. */
+  colorLater(reader, tag) {
+    let libraryID = null;
+    try {
+      libraryID = this.readerItem(reader)?.libraryID;
+    }
+    catch (e) {}
+    if (libraryID === null || libraryID === undefined) {
       return;
     }
-    const raw = Components.utils.waiveXrays(annotation);
-    const tags = Array.from(raw.tags || []).map(t => ({ name: String(t.name) })).filter(t => !this.isProfileTag(t.name));
-    tags.push({ name: tag });
-    raw.tags = Components.utils.cloneInto(tags, reader._iframeWindow);
-    const item = this.readerItem(reader);
-    if (item) {
-      this.ensureTagColor(item.libraryID, tag);
-    }
+    this.SB.setTimeout(() => {
+      this.ensureTagColor(libraryID, tag).catch(e => this.SB.logError(e));
+    }, 1500);
   },
 
   // -------------------------------------------------------------------
@@ -1017,7 +1081,8 @@ BetterAnnotations.Profiles = {
       return;
     }
     entry.filterInit = true;
-    this.setFilter(reader, true);
+    // Not inside a call of the reader (forReader can run during one)
+    this.SB.setTimeout(() => this.setFilter(reader, true), 0);
   },
 
   /** Annotations of a reader without a profile tag. */

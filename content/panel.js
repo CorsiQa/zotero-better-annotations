@@ -853,13 +853,13 @@ BetterAnnotations.PanelView = class {
     return b;
   }
 
-  /** Profile menu: profiles with annotations here (with number), other profiles, “Manage Profiles…”. */
+  /** Profile menu: like the reader's: all profiles with their number in the document, “Manage Profiles…”. */
   openProfileMenu(anchor, active, summary) {
     const SB = this.SB;
     const P = SB.Profiles;
     const doc = this.doc;
     const target = this.target;
-    const { inDoc, others } = P.menuGroups(summary);
+    const entries = P.menuEntries(summary);
     const reader = this.Panel.readerOf(target);
     const choose = (id) => {
       const task = reader ? P.setForReader(reader, id) : P.setForFiles(target ? target.attachmentIDs : [], id);
@@ -871,13 +871,6 @@ BetterAnnotations.PanelView = class {
     }
     catch (e) {}
     if (popup && typeof popup.openPopup === "function") {
-      const caption = (text) => {
-        const mi = doc.createXULElement("menuitem");
-        mi.setAttribute("label", text);
-        mi.setAttribute("disabled", "true");
-        mi.classList.add("bac-menu-caption");
-        popup.append(mi);
-      };
       const add = (p) => {
         const mi = doc.createXULElement("menuitem");
         mi.setAttribute("type", "radio");
@@ -891,15 +884,7 @@ BetterAnnotations.PanelView = class {
         mi.addEventListener("command", () => choose(p.id));
         popup.append(mi);
       };
-      if (inDoc.length) {
-        caption(SB.S("menuInDocument"));
-        inDoc.forEach(add);
-        if (others.length) {
-          popup.append(doc.createXULElement("menuseparator"));
-          caption(SB.S("menuOtherProfiles"));
-        }
-      }
-      others.forEach(add);
+      entries.forEach(add);
       popup.append(doc.createXULElement("menuseparator"));
       const manage = doc.createXULElement("menuitem");
       manage.setAttribute("label", SB.S("menuManageProfiles"));
@@ -913,7 +898,6 @@ BetterAnnotations.PanelView = class {
     // Fallback without XUL (e.g. tests in a browser): a simple list below the button
     this.root.querySelector(".bac-p-fallback")?.remove();
     const menu = this.h("div", { class: "bac-p-fallback", role: "menu" });
-    const group = (text) => menu.append(this.h("div", { class: "bac-p-caption", text }));
     const add = (p) => {
       menu.append(this.h("button", {
         role: "menuitemradio",
@@ -926,14 +910,7 @@ BetterAnnotations.PanelView = class {
         },
       }, (p.id === active ? "✓ " : "") + p.name + (p.n ? " (" + p.n + ")" : "")));
     };
-    if (inDoc.length) {
-      group(SB.S("menuInDocument"));
-      inDoc.forEach(add);
-      if (others.length) {
-        group(SB.S("menuOtherProfiles"));
-      }
-    }
-    others.forEach(add);
+    entries.forEach(add);
     menu.append(this.h("button", {
       role: "menuitem",
       on: {
@@ -1009,6 +986,7 @@ BetterAnnotations.PanelView = class {
     const editable = showDesc && !profile.preset && !!SB.Store.getProfile(profile.id);
     const clickable = !!reader && !BetterAnnotations.readerState(reader)?.readOnly;
     const listEl = this.h("div", { class: "bac-p-list", role: "list" });
+    let snapshot = null;
     for (const r of rows) {
       const name = this.h("span", { class: "bac-p-name", text: r.name });
       if (r.hidden) {
@@ -1033,10 +1011,22 @@ BetterAnnotations.PanelView = class {
           "aria-pressed": active ? "true" : "false",
           title: tip + "\n" + S(active ? "panelClickHintOff" : "panelClickHint"),
           on: {
+            // Selected annotations or selected text: take them before the reader loses the focus
+            mousedown: () => {
+              snapshot = SB.Reader.selectionSnapshot(reader);
+            },
             click: () => {
-              SB.Reader.pickToolColor(reader, r.color);
-              if (SB.Reader.activeToolColor(reader)) {
-                Panel.armOneShot(reader, r.color);
+              const once = snapshot || SB.Reader.selectionSnapshot(reader); // keyboard: no mousedown
+              snapshot = null;
+              if (once) {
+                // Color the selection once; the tool is not changed
+                SB.Reader.colorSnapshot(reader, once, r.color);
+              }
+              else {
+                SB.Reader.pickToolColor(reader, r.color);
+                if (SB.Reader.activeToolColor(reader)) {
+                  Panel.armOneShot(reader, r.color);
+                }
               }
               SB.setTimeout(() => this.render(), 30);
             },
@@ -1255,7 +1245,6 @@ button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15));
 .bac-p-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
 .bac-p-link { -moz-appearance: none; appearance: none; border: none; background: none; padding: 0; color: var(--accent-blue, LinkText); font: inherit; cursor: pointer; text-decoration: underline; }
 .bac-p-link:focus-visible { outline: 2px solid var(--color-focus-border, Highlight); outline-offset: 1px; border-radius: 2px; }
-.bac-p-caption { padding: 4px 10px 2px; font-size: .85em; font-weight: 600; color: var(--fill-secondary, GrayText); }
 `;
     return st;
   }

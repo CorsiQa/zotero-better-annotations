@@ -15,13 +15,13 @@ BetterAnnotations.PREFS_CSS = `
   --bac-accent: var(--accent-blue, #2e7bd1); }
 #bac-root .bac-section { margin-bottom: 14px; }
 #bac-root .bac-intro { margin: 0 0 10px; color: var(--bac-muted); line-height: 1.45; }
-#bac-root .bac-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; padding-inline: 7px; }
+#bac-root .bac-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
 #bac-root .bac-bar > button, #bac-root .bac-bar > menulist, #bac-root .bac-logrow > button, #bac-root .bac-opt > menulist { margin: 0; }
 #bac-root .bac-end { justify-content: flex-end; }
 #bac-root .bac-no-usage .bac-usage { display: none; }
 #bac-root .bac-text { width: 12em; font: inherit; padding: 2px 5px; }
 #bac-root.bac-busy, #bac-root.bac-busy * { cursor: progress !important; }
-#bac-root .bac-logrow { display: flex; align-items: center; gap: 8px; padding: 4px 7px; border-bottom: 1px solid var(--bac-border); }
+#bac-root .bac-logrow { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--bac-border); }
 #bac-root .bac-logtext { flex: 1; min-width: 0; line-height: 1.4; }
 #bac-root .bac-undone .bac-logtext { opacity: .55; text-decoration: line-through; }
 #bac-root .bac-undone-label { margin: 0; }
@@ -175,11 +175,11 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-info:hover .bac-info-pop, #bac-root .bac-info:focus .bac-info-pop { display: block; }
 #bac-root .bac-info-par { display: block; white-space: pre-line; }
 #bac-root .bac-info-par + .bac-info-par { margin-top: 7px; }
-#bac-root .bac-sub { margin-top: 8px; padding-inline: 7px; }
+#bac-root .bac-sub { margin-top: 8px; }
 #bac-root .bac-about-text { margin: 0 0 6px; line-height: 1.5; }
 #bac-root .bac-credits { margin: 4px 0 0; padding-inline-start: 20px; line-height: 1.6; }
 #bac-root .bac-credits a { color: var(--bac-accent); cursor: pointer; }
-#bac-root .bac-library { margin: 6px 7px 8px; padding: 10px 12px; border-radius: 9px; border: 1px dashed var(--bac-border);
+#bac-root .bac-library { margin: 6px 0 8px; padding: 10px 12px; border-radius: 9px; border: 1px dashed var(--bac-border);
   background: color-mix(in srgb, var(--bac-accent) 4%, var(--bac-bg)); }
 #bac-root .bac-library-title { font-weight: 700; margin-bottom: 4px; }
 #bac-root .bac-chip.bac-chip-empty { border-style: dashed; color: var(--bac-muted); font-style: italic; }
@@ -199,7 +199,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-scope .bac-bar { flex-wrap: nowrap; }
 #bac-root .bac-scope-menu { flex: 1; min-width: 0; }
 #bac-root .bac-scope .bac-sub { margin-top: 0; }
-#bac-root .bac-recolor-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 6px 10px; margin: 6px 7px; }
+#bac-root .bac-recolor-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 6px 10px; margin: 6px 0; }
 #bac-root .bac-recolor-grid menulist { width: 100%; margin: 0; }
 #bac-root .bac-update-hint .bac-bar { margin: 6px 0 0; padding: 0; }
 #bac-root .bac-update-hint { margin-top: 6px; padding: 6px 9px; border-radius: 6px; font-size: 12px; line-height: 1.4;
@@ -210,11 +210,29 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-pal-row.bac-disabled { opacity: .5; cursor: default; }
 #bac-root .bac-pal-row.bac-disabled:hover { background: transparent; }
 #bac-root .bac-recent-hint { margin: 3px 0 0; font-size: 11px; }
+/* Same left edge for everything in a card: text, checkboxes, menus, buttons */
+#bac-root .bac-card checkbox { margin-inline: 0; }
+#bac-root .bac-checks { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 4px 0 6px; }
+#bac-root .bac-subsec { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bac-border); }
+#bac-root .bac-subsec > :last-child { margin-bottom: 0; }
+/* On/off switch in the head of a card */
+#bac-root .bac-switch { -moz-appearance: none; appearance: none; position: relative; flex: none; margin: 0; margin-inline-start: auto;
+  width: 32px; height: 18px; padding: 0; border-radius: 9px; box-sizing: border-box; cursor: pointer;
+  border: 1px solid var(--fill-secondary, #777); background: var(--bac-bg); }
+#bac-root .bac-switch-knob { position: absolute; top: 2px; inset-inline-start: 2px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--fill-secondary, #777); transition: inset-inline-start .12s ease; }
+#bac-root .bac-switch[aria-checked="true"] { background: var(--bac-accent); border-color: var(--bac-accent); }
+#bac-root .bac-switch[aria-checked="true"] .bac-switch-knob { inset-inline-start: 16px; background: #fff; }
+#bac-root .bac-switch:focus-visible { outline: 2px solid var(--bac-accent); outline-offset: 2px; }
+/* A card that is off: muted, only its short description */
+#bac-root .bac-card-off { background: var(--bac-raise); }
+#bac-root .bac-card-off .bac-card-head h3 { color: var(--bac-muted); }
+#bac-root .bac-card-off > :last-child > .bac-hint:last-child { margin-bottom: 0; }
 @media (prefers-reduced-motion: reduce) { #bac-root * { transition: none !important; } }
-#bac-root .bac-steps { margin: 4px 7px 8px; padding-inline-start: 22px; color: var(--bac-muted); line-height: 1.45; }
-#bac-root .bac-subhead { margin: 12px 7px 4px; font-size: 1em; font-weight: 600; }
+#bac-root .bac-steps { margin: 4px 0 8px; padding-inline-start: 22px; color: var(--bac-muted); line-height: 1.45; }
+#bac-root .bac-subhead { margin: 0 0 6px; font-size: 1em; font-weight: 600; }
 #bac-root .bac-rules { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px; }
-#bac-root .bac-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 4px 7px; border-bottom: 1px solid var(--bac-border); }
+#bac-root .bac-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 4px 0; border-bottom: 1px solid var(--bac-border); }
 #bac-root .bac-rule menulist { margin: 0; }
 #bac-root .bac-rule-coll { flex: 2 1 12em; min-width: 0; }
 #bac-root .bac-rule-profile { flex: 1 1 9em; min-width: 0; }

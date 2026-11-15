@@ -23,6 +23,7 @@ BetterAnnotations.Reader = {
   _handlers: null,
   _tip: null,
   _popupState: new WeakMap(),
+  _lastPopup: new WeakMap(), // reader -> selection popup shown last
   _menuSeq: 0,
 
   get SB() {
@@ -770,6 +771,46 @@ BetterAnnotations.Reader = {
     }
   },
 
+  /**
+   * What a click on a color in the item pane would color once: the selected
+   * annotations, else the selected text (while its popup is shown), else null.
+   * Taken on mousedown, before the reader loses the focus.
+   */
+  selectionSnapshot(reader) {
+    try {
+      const state = BetterAnnotations.readerState(reader);
+      if (!state || state.readOnly) {
+        return null;
+      }
+      const selected = Array.from(state.selectedAnnotationIDs || []);
+      if (selected.length) {
+        const ids = Array.from(state.annotations || [])
+          .filter(a => selected.includes(a.id) && !a.readOnly)
+          .map(a => String(a.id));
+        return ids.length ? { ids } : null;
+      }
+      const popup = this._lastPopup.get(reader);
+      const params = popup && popup.isConnected ? this._popupState.get(popup)?.params : null;
+      if (params && params.annotation) {
+        return { annotation: JSON.parse(JSON.stringify(params.annotation)) };
+      }
+    }
+    catch (e) {
+      this.SB.logError(e);
+    }
+    return null;
+  },
+
+  /** Color a snapshot from selectionSnapshot() once; the tool stays as it is. */
+  colorSnapshot(reader, snapshot, color) {
+    if (snapshot.ids) {
+      this.setAnnotationColor(reader, snapshot.ids, color);
+    }
+    else if (snapshot.annotation) {
+      this.createAnnotation(reader, snapshot.annotation, color);
+    }
+  },
+
   setToolColor(reader, color) {
     try {
       const arg = this.cloneIntoFrame(reader, { color });
@@ -801,13 +842,10 @@ BetterAnnotations.Reader = {
       if (BetterAnnotations.readerState(reader)?.readOnly) {
         return;
       }
-      const internal = reader._internalReader;
-      if (!internal || !internal._annotationManager) {
-        throw new Error("_internalReader._annotationManager missing");
-      }
       const type = BetterAnnotations.readerState(reader)?.textSelectionAnnotationMode === "underline" ? "underline" : "highlight";
       const payload = Object.assign(JSON.parse(JSON.stringify(annotation)), { type, color });
-      const result = internal._annotationManager.addAnnotation(this.cloneIntoFrame(reader, payload));
+      // Directly, with the profile tag; not through the wrapper (see Profiles.addAnnotation)
+      const result = SB.Profiles.addAnnotation(reader, payload);
       if (!result) {
         throw new Error("addAnnotation returned nothing (read-only?)");
       }
@@ -843,6 +881,7 @@ BetterAnnotations.Reader = {
         return;
       }
       this._popupState.set(popup, { reader, params });
+      this._lastPopup.set(reader, popup);
       if (popup.hasAttribute("data-bac-done")) {
         return;
       }
@@ -1437,6 +1476,35 @@ BetterAnnotations.Reader = {
     this._panels = keep;
   },
 
+  /** The reader document, its inner frames and the main window: where a click closes a panel. */
+  outsideDocs(doc) {
+    const docs = [doc];
+    const addFrames = (d, depth) => {
+      if (depth > 3) {
+        return;
+      }
+      for (const frame of d.querySelectorAll("iframe, browser")) {
+        try {
+          const inner = frame.contentDocument;
+          if (inner && !docs.includes(inner)) {
+            docs.push(inner);
+            addFrames(inner, depth + 1);
+          }
+        }
+        catch (e) {}
+      }
+    };
+    addFrames(doc, 0);
+    try {
+      const main = Zotero.getMainWindow && Zotero.getMainWindow();
+      if (main && main.document && !docs.includes(main.document)) {
+        docs.push(main.document);
+      }
+    }
+    catch (e) {}
+    return docs;
+  },
+
   /** Open a panel below a button; closes on a click outside or Esc. */
   openPanel(doc, anchor, kind, onClose) {
     this.closePanel(doc);
@@ -1466,15 +1534,25 @@ BetterAnnotations.Reader = {
         this.closePanel(doc, kind);
       }
     };
-    doc.addEventListener("mousedown", onDown, true);
-    doc.addEventListener("keydown", onKey, true);
+    // Clicks in the document itself happen in inner frames (the view) and do
+    // not reach `doc`; clicks in the item pane happen in the main window.
+    const docs = this.outsideDocs(doc);
+    for (const d of docs) {
+      d.addEventListener("mousedown", onDown, true);
+      d.addEventListener("keydown", onKey, true);
+    }
     this._panels.push({
       doc,
       kind,
       panel,
       cleanup: () => {
-        doc.removeEventListener("mousedown", onDown, true);
-        doc.removeEventListener("keydown", onKey, true);
+        for (const d of docs) {
+          try {
+            d.removeEventListener("mousedown", onDown, true);
+            d.removeEventListener("keydown", onKey, true);
+          }
+          catch (e) {}
+        }
         if (onClose) {
           onClose();
         }
@@ -1508,7 +1586,7 @@ BetterAnnotations.Reader = {
     panel.setAttribute("role", "menu");
     const active = P.forReader(reader);
     const summary = P.summarize(P.readerList(reader));
-    const { inDoc, others } = P.menuGroups(summary);
+    const entries = P.menuEntries(summary);
     const el = (cls, text) => {
       const d = doc.createElement("div");
       d.className = cls;
@@ -1542,14 +1620,7 @@ BetterAnnotations.Reader = {
       });
       panel.append(item);
     };
-    if (inDoc.length) {
-      panel.append(el("bac-group", SB.S("menuInDocument")));
-      inDoc.forEach(addItem);
-      if (others.length) {
-        panel.append(el("bac-sep"), el("bac-group", SB.S("menuOtherProfiles")));
-      }
-    }
-    others.forEach(addItem);
+    entries.forEach(addItem);
     const hint = P.sharedColorsText(summary);
     if (hint) {
       panel.append(el("bac-menu-hint bac-menu-warn", hint));

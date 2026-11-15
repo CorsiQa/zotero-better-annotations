@@ -141,6 +141,10 @@ BetterAnnotations.PaneController = class {
       if (it.disabled) {
         mi.setAttribute("disabled", "true");
       }
+      if (it.indent) {
+        // Indent in the list only; the closed menu shows the name without spaces
+        mi.style.paddingInlineStart = (12 + 16 * it.indent) + "px";
+      }
       if (it.value === selected) {
         mi.setAttribute("selected", "true");
       }
@@ -688,6 +692,51 @@ BetterAnnotations.PaneController = class {
     return card;
   }
 
+  /**
+   * On/off switch in the head of the card that contains `box`. A card that is
+   * off is shown muted; its options are hidden.
+   */
+  setCardSwitch(box, on, label, onChange) {
+    const card = box.closest(".bac-card");
+    if (!card) {
+      return;
+    }
+    const head = card.querySelector(".bac-card-head");
+    const title = head.querySelector("h3");
+    if (title && !title.id) {
+      title.id = this.SB.uid("bac-h");
+    }
+    head.querySelector(".bac-switch")?.remove();
+    const sw = this.h("button", {
+      class: "bac-switch",
+      role: "switch",
+      "aria-checked": on ? "true" : "false",
+      "aria-label": label,
+      "aria-describedby": title ? title.id : null,
+      title: label,
+      on: { click: () => onChange(!on) },
+    }, this.h("span", { class: "bac-switch-knob", "aria-hidden": "true" }));
+    head.append(sw);
+    card.classList.toggle("bac-card-off", !on);
+  }
+
+  /** Replace the content of a box; empty entries (null, false) are left out. */
+  fill(box, ...children) {
+    box.replaceChildren(...children.flat().filter(Boolean));
+  }
+
+  /** Part of a card with a thin line above and an optional heading. */
+  subsection(title, ...children) {
+    return this.h("div", { class: "bac-subsec" },
+      title ? this.h("h4", { class: "bac-subhead", text: title }) : null,
+      ...children);
+  }
+
+  /** Label and control in two columns. */
+  field(label, control) {
+    return this.h("div", { class: "bac-recolor-grid" }, this.h("label", { text: label }), control);
+  }
+
   /** Small “i” that shows an explanation on hover or focus. */
   info(text) {
     const pop = this.h("span", { class: "bac-info-pop", role: "tooltip" },
@@ -876,6 +925,18 @@ BetterAnnotations.PaneController = class {
   renderTags() {
     const S = (k, a) => this.S(k, a);
     const enabled = !!this.SB.setting("tagsEnabled");
+    const n = this.Library.registry.size;
+    this.setCardSwitch(this.tagsBox, enabled, S("optTagsEnabled"), v => this.onTagsToggle(v));
+    const removeBar = this.h("div", { class: "bac-bar" },
+      this.button(S("btnRemoveTags"), () => this.removeTags(), { disabled: !n }));
+    if (!enabled) {
+      // Tags added earlier can still be removed
+      this.fill(this.tagsBox,
+        this.h("div", { class: "bac-hint", text: S("tagsIntro") }),
+        n ? this.subsection(null, this.h("div", { class: "bac-hint", text: S("tagsCount", { n }) }), removeBar) : null,
+      );
+      return;
+    }
     const prefix = this.h("input", {
       class: "bac-text",
       type: "text",
@@ -883,15 +944,16 @@ BetterAnnotations.PaneController = class {
       maxlength: "40",
       on: { change: e => this.own(() => this.Store.setSetting("tagPrefix", e.target.value)) },
     });
-    this.tagsBox.replaceChildren(
+    this.fill(this.tagsBox,
       this.h("div", { class: "bac-hint", text: S("tagsIntro") }),
-      this.checkbox(S("optTagsEnabled"), enabled, v => this.onTagsToggle(v)),
-      this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optTagPrefix") }), prefix),
+      this.field(S("optTagPrefix"), prefix),
       this.h("div", { class: "bac-hint", text: S("tagPrefixHint") }),
-      this.h("div", { class: "bac-hint", text: S("tagsCount", { n: this.Library.registry.size }) }),
-      this.h("div", { class: "bac-bar" },
-        this.button(S("btnApplyTags"), () => this.applyTags()),
-        this.button(S("btnRemoveTags"), () => this.removeTags(), { disabled: !this.Library.registry.size }),
+      this.subsection(null,
+        this.h("div", { class: "bac-hint", text: S("tagsCount", { n }) }),
+        this.h("div", { class: "bac-bar" },
+          this.button(S("btnApplyTags"), () => this.applyTags()),
+          this.button(S("btnRemoveTags"), () => this.removeTags(), { disabled: !n }),
+        ),
       ),
     );
   }
@@ -934,7 +996,7 @@ BetterAnnotations.PaneController = class {
       }
       items.push({ value: "lib-" + lib.libraryID, label: lib.name, disabled: true });
       for (const c of colls) {
-        items.push({ value: lib.libraryID + "/" + c.key, label: "\u2003".repeat((c.level || 0) + 1) + c.name });
+        items.push({ value: lib.libraryID + "/" + c.key, label: c.name, indent: (c.level || 0) + 1 });
       }
     }
     return items;
@@ -953,9 +1015,9 @@ BetterAnnotations.PaneController = class {
     const S = (k, a) => this.S(k, a);
     const Store = this.Store;
     const P = this.SB.Profiles;
-    const toggle = this.checkbox(S("optProfilesPerDocument"), P.enabled(), v => this.onProfilesToggle(v));
+    this.setCardSwitch(this.docProfileBox, P.enabled(), S("optProfilesPerDocument"), v => this.onProfilesToggle(v));
     if (!P.enabled()) {
-      this.docProfileBox.replaceChildren(this.h("div", { class: "bac-hint", text: S("docProfileIntro") }), toggle);
+      this.fill(this.docProfileBox, this.h("div", { class: "bac-hint", text: S("docProfileIntro") }));
       return;
     }
     const profiles = Store.listForMenu();
@@ -989,6 +1051,9 @@ BetterAnnotations.PaneController = class {
       });
       collMenu.classList.add("bac-rule-coll");
       collMenu.setAttribute("aria-label", S("ruleCollection"));
+      if (coll) {
+        collMenu.setAttribute("tooltiptext", this.collectionPath(coll)); // the full path; the menu shows the name
+      }
       const profMenu = this.menulist(profileItems, rule.profileId, (id) => {
         rule.profileId = id;
         saveRules();
@@ -1052,25 +1117,28 @@ BetterAnnotations.PaneController = class {
       this.assignProfile = v;
     });
     const count = this.h("div", { class: "bac-hint" });
-    this.docProfileBox.replaceChildren(
+    this.fill(this.docProfileBox,
       this.h("div", { class: "bac-hint", text: S("docProfileSummary") }),
-      toggle,
-      this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optDefaultProfile") }), defaultMenu),
-      this.checkbox(S("optProfileFilterDefault"), this.SB.setting("profileFilterDefault") === true,
-        v => this.own(() => Store.setSetting("profileFilterDefault", v))),
-      this.checkbox(S("optProfileTagColor"), this.SB.setting("profileTagColor") !== false,
-        v => this.own(() => Store.setSetting("profileTagColor", v)).then(() => P.syncTagColors())),
-      count,
-      this.h("h4", { class: "bac-subhead", text: S("rulesTitle") }),
-      rows.length
-        ? this.h("div", { class: "bac-rules", role: "list" }, rows)
-        : this.h("div", { class: "bac-hint", text: hasCollections ? S("rulesEmpty") : S("rulesNoCollections") }),
-      this.h("div", { class: "bac-bar bac-end" }, addBtn),
-      this.h("h4", { class: "bac-subhead", text: S("assignTitle") }),
-      this.h("div", { class: "bac-hint", text: S("assignIntro") }),
-      scope.el,
-      this.h("div", { class: "bac-recolor-grid" }, this.h("label", { text: S("assignTo") }), assignTarget),
-      this.h("div", { class: "bac-bar bac-end" }, this.button(S("btnAssignProfile"), () => this.assignProfileTags())),
+      this.field(S("optDefaultProfile"), defaultMenu),
+      this.h("div", { class: "bac-checks" },
+        this.checkbox(S("optProfileFilterDefault"), this.SB.setting("profileFilterDefault") === true,
+          v => this.own(() => Store.setSetting("profileFilterDefault", v))),
+        this.checkbox(S("optProfileTagColor"), this.SB.setting("profileTagColor") !== false,
+          v => this.own(() => Store.setSetting("profileTagColor", v)).then(() => P.syncTagColors())),
+      ),
+      this.subsection(S("rulesTitle"),
+        rows.length
+          ? this.h("div", { class: "bac-rules", role: "list" }, rows)
+          : this.h("div", { class: "bac-hint", text: hasCollections ? S("rulesEmpty") : S("rulesNoCollections") }),
+        this.h("div", { class: "bac-bar" }, addBtn),
+      ),
+      this.subsection(S("assignTitle"),
+        this.h("div", { class: "bac-hint", text: S("assignIntro") }),
+        count,
+        scope.el,
+        this.field(S("assignTo"), assignTarget),
+        this.h("div", { class: "bac-bar bac-end" }, this.button(S("btnAssignProfile"), () => this.assignProfileTags())),
+      ),
     );
     this.Library.countProfileTags().then((n) => {
       count.textContent = S("profileTagsCount", { n });
@@ -1083,14 +1151,13 @@ BetterAnnotations.PaneController = class {
     const SB = this.SB;
     const set = (key, value) => this.own(() => this.Store.setSetting(key, value));
     const on = SB.descriptionsOn();
-    const toggle = this.checkbox(S("optDescriptions"), on, async (v) => {
+    this.setCardSwitch(this.descBox, on, S("optDescriptions"), async (v) => {
       await set("descriptionsEnabled", v);
       this.render(); // the color list gets or loses its description fields
     });
-    this.descBox.replaceChildren(
+    this.fill(this.descBox,
       this.h("div", { class: "bac-hint", text: S("descriptionsIntro") }),
-      toggle,
-      on ? this.h("div", { class: "bac-indent" },
+      on ? this.h("div", { class: "bac-checks" },
         this.checkbox(S("optSectionDescriptions"), SB.setting("sectionDescriptions") === true, v => set("sectionDescriptions", v)),
         this.checkbox(S("optPopoutDescriptions"), SB.setting("popoutDescriptions") !== false, v => set("popoutDescriptions", v)),
         this.checkbox(S("optStatsDescriptions"), SB.setting("statsDescriptions") !== false, v => set("statsDescriptions", v)),
