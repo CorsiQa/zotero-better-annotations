@@ -81,13 +81,13 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-del { margin-top: 1px !important; }
 #bac-root .bac-labelcol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #bac-root .bac-labelcol .bac-label { flex: none; }
-#bac-root .bac-desc { display: block; box-sizing: border-box; width: 100%; min-height: 0; margin: 2px 0 0; padding: 2px 7px;
+#bac-root .bac-desc { display: block; box-sizing: border-box; width: 100%; min-height: 0; margin: 2px 0 0; padding: 3px 7px;
   resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 5px; background: transparent;
   color: var(--bac-muted); font: inherit; font-size: 12px; line-height: 1.4; }
-#bac-root .bac-desc:not(:focus) { max-height: calc(3 * 1.4em + 6px); }
+#bac-root .bac-desc:not(:focus) { max-height: calc(3 * 1.4em + 8px); }
 #bac-root .bac-desc::placeholder { color: var(--bac-muted); font-style: italic; opacity: .75; }
 #bac-root .bac-desc:hover { border-color: var(--bac-border); }
-#bac-root .bac-desc:focus { min-height: calc(3 * 1.4em + 6px); color: inherit; background: var(--bac-bg); border-color: var(--bac-border);
+#bac-root .bac-desc:focus { color: inherit; background: var(--bac-bg); border-color: var(--bac-border);
   outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
 #bac-root .bac-indent { padding-inline-start: 22px; }
 #bac-root .bac-usage { font-size: 11px; color: var(--bac-muted); width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; }

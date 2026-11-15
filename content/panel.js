@@ -29,7 +29,7 @@ BetterAnnotations.Panel = {
   _pollWin: null,
   _lastTabID: null,
   _collapsedContextPane: false,
-  POPOUT_MAX_WIDTH: 520,
+  POPOUT_MAX_WIDTH: 380,
 
   get SB() {
     return BetterAnnotations;
@@ -63,6 +63,8 @@ BetterAnnotations.Panel = {
   },
 
   shutdown() {
+    this.stopOneShot();
+    this._oneShot.clear();
     if (this._pollTimer && this._pollWin) {
       try {
         this._pollWin.clearInterval(this._pollTimer);
@@ -514,11 +516,65 @@ BetterAnnotations.Panel = {
 
   armOneShot(reader, color) {
     if (this.SB.setting("keepToolColor") === false) {
-      this._oneShot.set(reader, this.SB.normalize(color));
+      this._oneShot.set(reader, { color: this.SB.normalize(color), count: this.readerAnnotationCount(reader) });
+      this.watchOneShot();
     }
     else {
       this._oneShot.delete(reader);
     }
+  },
+
+  readerAnnotationCount(reader) {
+    try {
+      return Array.from(reader._state?.annotations || []).length;
+    }
+    catch (e) {
+      return -1;
+    }
+  },
+
+  /**
+   * The reader adds a new annotation to its own list right away, but saves it
+   * to the database (and reports it through the notifier) only after a short
+   * delay. Watching the list switches back to the pointer without that delay.
+   */
+  watchOneShot() {
+    const win = Zotero.getMainWindow && Zotero.getMainWindow();
+    if (!win || this._oneShotTimer) {
+      return;
+    }
+    this._oneShotWin = win;
+    this._oneShotTimer = win.setInterval(() => {
+      for (const [reader, state] of [...this._oneShot]) {
+        const active = this.SB.Reader.activeToolColor(reader);
+        if (active !== state.color) {
+          this._oneShot.delete(reader); // the user chose another tool meanwhile
+          continue;
+        }
+        const n = this.readerAnnotationCount(reader);
+        if (n > state.count) {
+          this._oneShot.delete(reader);
+          this.SB.Reader.pickToolColor(reader, state.color); // same color again = back to the pointer
+          this.refreshAll();
+        }
+        else if (n < state.count) {
+          state.count = n;
+        }
+      }
+      if (!this._oneShot.size) {
+        this.stopOneShot();
+      }
+    }, 80);
+  },
+
+  stopOneShot() {
+    if (this._oneShotTimer && this._oneShotWin) {
+      try {
+        this._oneShotWin.clearInterval(this._oneShotTimer);
+      }
+      catch (e) {}
+    }
+    this._oneShotTimer = null;
   },
 
   onAnnotationsAdded(ids) {
@@ -532,13 +588,13 @@ BetterAnnotations.Panel = {
     catch (e) {
       return;
     }
-    for (const [reader, color] of [...this._oneShot]) {
+    for (const [reader, state] of [...this._oneShot]) {
       if (!parents.includes(reader.itemID)) {
         continue;
       }
       this._oneShot.delete(reader);
-      if (this.SB.Reader.activeToolColor(reader) === color) {
-        this.SB.Reader.pickToolColor(reader, color); // same color again = back to the pointer
+      if (this.SB.Reader.activeToolColor(reader) === state.color) {
+        this.SB.Reader.pickToolColor(reader, state.color); // same color again = back to the pointer
       }
     }
   },
@@ -935,6 +991,7 @@ BetterAnnotations.PanelView = class {
       const item = this.h("div", { role: "listitem", class: "bac-p-item" }, row);
       const canEdit = editable && r.entry && profile.colors.some(c => c.id === r.entry.id);
       if (canEdit) {
+        item.classList.add("bac-p-editable");
         item.append(this.iconButtonEdit(r));
       }
       if (showDesc && r.entry && (description || this.reveal === r.entry.id)) {
@@ -1072,8 +1129,8 @@ BetterAnnotations.PanelView = class {
 .bac-p-fallback button { appearance: none; border: 0; background: none; text-align: start; padding: 3px 10px; font: inherit; color: inherit; }
 .bac-p-doc { font-weight: 600; margin: 2px 0 8px; overflow-wrap: anywhere; }
 .bac-p-list { display: flex; flex-direction: column; gap: 1px; }
-.bac-p-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
-.bac-p-row { appearance: none; grid-column: 1; display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center;
+.bac-p-item { position: relative; }
+.bac-p-row { appearance: none; display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center;
   width: 100%; box-sizing: border-box; margin: 0; padding: 3px 6px; border: 1px solid transparent; border-radius: 5px;
   background: transparent; color: inherit; font: inherit; text-align: start; }
 button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
@@ -1083,19 +1140,22 @@ button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15));
 .bac-p-name i { color: var(--fill-secondary, GrayText); }
 .bac-p-n { font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
 .bac-p-zero { opacity: .55; }
-.bac-p-edit-btn { appearance: none; grid-column: 2; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
-  margin: 0 0 0 2px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--fill-secondary, GrayText); opacity: 0; }
-.bac-p-item:hover .bac-p-edit-btn, .bac-p-item:focus-within .bac-p-edit-btn, .bac-p-edit-btn:focus-visible { opacity: 1; }
-.bac-p-desc { grid-column: 1; display: block; box-sizing: border-box; width: calc(100% - 20px); min-height: 0; margin: 0 0 4px 20px;
-  padding: 2px 7px; resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 5px; background: transparent;
+/* The pencil sits where the number is and covers it on hover or keyboard focus */
+.bac-p-edit-btn { appearance: none; position: absolute; top: 1px; right: 1px; display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent;
+  color: var(--fill-secondary, GrayText); opacity: 0; }
+.bac-p-item:hover .bac-p-edit-btn, .bac-p-item:focus-within .bac-p-edit-btn { opacity: 1; }
+.bac-p-editable:hover .bac-p-n, .bac-p-editable:focus-within .bac-p-n { visibility: hidden; }
+.bac-p-desc { display: block; box-sizing: border-box; width: calc(100% - 20px); min-height: 0; margin: 0 0 4px 20px;
+  padding: 3px 7px; resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 5px; background: transparent;
   color: var(--fill-secondary, GrayText); font: inherit; font-size: 12px; line-height: 1.4; }
 .bac-p-desc::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .75; }
 .bac-p-desc:not([readonly]):hover { border-color: var(--fill-quinary, rgba(127,127,127,.3)); }
-.bac-p-desc:not([readonly]):focus { min-height: calc(3 * 1.4em + 6px); color: var(--fill-primary, FieldText);
+.bac-p-desc:not([readonly]):focus { color: var(--fill-primary, FieldText);
   background: var(--material-background, Field); border-color: var(--fill-quinary, rgba(127,127,127,.3));
   outline: 2px solid color-mix(in srgb, var(--accent-blue, #2e7bd1) 55%, transparent); outline-offset: 0; }
 .bac-p-desc[readonly]:focus { outline: none; }
-.bac-p-clamp:not(:focus) { max-height: calc(3 * 1.4em + 6px); }
+.bac-p-clamp:not(:focus) { max-height: calc(3 * 1.4em + 8px); }
 .bac-p-hint { margin-top: 6px; color: var(--fill-secondary, GrayText); font-size: .92em; }
 `;
     return st;

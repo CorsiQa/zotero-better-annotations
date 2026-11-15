@@ -426,7 +426,10 @@ var BetterAnnotations = {
         return;
       }
       area.style.height = "auto";
-      area.style.height = area.scrollHeight + "px";
+      // scrollHeight excludes the border; with border-box sizing it must be added
+      const cs = area.ownerDocument.defaultView.getComputedStyle(area);
+      const border = cs.boxSizing === "border-box" ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : 0;
+      area.style.height = (area.scrollHeight + border) + "px";
     };
     let lastWidth = -1;
     try {
