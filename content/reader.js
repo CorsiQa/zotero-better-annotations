@@ -1196,7 +1196,12 @@ BetterAnnotations.Reader = {
 [data-bac-panel] .bac-item:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 [data-bac-panel] .bac-check { width: 12px; text-align: center; }
 [data-bac-panel] .bac-sep { height: 1px; margin: 4px 0; background: var(--fill-quinary, rgba(127,127,127,.3)); }
-[data-bac-panel] .bac-head { padding: 4px 12px 6px; font-weight: 600; }
+[data-bac-panel] .bac-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px 6px 12px; font-weight: 600; min-height: 24px; }
+[data-bac-panel] .bac-head-btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px;
+  margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; opacity: .75; cursor: default; }
+[data-bac-panel] .bac-head-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); opacity: 1; }
+[data-bac-panel] .bac-head-btn[aria-pressed="true"] { background: var(--fill-quinary, rgba(127,127,127,.2)); opacity: 1; }
+[data-bac-panel] .bac-head-btn:focus-visible { outline: 2px solid var(--color-focus-border, #2e7bd1); outline-offset: -1px; }
 [data-bac-panel] .bac-group { padding: 6px 12px 2px; font-size: 11px; font-weight: 600; color: var(--fill-secondary, GrayText); }
 [data-bac-panel] .bac-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 [data-bac-panel] .bac-item-n { margin-inline-start: 12px; font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
@@ -1210,7 +1215,7 @@ BetterAnnotations.Reader = {
 [data-bac-panel] .bac-stat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-bac-panel] .bac-stat-name i { opacity: .6; }
 [data-bac-panel] .bac-stat-n { font-variant-numeric: tabular-nums; opacity: .8; }
-[data-bac-panel] .bac-bar { grid-column: 2 / 4; height: 3px; border-radius: 2px; margin-top: 2px; }
+[data-bac-panel] .bac-bar { grid-column: 2 / 4; height: 3px; border-radius: 1.5px; margin-top: 2px; }
 [data-bac-panel] .bac-stat-desc { grid-column: 2 / 4; margin: 1px 0 3px; font-size: 12px; line-height: 1.3; white-space: pre-line;
   color: var(--fill-secondary, GrayText); }
 .bac-tip { position: fixed; z-index: 2147483647; pointer-events: none; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px;
@@ -1252,6 +1257,10 @@ BetterAnnotations.Reader = {
       add("circle", { cx: 4.8, cy: 8.2, r: 1.1, style: "fill:currentColor" });
       add("circle", { cx: 6.2, cy: 5, r: 1.1, style: "fill:currentColor" });
       add("circle", { cx: 9.6, cy: 4.6, r: 1.1, style: "fill:currentColor" });
+    }
+    else if (kind === "filter") {
+      // Funnel, as in the item pane
+      add("path", { d: "M2.5 3h11l-4.2 5v4.5l-2.6 1.3V8z", style: "fill:none;stroke:currentColor;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round" });
     }
     else if (kind === "chevron") {
       // Arrow like Zotero's dropdown buttons
@@ -1367,29 +1376,59 @@ BetterAnnotations.Reader = {
     const count = doc.createElement("span");
     count.className = "bac-tb-count";
     statsBtn.append(this.makeIcon(doc, "stats"), count);
-    let hoverTimer = null;
+    // Hover shows the statistics; the pointer can move onto them. A click
+    // (on the button or inside) keeps them open until a click outside or Esc.
+    const win = doc.defaultView;
+    let openTimer = null;
+    let closeTimer = null;
     let pinned = false;
+    const isOpen = () => !!doc.querySelector("[data-bac-panel=\"stats\"]");
+    const unpin = () => {
+      pinned = false;
+    };
+    const open = () => {
+      const panel = this.showStats(reader, doc, statsBtn, unpin);
+      panel.addEventListener("mouseenter", () => win.clearTimeout(closeTimer));
+      panel.addEventListener("mouseleave", () => closeSoon());
+      panel.addEventListener("mousedown", () => {
+        pinned = true;
+      });
+    };
+    const closeSoon = () => {
+      win.clearTimeout(closeTimer);
+      closeTimer = win.setTimeout(() => {
+        const panel = doc.querySelector("[data-bac-panel=\"stats\"]");
+        if (pinned || !panel || panel.matches(":hover") || statsBtn.matches(":hover")) {
+          return;
+        }
+        this.closePanel(doc, "stats");
+      }, 300);
+    };
     statsBtn.addEventListener("mouseenter", () => {
-      hoverTimer = doc.defaultView.setTimeout(() => this.showStats(reader, doc, statsBtn), 150);
+      win.clearTimeout(closeTimer);
+      if (!isOpen()) {
+        openTimer = win.setTimeout(open, 150);
+      }
     });
     statsBtn.addEventListener("mouseleave", () => {
-      doc.defaultView.clearTimeout(hoverTimer);
+      win.clearTimeout(openTimer);
       if (!pinned) {
-        this.closePanel(doc, "stats");
+        closeSoon();
       }
     });
     statsBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      pinned = !pinned;
+      win.clearTimeout(openTimer);
       if (pinned) {
-        this.showStats(reader, doc, statsBtn, () => {
-          pinned = false;
-        });
-      }
-      else {
         this.closePanel(doc, "stats");
+        pinned = false;
+        return;
       }
+      if (!isOpen()) {
+        open();
+      }
+      pinned = true;
     });
 
     wrap.append(profileBtn, statsBtn);
@@ -1399,17 +1438,18 @@ BetterAnnotations.Reader = {
     return wrap;
   },
 
-  /** Number next to the statistics icon: annotations of the active profile (or of all profiles). */
+  /** Number next to the statistics icon: the annotations shown (only the document's profile while filtered). */
   annotationCount(reader) {
     try {
       if (!BetterAnnotations.readerState(reader) || !BetterAnnotations.readerState(reader).annotations) {
         return null;
       }
-      const list = this.SB.Profiles.readerList(reader);
-      if (this.SB.setting("statsAllProfiles")) {
+      const P = this.SB.Profiles;
+      const list = P.readerList(reader);
+      if (!P.enabled() || !P.filterActive(reader)) {
         return list.length;
       }
-      const id = this.SB.Profiles.forReader(reader);
+      const id = P.forReader(reader);
       return list.filter(a => a.profile === id).length;
     }
     catch (e) {
@@ -1641,35 +1681,69 @@ BetterAnnotations.Reader = {
   },
 
   showStats(reader, doc, anchor, onClose) {
+    const { panel, place } = this.openPanel(doc, anchor, "stats", onClose);
+    this.fillStats(reader, doc, panel);
+    place();
+    return panel;
+  },
+
+  /**
+   * Content of the statistics. With “Profile per Document” the funnel in the
+   * head is the same switch as in the item pane: “only this profile” in the
+   * document, the sidebar and here.
+   */
+  fillStats(reader, doc, panel) {
     const SB = this.SB;
     const P = SB.Profiles;
-    const { panel, place } = this.openPanel(doc, anchor, "stats", onClose);
+    panel.replaceChildren();
     const activeId = P.forReader(reader);
     const summary = P.summarize(P.readerList(reader));
-    const all = SB.setting("statsAllProfiles") === true;
+    const filtered = P.enabled() && P.filterActive(reader);
     const total = [...summary.byProfile.values()].reduce((a, b) => a + b, 0);
     const own = summary.byProfile.get(activeId) || 0;
+    const others = [...summary.byProfile.keys()].filter(id => id !== activeId);
     const head = doc.createElement("div");
     head.className = "bac-head";
-    head.textContent = SB.S("statsTitle");
+    const title = doc.createElement("span");
+    title.textContent = SB.S("statsTitle");
+    head.append(title);
+    if (P.enabled() && (others.length || filtered)) {
+      const label = SB.S(filtered ? "panelFilterOff" : "panelFilterOn");
+      const btn = doc.createElement("button");
+      btn.className = "bac-head-btn";
+      btn.setAttribute("aria-pressed", filtered ? "true" : "false");
+      btn.setAttribute("aria-label", label);
+      btn.setAttribute("title", label);
+      btn.append(this.makeIcon(doc, "filter"));
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        P.toggleFilter(reader);
+        this.fillStats(reader, doc, panel);
+      });
+      head.append(btn);
+    }
     const sub = doc.createElement("div");
     sub.className = "bac-sub";
     if (!total) {
       sub.textContent = SB.S("statsEmpty");
     }
-    else if (all || !P.enabled()) {
-      sub.textContent = SB.S("statsTotal", { n: total });
-    }
-    else {
+    else if (filtered) {
       sub.textContent = SB.S("statsTotalProfile", { n: own, profile: P.name(activeId) });
     }
+    else {
+      sub.textContent = SB.S("statsTotal", { n: total });
+    }
     panel.append(head, sub);
-    const ids = all
-      ? [activeId, ...[...summary.byProfile.keys()].filter(id => id !== activeId)].filter(id => summary.byProfile.get(id))
-      : [activeId];
+    const ids = filtered
+      ? [activeId]
+      : [activeId, ...others].filter(id => id === activeId || summary.byProfile.get(id));
     const max = Math.max(1, ...ids.map(id => Math.max(0, ...(summary.colors.get(id) || new Map()).values())));
     for (const id of ids) {
-      if (all && ids.length > 1) {
+      if (ids.length > 1) {
+        if (!summary.byProfile.get(id)) {
+          continue;
+        }
         const g = doc.createElement("div");
         g.className = "bac-group";
         g.textContent = SB.S("statsProfileGroup", { profile: P.name(id), n: summary.byProfile.get(id) || 0 });
@@ -1677,33 +1751,12 @@ BetterAnnotations.Reader = {
       }
       this.appendStatRows(doc, panel, P.profile(id), summary.colors.get(id) || new Map(), max);
     }
-    // Other profiles: a line with their numbers and a switch for all profiles
-    const others = [...summary.byProfile.keys()].filter(id => id !== activeId);
-    if (others.length) {
-      if (!all) {
-        const line = doc.createElement("div");
-        line.className = "bac-sub bac-others";
-        line.textContent = SB.S("statsOthers", { list: others.map(id => P.name(id) + " (" + summary.byProfile.get(id) + ")").join(", ") });
-        panel.append(line);
-      }
-      const toggle = doc.createElement("div");
-      toggle.className = "bac-item";
-      toggle.setAttribute("role", "menuitemcheckbox");
-      toggle.setAttribute("aria-checked", all ? "true" : "false");
-      const check = doc.createElement("span");
-      check.className = "bac-check";
-      check.textContent = all ? "✓" : "";
-      const label = doc.createElement("span");
-      label.textContent = SB.S("statsAllProfiles");
-      toggle.append(check, label);
-      toggle.addEventListener("click", async () => {
-        await SB.Store.setSetting("statsAllProfiles", !all);
-        this.closePanel(doc, "stats");
-        this.showStats(reader, doc, anchor, onClose);
-      });
-      const sep = doc.createElement("div");
-      sep.className = "bac-sep";
-      panel.append(sep, toggle);
+    // Hidden profiles: a line with their numbers
+    if (filtered && others.length) {
+      const line = doc.createElement("div");
+      line.className = "bac-sub bac-others";
+      line.textContent = SB.S("statsOthers", { list: others.map(id => P.name(id) + " (" + summary.byProfile.get(id) + ")").join(", ") });
+      panel.append(line);
     }
     const hint = P.sharedColorsText(summary);
     if (hint) {
@@ -1712,7 +1765,6 @@ BetterAnnotations.Reader = {
       h.textContent = hint;
       panel.append(h);
     }
-    place();
   },
 
   /** Rows of the statistics for one profile: color, name, number, bar. */
@@ -1753,6 +1805,9 @@ BetterAnnotations.Reader = {
       bar.className = "bac-bar";
       bar.style.background = color;
       bar.style.width = Math.max(4, Math.round(n / max * 100)) + "%";
+      // Whole device pixels: with display scaling (e.g. 125 %) all bars keep the same height
+      const dpr = doc.defaultView.devicePixelRatio || 1;
+      bar.style.height = Math.max(2, Math.round(3 * dpr)) / dpr + "px";
       row.append(dot, name, count, bar);
       const desc = entry && SB.isVisible(entry) && SB.descriptionsOn() ? SB.shortDescription(entry.description) : "";
       if (desc && showDesc) {

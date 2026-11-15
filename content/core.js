@@ -90,7 +90,6 @@ var BetterAnnotations = {
     profilesPerDocument: false,
     profileTagColor: true,
     profileFilterDefault: false,
-    statsAllProfiles: false,
     tipProfilesShown: false,
   },
 
@@ -155,6 +154,16 @@ var BetterAnnotations = {
       return "zh-TW";
     }
     return l.split("-")[0];
+  },
+
+  /** A list in the language of the plugin: “A, B und C”. */
+  listText(items) {
+    try {
+      return new Intl.ListFormat(this.lang === "zh-TW" ? "zh-TW" : this.lang, { style: "long", type: "conjunction" }).format(items.map(String));
+    }
+    catch (e) {
+      return items.join(", ");
+    }
   },
 
   get lang() {
@@ -671,7 +680,7 @@ BetterAnnotations.Store = {
     for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "showUsage",
       "showToolbarProfile", "showToolbarStats", "showItemPaneSection",
       "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled",
-      "descriptionsEnabled", "profilesPerDocument", "profileTagColor", "profileFilterDefault", "statsAllProfiles",
+      "descriptionsEnabled", "profilesPerDocument", "profileTagColor", "profileFilterDefault",
       "tipProfilesShown"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];

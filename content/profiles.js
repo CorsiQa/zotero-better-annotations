@@ -56,6 +56,10 @@ BetterAnnotations.Profiles = {
     }
     this._unlisten = Store.onChange(what => this.onStoreChange(what));
     this.sync();
+    if (this.enabled()) {
+      // Tags from earlier versions or other computers get their color
+      this.SB.setTimeout(() => this.syncTagColors().catch(e => this.SB.logError(e)), 5000);
+    }
   },
 
   /** Is “Profile per Document” turned on? */
@@ -741,7 +745,7 @@ BetterAnnotations.Profiles = {
       return "";
     }
     const names = [...new Set(pairs.flat())];
-    return this.SB.S("sharedColorsHint", { profiles: names.join(", ") });
+    return this.SB.S("sharedColorsHint", { profiles: this.SB.listText(names) });
   },
 
   /**
@@ -837,15 +841,55 @@ BetterAnnotations.Profiles = {
     return entry && this.Store.getProfile(entry.id) ? entry.id : this.defaultId();
   },
 
-  /** Tags of a new annotation: without other profile tags, with the tag of the reader's profile. */
+  /**
+   * Tags of a new annotation: without other profile tags, with the tag of the
+   * reader's profile. The tag carries its color, as Zotero passes it to the
+   * reader, so the sidebar shows it colored right away.
+   */
   tagsForNew(reader, tags) {
     const tag = this.tagFor(this.cachedId(reader));
-    const list = Array.from(tags || []).map(t => ({ name: String(t.name) })).filter(t => !this.isProfileTag(t.name));
+    const list = Array.from(tags || []).map((t) => {
+      const o = { name: String(t.name) };
+      if (t.color) {
+        o.color = String(t.color);
+      }
+      return o;
+    }).filter(t => !this.isProfileTag(t.name));
     if (tag) {
-      list.push({ name: tag });
+      const o = { name: tag };
+      const color = this.colorForNew(reader, tag);
+      if (color) {
+        o.color = color;
+      }
+      // Colored tags first, as in Zotero
+      if (color) {
+        list.unshift(o);
+      }
+      else {
+        list.push(o);
+      }
       this.colorLater(reader, tag);
     }
     return list;
+  },
+
+  /** Color the tag has in Zotero, or will get (brand color, if a slot is free). */
+  colorForNew(reader, tag) {
+    try {
+      const libraryID = this.readerItem(reader)?.libraryID;
+      if (!libraryID) {
+        return null;
+      }
+      const colors = Zotero.Tags.getColors(libraryID);
+      if (colors.has(tag)) {
+        return colors.get(tag).color;
+      }
+      if (this.SB.setting("profileTagColor") !== false && colors.size < (Zotero.Tags.MAX_COLORED_TAGS || 9)) {
+        return this.TAG_COLOR;
+      }
+    }
+    catch (e) {}
+    return null;
   },
 
   /** Called by the wrapper for annotations the reader creates itself. */
@@ -937,10 +981,40 @@ BetterAnnotations.Profiles = {
         return;
       }
       await Zotero.Tags.setColor(libraryID, tag, this.TAG_COLOR);
+      await this.refreshReaderTags(libraryID, tag);
     }
     catch (e) {
       this._colored.delete(key);
       this.SB.logError(e);
+    }
+  },
+
+  /**
+   * Zotero gives the reader the tag colors only when it loads annotations.
+   * After a tag got its color, open readers load the annotations that show
+   * the tag without color again.
+   */
+  async refreshReaderTags(libraryID, tag) {
+    for (const reader of this.openReaders()) {
+      try {
+        const item = this.readerItem(reader);
+        if (!item || item.libraryID !== libraryID || typeof reader.setAnnotations !== "function") {
+          continue;
+        }
+        const keys = this.readerAnnotations(reader)
+          .filter(a => Array.from(a.tags || []).some(t => String(t.name) === tag && !t.color))
+          .map(a => String(a.id));
+        if (!keys.length) {
+          continue;
+        }
+        const items = keys.map(k => Zotero.Items.getByLibraryAndKey(libraryID, k)).filter(Boolean);
+        if (items.length) {
+          await reader.setAnnotations(items);
+        }
+      }
+      catch (e) {
+        this.SB.logError(e);
+      }
     }
   },
 

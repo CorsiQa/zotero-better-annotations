@@ -232,11 +232,12 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-steps { margin: 4px 0 8px; padding-inline-start: 22px; color: var(--bac-muted); line-height: 1.45; }
 #bac-root .bac-subhead { margin: 0 0 6px; font-size: 1em; font-weight: 600; }
 #bac-root .bac-rules { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px; }
-#bac-root .bac-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 4px 0; border-bottom: 1px solid var(--bac-border); }
-#bac-root .bac-rule menulist { margin: 0; }
-#bac-root .bac-rule-coll { flex: 2 1 12em; min-width: 0; }
-#bac-root .bac-rule-profile { flex: 1 1 9em; min-width: 0; }
-#bac-root .bac-rule-no { min-width: 1.2em; color: var(--bac-muted); font-variant-numeric: tabular-nums; }
+/* Rule: number, collection → profile, ↑ ↓ ✕ in one line; “with subcollections” below. Fixed columns, so nothing wraps */
+#bac-root .bac-rule { display: grid; grid-template-columns: 1.4em minmax(0, 3fr) auto minmax(0, 2fr) 24px 24px 24px;
+  align-items: center; gap: 2px 6px; padding: 6px 0; border-bottom: 1px solid var(--bac-border); }
+#bac-root .bac-rule menulist { margin: 0; min-width: 0; }
+#bac-root .bac-rule-sub { grid-column: 2 / -1; justify-self: start; }
+#bac-root .bac-rule-no { color: var(--bac-muted); font-variant-numeric: tabular-nums; }
 #bac-root .bac-rule-arrow { color: var(--bac-muted); }
 #bac-root .bac-icon-btn { -moz-appearance: none; appearance: none; width: 24px; height: 24px; padding: 0; border: none; border-radius: 5px;
   background: transparent; color: var(--bac-muted); font: inherit; line-height: 1; }

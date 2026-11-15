@@ -1116,27 +1116,33 @@ BetterAnnotations.PanelView = class {
   /**
    * Description as text; the pencil turns it into a field. Plain text with
    * line breaks, saved to the profile when the field loses the focus.
-   * Esc restores the previous text, Ctrl/Cmd+Enter finishes.
+   * Esc restores the previous text, Enter finishes, Shift+Enter adds a line.
    */
   descriptionField(profile, entry, description, canEdit, onTextClick) {
     const SB = this.SB;
     const S = (k, a) => this.S(k, a);
     const open = canEdit && this.unlocked === entry.id;
+    if (!open) {
+      // Plain text like the label; only the pencil turns it into a field
+      const text = this.h("div", {
+        class: "bac-p-desc bac-p-desc-text" + (this.kind === "section" ? " bac-p-clamp" : ""),
+        "data-key": "desc-" + entry.id,
+        text: description,
+      });
+      if (onTextClick) {
+        text.addEventListener("click", () => onTextClick());
+      }
+      return text;
+    }
     const area = this.h("textarea", {
-      class: "bac-p-desc" + (this.kind === "section" ? " bac-p-clamp" : "") + (open ? "" : " bac-p-desc-text"),
+      class: "bac-p-desc bac-p-desc-field",
       "data-key": "desc-" + entry.id,
       rows: "1",
       maxlength: String(SB.MAX_DESCRIPTION),
       placeholder: S("btnAddDescription"),
       "aria-label": S("ariaDescription", { label: entry.label.trim() || entry.color }),
-      readonly: open ? null : true,
-      tabindex: open ? null : "-1",
       spellcheck: "true",
     });
-    if (!open && onTextClick) {
-      area.addEventListener("click", () => onTextClick());
-    }
-    canEdit = open;
     area.value = description;
     SB.autoGrow(area);
     let original = description;
@@ -1156,7 +1162,8 @@ BetterAnnotations.PanelView = class {
         area.value = original;
         area.blur();
       }
-      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      else if (e.key === "Enter" && !e.shiftKey) {
+        // Enter finishes; Shift+Enter starts a new line
         e.preventDefault();
         area.blur();
       }
@@ -1230,16 +1237,16 @@ button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15));
 .bac-p-item:hover .bac-p-edit-btn, .bac-p-item:focus-within .bac-p-edit-btn { opacity: 1; }
 .bac-p-editable:hover .bac-p-n, .bac-p-editable:focus-within .bac-p-n { visibility: hidden; }
 .bac-p-desc { display: block; box-sizing: border-box; width: calc(100% - 20px); min-height: 0; margin: 0 0 4px 20px;
-  padding: 3px 7px; resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 5px; background: transparent;
-  color: var(--fill-secondary, GrayText); font: inherit; font-size: 12px; line-height: 1.4; }
-.bac-p-desc::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .75; }
-.bac-p-desc:not([readonly]):hover { border-color: var(--fill-quinary, rgba(127,127,127,.3)); }
-.bac-p-desc:not([readonly]):focus { color: var(--fill-primary, FieldText);
-  background: var(--material-background, Field); border-color: var(--fill-quinary, rgba(127,127,127,.3));
+  padding: 0 7px; color: var(--fill-secondary, GrayText); font: inherit; font-size: 12px; line-height: 1.4; }
+/* Text: no field look, not selectable; a click selects the color like the row */
+.bac-p-desc-text { white-space: pre-line; overflow-wrap: anywhere; user-select: none; -moz-user-select: none; cursor: default; }
+.bac-p-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+/* Field after a click on the pencil */
+textarea.bac-p-desc-field { -moz-appearance: none; appearance: none; padding: 3px 7px; margin-top: 1px; resize: none; overflow: hidden;
+  color: var(--fill-primary, FieldText); background: var(--material-background, Field);
+  border: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); border-radius: 5px;
   outline: 2px solid color-mix(in srgb, var(--accent-blue, #2e7bd1) 55%, transparent); outline-offset: 0; }
-.bac-p-desc[readonly]:focus { outline: none; }
-.bac-p-desc-text { cursor: default; }
-.bac-p-clamp:not(:focus) { max-height: calc(3 * 1.4em + 8px); }
+textarea.bac-p-desc-field::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .75; }
 .bac-p-hint { margin-top: 6px; color: var(--fill-secondary, GrayText); font-size: .92em; }
 .bac-p-warn { color: var(--fill-primary, CanvasText); }
 .bac-p-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }

@@ -372,6 +372,7 @@ BetterAnnotations.PaneController = class {
           this.button(S("btnExport"), () => this.exportProfiles()),
         ),
       ),
+      perDocument ? this.defaultProfileField() : null,
       perDocument ? this.h("div", { class: "bac-hint", text: S("profilePerDocHint") }) : null,
       this.libraryOpen ? this.renderLibrary() : null,
       ...notices.map(n => this.h("div", { class: "bac-notice", text: n })),
@@ -732,6 +733,27 @@ BetterAnnotations.PaneController = class {
       ...children);
   }
 
+  /** “Default profile” menu (profile per document): in the profile card and in “Advanced”. */
+  defaultProfileField() {
+    const Store = this.Store;
+    const P = this.SB.Profiles;
+    const items = Store.listForMenu().map(p => ({ value: p.id, label: p.name }));
+    const menu = this.menulist(items, P.defaultId(), (id) => {
+      if (id && id !== Store.data.activeProfileId) {
+        this.own(() => Store.setDefault(id)).then(() => this.syncDefaultMenus(id)).catch(e => this.SB.logError(e));
+      }
+    });
+    menu.classList.add("bac-default-menu");
+    return this.field(this.S("optDefaultProfile"), menu);
+  }
+
+  /** Both default menus show the same profile (changes are made by this page, so no re-render). */
+  syncDefaultMenus(id) {
+    for (const ml of this.root.querySelectorAll(".bac-default-menu")) {
+      this.selectMenu(ml, id);
+    }
+  }
+
   /** Label and control in two columns. */
   field(label, control) {
     return this.h("div", { class: "bac-recolor-grid" }, this.h("label", { text: label }), control);
@@ -902,6 +924,9 @@ BetterAnnotations.PaneController = class {
       this.render();
       return;
     }
+    if (what === "active" && this.SB.Profiles.enabled()) {
+      this.syncDefaultMenus(this.SB.Profiles.defaultId());
+    }
     // With it, the profile shown here is only for editing; other changes concern the document profiles
     if ((what === "active" || what === "rules" || what === "profiles") && this.docProfileBox && this.docProfileBox.isConnected) {
       this.renderDocProfiles();
@@ -1022,11 +1047,6 @@ BetterAnnotations.PaneController = class {
     }
     const profiles = Store.listForMenu();
     const profileItems = profiles.map(p => ({ value: p.id, label: p.name }));
-    const defaultMenu = this.menulist(profileItems, P.defaultId(), (id) => {
-      if (id && id !== Store.data.activeProfileId) {
-        this.own(() => Store.setDefault(id)).catch(e => this.SB.logError(e));
-      }
-    });
     const rules = P.rules().map(r => Object.assign({}, r));
     const saveRules = () => this.own(() => Store.setRules(rules)).then(() => this.renderDocProfiles()).catch(e => this.SB.logError(e));
     const collections = this.collectionItems();
@@ -1065,12 +1085,12 @@ BetterAnnotations.PaneController = class {
         saveRules();
       });
       const name = coll ? this.collectionPath(coll) : S("ruleMissingCollection");
+      sub.classList.add("bac-rule-sub");
       return this.h("div", { class: "bac-rule", role: "listitem" },
         this.h("span", { class: "bac-rule-no", text: String(i + 1) }),
         collMenu,
         this.h("span", { class: "bac-rule-arrow", "aria-hidden": "true", text: "→" }),
         profMenu,
-        sub,
         iconBtn("↑", S("ruleUp", { name }), () => {
           [rules[i - 1], rules[i]] = [rules[i], rules[i - 1]];
           saveRules();
@@ -1083,6 +1103,7 @@ BetterAnnotations.PaneController = class {
           rules.splice(i, 1);
           saveRules();
         }),
+        sub,
       );
     });
     const hasCollections = collections.some(c => c !== "-" && !c.disabled);
@@ -1119,7 +1140,7 @@ BetterAnnotations.PaneController = class {
     const count = this.h("div", { class: "bac-hint" });
     this.fill(this.docProfileBox,
       this.h("div", { class: "bac-hint", text: S("docProfileSummary") }),
-      this.field(S("optDefaultProfile"), defaultMenu),
+      this.defaultProfileField(),
       this.h("div", { class: "bac-checks" },
         this.checkbox(S("optProfileFilterDefault"), this.SB.setting("profileFilterDefault") === true,
           v => this.own(() => Store.setSetting("profileFilterDefault", v))),
