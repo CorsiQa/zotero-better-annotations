@@ -3,6 +3,10 @@
 All notable changes to Better Annotations are listed here.
 The project uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+Changes for the next release are collected here. The section is renamed to the version number when the release is published.
+
 ## 1.0.0-beta.1 – 2026-11-13
 
 First public release (beta). Please report problems in the [issue tracker](https://github.com/CorsiQa/zotero-better-annotations/issues).
