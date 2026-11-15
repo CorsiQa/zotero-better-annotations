@@ -211,4 +211,18 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-pal-row.bac-disabled:hover { background: transparent; }
 #bac-root .bac-recent-hint { margin: 3px 0 0; font-size: 11px; }
 @media (prefers-reduced-motion: reduce) { #bac-root * { transition: none !important; } }
+#bac-root .bac-steps { margin: 4px 7px 8px; padding-inline-start: 22px; color: var(--bac-muted); line-height: 1.45; }
+#bac-root .bac-subhead { margin: 12px 7px 4px; font-size: 1em; font-weight: 600; }
+#bac-root .bac-rules { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px; }
+#bac-root .bac-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 4px 7px; border-bottom: 1px solid var(--bac-border); }
+#bac-root .bac-rule menulist { margin: 0; }
+#bac-root .bac-rule-coll { flex: 2 1 12em; min-width: 0; }
+#bac-root .bac-rule-profile { flex: 1 1 9em; min-width: 0; }
+#bac-root .bac-rule-no { min-width: 1.2em; color: var(--bac-muted); font-variant-numeric: tabular-nums; }
+#bac-root .bac-rule-arrow { color: var(--bac-muted); }
+#bac-root .bac-icon-btn { -moz-appearance: none; appearance: none; width: 24px; height: 24px; padding: 0; border: none; border-radius: 5px;
+  background: transparent; color: var(--bac-muted); font: inherit; line-height: 1; }
+#bac-root .bac-icon-btn:hover:not(:disabled) { background: var(--bac-border); color: inherit; }
+#bac-root .bac-icon-btn:disabled { opacity: .3; }
+#bac-root .bac-icon-btn:focus-visible { outline: 2px solid var(--bac-accent); outline-offset: -1px; }
 `;

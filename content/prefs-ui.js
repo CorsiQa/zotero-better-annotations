@@ -187,7 +187,8 @@ BetterAnnotations.PaneController = class {
   start() {
     this.root.setAttribute("data-ready", "1");
     this.injectStyle();
-    this.loadDraft(this.Store.data.activeProfileId);
+    // Opened from a document (“Manage Profiles…”): show its profile
+    this.loadDraft(this.SB.Profiles.currentId());
     const pending = this.Store.pendingDraft;
     this.Store.pendingDraft = null;
     if (pending && pending.baseId === this.baseId) {
@@ -384,6 +385,9 @@ BetterAnnotations.PaneController = class {
           () => this.listEl.classList.toggle("bac-no-usage", !v))),
       ),
     ));
+    this.docProfileBox = this.h("div");
+    colors.append(this.card(S("secDocProfile"), S("infoDocProfile"), null, this.docProfileBox));
+    this.renderDocProfiles();
 
     // --- Tab “Menus & Reader” --------------------------------------------
     const display = this.panels.get("display");
@@ -435,16 +439,19 @@ BetterAnnotations.PaneController = class {
     // --- Tab “Tags & Library” --------------------------------------------
     const library = this.panels.get("library");
     this.tagsBox = this.h("div");
+    this.profileTagsBox = this.h("div");
     this.recolorBox = this.h("div");
     this.backupBox = this.h("div");
     this.historyBox = this.h("div");
     library.append(
+      this.card(S("secProfileTags"), S("infoProfileTags"), null, this.profileTagsBox),
       this.card(S("secTags"), S("infoTags"), null, this.tagsBox),
       this.card(S("secRecolor"), S("infoRecolor"), null, this.recolorBox),
       this.card(S("secBackups"), S("infoBackups"), null, this.backupBox),
       this.card(S("secHistory"), S("infoHistory"), null, this.historyBox),
     );
     this.renderTags();
+    this.renderProfileTags();
     this.renderRecolor();
     this.renderBackups();
     this.renderHistory();
@@ -591,9 +598,10 @@ BetterAnnotations.PaneController = class {
     }
     const colors = t.colors.map((color, i) => ({ id: SB.uid("c"), color, label: text.labels[i] || "", enabled: true }));
     try {
-      const saved = await this.own(() => this.Store.saveProfile({ id: SB.uid("p"), name, colors }, { activate: true }));
+      const saved = await this.own(() => this.Store.saveProfile({ id: SB.uid("p"), name, colors }));
       this.loadDraft(saved.id);
       this.libraryOpen = false;
+      this.notice = this.S("newProfileHint", { name: saved.name });
       this.render();
     }
     catch (e) {
@@ -823,14 +831,10 @@ BetterAnnotations.PaneController = class {
       }
       return;
     }
-    if (what !== "active" || this.Store.data.activeProfileId === this.baseId) {
-      return;
+    // The profile shown here is only for editing; other changes concern the document profiles
+    if ((what === "active" || what === "rules" || what === "profiles") && this.docProfileBox && this.docProfileBox.isConnected) {
+      this.renderDocProfiles();
     }
-    if (!this.isDirty()) {
-      this.loadDraft(this.Store.data.activeProfileId);
-    }
-    this.notice = this.S("externalSwitch");
-    this.render();
   }
 
   /** Color swatch as an image for XUL menu items. */
@@ -882,6 +886,242 @@ BetterAnnotations.PaneController = class {
     this.renderTags();
   }
 
+  // --- Profile per document: default profile and collection rules -----
+
+  /** All collections for a menu: library names as headers, subcollections indented. */
+  collectionItems() {
+    const items = [];
+    let libraries = [];
+    try {
+      libraries = Zotero.Libraries.getAll().filter(l => l.libraryType === "user" || l.libraryType === "group");
+    }
+    catch (e) {
+      this.SB.logError(e);
+    }
+    for (const lib of libraries) {
+      let colls = [];
+      try {
+        colls = Zotero.Collections.getByLibrary(lib.libraryID, true);
+      }
+      catch (e) {}
+      if (!colls.length) {
+        continue;
+      }
+      if (items.length) {
+        items.push("-");
+      }
+      items.push({ value: "lib-" + lib.libraryID, label: lib.name, disabled: true });
+      for (const c of colls) {
+        items.push({ value: lib.libraryID + "/" + c.key, label: "\u2003".repeat((c.level || 0) + 1) + c.name });
+      }
+    }
+    return items;
+  }
+
+  /** Path of a collection for messages: “Parent › Child”. */
+  collectionPath(coll) {
+    const names = [];
+    for (let c = coll; c; c = c.parentID ? Zotero.Collections.get(c.parentID) : null) {
+      names.unshift(c.name);
+    }
+    return names.join(" › ");
+  }
+
+  renderDocProfiles() {
+    const S = (k, a) => this.S(k, a);
+    const Store = this.Store;
+    const P = this.SB.Profiles;
+    const profiles = Store.listForMenu();
+    const profileItems = profiles.map(p => ({ value: p.id, label: p.name }));
+    const defaultMenu = this.menulist(profileItems, P.defaultId(), (id) => {
+      if (id && id !== Store.data.activeProfileId) {
+        this.own(() => Store.setDefault(id)).catch(e => this.SB.logError(e));
+      }
+    });
+    const rules = P.rules().map(r => Object.assign({}, r));
+    const saveRules = () => this.own(() => Store.setRules(rules)).then(() => this.renderDocProfiles()).catch(e => this.SB.logError(e));
+    const collections = this.collectionItems();
+    const iconBtn = (text, label, onClick, disabled) => this.h("button", {
+      class: "bac-icon-btn",
+      title: label,
+      "aria-label": label,
+      disabled: disabled || null,
+      on: { click: onClick },
+    }, text);
+    const rows = rules.map((rule, i) => {
+      const coll = P.collectionOf(rule);
+      const value = rule.lib + "/" + rule.key;
+      const items = coll ? collections : [{ value, label: S("ruleMissingCollection") }, "-", ...collections];
+      const collMenu = this.menulist(items, value, (v) => {
+        const j = v ? v.indexOf("/") : -1;
+        if (j > 0) {
+          rule.lib = +v.slice(0, j);
+          rule.key = v.slice(j + 1);
+          saveRules();
+        }
+      });
+      collMenu.classList.add("bac-rule-coll");
+      collMenu.setAttribute("aria-label", S("ruleCollection"));
+      const profMenu = this.menulist(profileItems, rule.profileId, (id) => {
+        rule.profileId = id;
+        saveRules();
+      });
+      profMenu.classList.add("bac-rule-profile");
+      profMenu.setAttribute("aria-label", S("ruleProfile"));
+      const sub = this.checkbox(S("ruleSub"), rule.sub !== false, (v) => {
+        rule.sub = v;
+        saveRules();
+      });
+      const name = coll ? this.collectionPath(coll) : S("ruleMissingCollection");
+      return this.h("div", { class: "bac-rule", role: "listitem" },
+        this.h("span", { class: "bac-rule-no", text: String(i + 1) }),
+        collMenu,
+        this.h("span", { class: "bac-rule-arrow", "aria-hidden": "true", text: "→" }),
+        profMenu,
+        sub,
+        iconBtn("↑", S("ruleUp", { name }), () => {
+          [rules[i - 1], rules[i]] = [rules[i], rules[i - 1]];
+          saveRules();
+        }, i === 0),
+        iconBtn("↓", S("ruleDown", { name }), () => {
+          [rules[i + 1], rules[i]] = [rules[i], rules[i + 1]];
+          saveRules();
+        }, i === rules.length - 1),
+        iconBtn("✕", S("ruleRemove", { name }), () => {
+          rules.splice(i, 1);
+          saveRules();
+        }),
+      );
+    });
+    const hasCollections = collections.some(c => c !== "-" && !c.disabled);
+    const addBtn = this.button(S("btnAddRule"), () => {
+      // Preset: the collection selected in the main window and the profile shown above
+      let lib = null;
+      let key = null;
+      try {
+        const sel = Zotero.getMainWindow().ZoteroPane.getSelectedCollection();
+        if (sel) {
+          lib = sel.libraryID;
+          key = sel.key;
+        }
+      }
+      catch (e) {}
+      if (!key) {
+        const first = collections.find(c => c !== "-" && !c.disabled);
+        const j = first.value.indexOf("/");
+        lib = +first.value.slice(0, j);
+        key = first.value.slice(j + 1);
+      }
+      rules.push({ id: this.SB.uid("r"), lib, key, profileId: Store.getProfile(this.baseId) ? this.baseId : P.defaultId(), sub: true });
+      saveRules();
+    }, { disabled: !hasCollections });
+    this.docProfileBox.replaceChildren(
+      this.h("div", { class: "bac-hint", text: S("docStepsIntro") }),
+      this.h("ol", { class: "bac-steps" },
+        this.h("li", { text: S("docStepChoice") }),
+        this.h("li", { text: S("docStepAnnotations") }),
+        this.h("li", { text: S("docStepRule") }),
+        this.h("li", { text: S("docStepDefault") }),
+      ),
+      this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optDefaultProfile") }), defaultMenu),
+      this.h("h4", { class: "bac-subhead", text: S("rulesTitle") }),
+      rows.length
+        ? this.h("div", { class: "bac-rules", role: "list" }, rows)
+        : this.h("div", { class: "bac-hint", text: hasCollections ? S("rulesEmpty") : S("rulesNoCollections") }),
+      this.h("div", { class: "bac-bar bac-end" }, addBtn),
+    );
+  }
+
+  // --- Profile tags ------------------------------------------------------
+
+  renderProfileTags() {
+    const S = (k, a) => this.S(k, a);
+    const SB = this.SB;
+    const P = SB.Profiles;
+    const prefix = this.h("input", {
+      class: "bac-text",
+      type: "text",
+      value: P.prefix(),
+      maxlength: "40",
+      "aria-label": S("optProfileTagPrefix"),
+      on: { change: e => this.onProfilePrefix(e.target) },
+    });
+    const count = this.h("div", { class: "bac-hint" });
+    const scope = this.scopeControls("assign", () => {});
+    this.assignScope = scope;
+    const items = this.Store.listForMenu().map(p => ({ value: p.id, label: p.name }));
+    if (!this.assignProfile || !this.Store.getProfile(this.assignProfile)) {
+      this.assignProfile = P.currentId();
+    }
+    const target = this.menulist(items, this.assignProfile, (v) => {
+      this.assignProfile = v;
+    });
+    this.profileTagsBox.replaceChildren(
+      this.h("div", { class: "bac-hint", text: S("profileTagsIntro") }),
+      this.checkbox(S("optProfileTags"), SB.setting("profileTagsEnabled") === true,
+        v => this.own(() => this.Store.setSetting("profileTagsEnabled", v))),
+      this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optProfileTagPrefix") }), prefix),
+      count,
+      this.h("h4", { class: "bac-subhead", text: S("assignTitle") }),
+      this.h("div", { class: "bac-hint", text: S("assignIntro") }),
+      scope.el,
+      this.h("div", { class: "bac-recolor-grid" }, this.h("label", { text: S("assignTo") }), target),
+      this.h("div", { class: "bac-bar bac-end" }, this.button(S("btnAssignProfile"), () => this.assignProfileTags())),
+    );
+    this.Library.countProfileTags().then((n) => {
+      count.textContent = S("profileTagsCount", { n });
+    }).catch(e => SB.logError(e));
+  }
+
+  async onProfilePrefix(input) {
+    const SB = this.SB;
+    const P = SB.Profiles;
+    const oldPrefix = P.prefix();
+    const newPrefix = String(input.value || "").slice(0, 40);
+    if (newPrefix === oldPrefix) {
+      return;
+    }
+    if (!newPrefix.trim()) {
+      // Without a prefix, every tag that is called like a profile would count as a profile tag
+      this.alert(this.S("prefixEmpty"));
+      input.value = oldPrefix;
+      return;
+    }
+    const changes = await this.Library.planPrefix(oldPrefix, newPrefix);
+    let rename = false;
+    if (changes.length) {
+      const choice = this.confirm3(this.S("dlgPrefixTitle"), this.S("dlgPrefixText", { n: changes.length, from: oldPrefix, to: newPrefix }),
+        this.S("dlgRenameTags"), this.S("dlgKeepTags"), 2);
+      if (choice === 1) {
+        input.value = oldPrefix;
+        return;
+      }
+      rename = choice === 0;
+    }
+    await this.own(() => this.Store.setSetting("profileTagPrefix", newPrefix));
+    if (rename) {
+      await this.runLibraryTask(() => this.Library.run("profilePrefix", { from: oldPrefix, to: newPrefix }, changes));
+      return;
+    }
+    this.renderProfileTags();
+  }
+
+  async assignProfileTags() {
+    const P = this.SB.Profiles;
+    const id = this.assignProfile;
+    const scope = this.assignScope.resolve();
+    const changes = await this.Library.planProfileAssign(scope, id);
+    if (!changes.length) {
+      this.alert(this.S("assignNone"));
+      return;
+    }
+    const text = this.S("dlgAssignText", { n: changes.length, scope: scope.label, tag: P.tagFor(id) });
+    if (!this.confirmAction(this.S("dlgAssignTitle"), text, this.S("dlgAssign"))) {
+      return;
+    }
+    await this.runLibraryTask(() => this.Library.run("profileAssign", { profile: P.name(id), scope: scope.label }, changes));
+  }
+
   // --- Areas (document, selection, collection, library) ----------------
 
   /** Area selection for recoloring and export; remembers the choice per card. */
@@ -930,9 +1170,32 @@ BetterAnnotations.PaneController = class {
     if (this.recolorBox) {
       this.renderRecolor();
     }
+    if (this.profileTagsBox) {
+      this.renderProfileTags();
+    }
     if (this.exportBox) {
       this.renderExport();
     }
+  }
+
+  /** Menu “Profile:” for recoloring and export: all profiles or one profile. */
+  profileFilter(key, onChange) {
+    const S = (k, a) => this.S(k, a);
+    this.profileSel = this.profileSel || {};
+    const list = this.Store.listForMenu();
+    if (this.profileSel[key] && !list.some(p => p.id === this.profileSel[key])) {
+      this.profileSel[key] = "";
+    }
+    const items = [{ value: "", label: S("filterAllProfiles") }, "-", ...list.map(p => ({ value: p.id, label: p.name }))];
+    const menu = this.menulist(items, this.profileSel[key] || "", (v) => {
+      this.profileSel[key] = v || "";
+      onChange(v || null);
+    });
+    return menu;
+  }
+
+  filterValue(key) {
+    return (this.profileSel && this.profileSel[key]) || null;
   }
 
   // --- Export of annotations ------------------------------------------
@@ -964,12 +1227,14 @@ BetterAnnotations.PaneController = class {
       { value: "doc", label: S("sortDoc") },
       { value: "label", label: S("sortLabel") },
     ], SB.setting("exportSort"), v => set("exportSort", v));
+    const profileMenu = this.profileFilter("export", () => this.updateExportCount());
     this.exportCount = this.h("div", { class: "bac-hint bac-count" });
     this.exportBtn = this.button(S("btnExportAnnotations"), () => this.exportAnnotations());
     this.exportBox.replaceChildren(
       this.h("div", { class: "bac-hint", text: S("exportIntro") }),
       scope.el,
       this.h("div", { class: "bac-recolor-grid" },
+        this.h("label", { text: S("filterProfile") }), profileMenu,
         this.h("label", { text: S("exportFormat") }), formatMenu,
         this.h("label", { text: S("exportSort") }), sortMenu,
       ),
@@ -990,18 +1255,20 @@ BetterAnnotations.PaneController = class {
   async updateExportCount() {
     const token = (this._exportToken = (this._exportToken || 0) + 1);
     const scope = this.exportScope.resolve();
-    const usage = await this.Library.getColorUsage(scope);
-    if (token !== this._exportToken) {
-      return;
-    }
-    let n = 0;
-    const profile = this.Store.getActive();
+    const only = this.filterValue("export");
     const labeledOnly = this.SB.setting("exportLabeledOnly") === true;
-    for (const [color, count] of usage) {
-      const entry = profile.colors.find(c => c.color === color);
-      if (!labeledOnly || (entry && this.SB.isVisible(entry) && entry.label.trim())) {
+    let n = 0;
+    if (labeledOnly) {
+      // Labels depend on the profile of each annotation
+      n = await this.SB.Export.count(scope, { only, labeledOnly });
+    }
+    else {
+      for (const count of (await this.Library.getColorUsage(scope, only)).values()) {
         n += count;
       }
+    }
+    if (token !== this._exportToken) {
+      return;
     }
     this.exportCount.textContent = this.S("exportCount", { n });
     this.setDisabled(this.exportBtn, !n);
@@ -1012,7 +1279,8 @@ BetterAnnotations.PaneController = class {
     const E = SB.Export;
     const scope = this.exportScope.resolve();
     const format = SB.setting("exportFormat");
-    const profile = this.Store.getActive();
+    const only = this.filterValue("export");
+    const profile = only ? SB.Profiles.profile(only) : this.Store.getActive();
     const ext = E.extension(format);
     const fileName = SB.safeFileName(scope.name) + " - " + this.S("fileAnnotations") + "." + ext;
     const filter = { xlsx: ["Excel", "*.xlsx"], csv: ["CSV", "*.csv"], html: ["HTML", "*.html; *.htm"] }[ext];
@@ -1027,7 +1295,7 @@ BetterAnnotations.PaneController = class {
         labeledOnly: SB.setting("exportLabeledOnly") === true,
         images: format !== "csv" && SB.setting("exportImages") !== false,
         sort: SB.setting("exportSort"),
-        profile,
+        only,
       });
       if (!rows.length) {
         this.alert(this.S("exportNone"));
@@ -1037,7 +1305,7 @@ BetterAnnotations.PaneController = class {
         images: SB.setting("exportImages") !== false,
         descriptions: format !== "html" && SB.setting("exportDescriptions") === true,
         sort: SB.setting("exportSort"),
-        profile: profile.name,
+        profile: only ? profile.name : E.profileNames(rows),
         profileObj: profile,
         scope: scope.label,
         date: SB.formatDate(new Date().toISOString()),
@@ -1082,10 +1350,12 @@ BetterAnnotations.PaneController = class {
     this.recolorToSlot = this.h("span", { class: "bac-slot" });
     this.recolorTags = this.SB.setting("tagsEnabled") === true;
     this.recolorBtn = this.button(S("btnRecolor"), () => this.manualRecolor(), { disabled: true });
+    const profileMenu = this.profileFilter("recolor", () => this.fillRecolor());
     box.replaceChildren(
       this.h("div", { class: "bac-hint", text: S("recolorIntro") }),
       scope.el,
       this.h("div", { class: "bac-recolor-grid" },
+        this.h("label", { text: S("filterProfile") }), profileMenu,
         this.h("label", { text: S("recolorFrom") }), this.recolorFromSlot,
         this.h("label", { text: S("recolorTo") }), this.recolorToSlot,
       ),
@@ -1105,7 +1375,7 @@ BetterAnnotations.PaneController = class {
     const S = (k, a) => this.S(k, a);
     const token = (this._recolorToken = (this._recolorToken || 0) + 1);
     const scope = this.recolorScope.resolve();
-    const usage = await this.Library.getColorUsage(scope);
+    const usage = await this.Library.getColorUsage(scope, this.filterValue("recolor"));
     if (token !== this._recolorToken) {
       return;
     }
@@ -1219,7 +1489,8 @@ BetterAnnotations.PaneController = class {
     const pairs = [[from, to]];
     // Labels from the editor, so unsaved changes are used for tags as well
     const profile = this.clone(this.draft);
-    const changes = await this.Library.planRecolor(pairs, { scope, tags: this.recolorTags, profile });
+    const only = this.filterValue("recolor");
+    const changes = await this.Library.planRecolor(pairs, { scope, tags: this.recolorTags, profile, only });
     if (!changes.length) {
       this.alert(this.S("nothingToDo"));
       return;
@@ -1232,7 +1503,7 @@ BetterAnnotations.PaneController = class {
     }
     const text = this.S("dlgManualRecolorText", {
       n: changes.length,
-      scope: scope.label,
+      scope: scope.label + (only ? " · " + this.SB.Profiles.name(only) : ""),
       from: this.colorName(from) + " (" + from + ")",
       to: this.colorName(to) + " (" + to + ")",
       tags: tagLine,
@@ -1240,7 +1511,8 @@ BetterAnnotations.PaneController = class {
     if (!this.confirmAction(this.S("dlgManualRecolorTitle"), text, this.S("dlgRecolor"))) {
       return;
     }
-    const params = this.Library.recolorParams(pairs, [this.colorName(from) + " → " + this.colorName(to) + " · " + scope.label]);
+    const where = scope.label + (only ? " · " + this.SB.Profiles.name(only) : "");
+    const params = this.Library.recolorParams(pairs, [this.colorName(from) + " → " + this.colorName(to) + " · " + where]);
     await this.runLibraryTask(() => this.Library.run("recolor", params, changes));
   }
 
@@ -1250,7 +1522,7 @@ BetterAnnotations.PaneController = class {
       this.alert(this.S("nothingToDo"));
       return;
     }
-    const text = this.S("dlgApplyTagsText", { n: changes.length, profile: this.Store.getActive().name });
+    const text = this.S("dlgApplyTagsText", { n: changes.length });
     if (!this.confirmAction(this.S("dlgApplyTagsTitle"), text, this.S("dlgContinue"))) {
       return;
     }
@@ -1972,14 +2244,8 @@ BetterAnnotations.PaneController = class {
       this.selectMenu(this.profileMenu, this.baseId);
       return;
     }
-    try {
-      await this.own(() => this.Store.setActive(id));
-    }
-    catch (e) {
-      this.SB.logError(e);
-      this.alert(this.S("saveError", { msg: e.message }));
-    }
-    this.loadDraft(this.Store.data.activeProfileId);
+    // Only chooses the profile to edit; documents keep their profiles
+    this.loadDraft(id);
     this.render();
   }
 
@@ -2075,14 +2341,17 @@ BetterAnnotations.PaneController = class {
           return false;
         }
         const colors = this.draft.colors.map(c => Object.assign({}, c, { id: SB.uid("c") }));
-        saved = await this.own(() => this.Store.saveProfile({ id: SB.uid("p"), name, colors }, { activate: true }));
+        const presetId = this.baseId;
+        saved = await this.own(() => this.Store.saveProfile({ id: SB.uid("p"), name, colors }, { activate: this.Store.data.activeProfileId === presetId }));
+        // The changed preset becomes the new profile in the documents that showed it
+        await this.replaceInOpenDocuments(presetId, saved.id);
       }
       else {
         saved = await this.own(() => this.Store.saveProfile({
           id: this.baseId,
           name: base ? base.name : this.draft.name,
           colors: this.draft.colors,
-        }, { activate: true }));
+        }));
       }
       this.loadDraft(saved.id);
     }
@@ -2115,6 +2384,21 @@ BetterAnnotations.PaneController = class {
       this.render();
     }
     return true;
+  }
+
+  /** Open documents with profile `from` switch to profile `to` (after saving a changed preset). */
+  async replaceInOpenDocuments(from, to) {
+    const P = this.SB.Profiles;
+    for (const reader of P.openReaders()) {
+      try {
+        if (P.forReader(reader) === from) {
+          await P.setForReader(reader, to);
+        }
+      }
+      catch (e) {
+        this.SB.logError(e);
+      }
+    }
   }
 
   discard() {
@@ -2155,8 +2439,9 @@ BetterAnnotations.PaneController = class {
     }
     const colors = source.map(c => Object.assign({}, c, { id: this.SB.uid("c") }));
     try {
-      const saved = await this.Store.saveProfile({ id: this.SB.uid("p"), name, colors }, { activate: true });
+      const saved = await this.own(() => this.Store.saveProfile({ id: this.SB.uid("p"), name, colors }));
       this.loadDraft(saved.id);
+      this.notice = this.S("newProfileHint", { name: saved.name });
       this.render();
     }
     catch (e) {
@@ -2174,8 +2459,17 @@ BetterAnnotations.PaneController = class {
     if (!name || name === p.name) {
       return;
     }
-    await this.Store.saveProfile(Object.assign({}, p, { name }));
+    const P = this.SB.Profiles;
+    const fromTag = P.tagForName(p.name);
+    const toTag = P.tagForName(name);
+    await this.own(() => this.Store.saveProfile(Object.assign({}, p, { name })));
     this.draft.name = name;
+    // Profile tags follow the new name
+    const changes = await this.Library.planRetag(fromTag, toTag);
+    if (changes.length) {
+      await this.runLibraryTask(() => this.Library.run("profileRename", { from: fromTag, to: toTag }, changes));
+      return;
+    }
     this.render();
   }
 
@@ -2184,11 +2478,44 @@ BetterAnnotations.PaneController = class {
     if (!p || this.isPreset()) {
       return;
     }
-    if (!Services.prompt.confirm(this.win, this.S("dlgDeleteTitle"), this.S("dlgDeleteText", { name: p.name }))) {
+    const P = this.SB.Profiles;
+    const tag = P.tagForName(p.name);
+    const tagged = await this.Library.planRetag(tag, null);
+    let retag = null; // null: keep the tags
+    if (tagged.length) {
+      // What happens to the profile tags: remove, give to another profile, keep
+      const targets = this.Store.listForMenu().filter(x => x.id !== p.id);
+      const options = [
+        this.S("dlgDeleteTagsRemove"),
+        ...targets.map(x => this.S("dlgDeleteTagsMove", { profile: x.name })),
+        this.S("dlgDeleteTagsKeep"),
+      ];
+      const selected = {};
+      const ok = Services.prompt.select(this.win, this.S("dlgDeleteTitle"),
+        this.S("dlgDeleteTagsText", { name: p.name, n: tagged.length, tag }), options, selected);
+      if (!ok) {
+        return;
+      }
+      const i = selected.value;
+      if (i === 0) {
+        retag = { to: null, changes: tagged };
+      }
+      else if (i <= targets.length) {
+        const to = P.tagForName(targets[i - 1].name);
+        retag = { to, changes: await this.Library.planRetag(tag, to) };
+      }
+    }
+    else if (!Services.prompt.confirm(this.win, this.S("dlgDeleteTitle"), this.S("dlgDeleteText", { name: p.name }))) {
       return;
     }
-    await this.Store.deleteProfile(p.id);
-    this.loadDraft(this.Store.data.activeProfileId);
+    await this.own(() => this.Store.deleteProfile(p.id));
+    this.loadDraft(P.currentId());
+    if (retag && retag.changes.length) {
+      await this.runLibraryTask(() => retag.to
+        ? this.Library.run("profileRename", { from: tag, to: retag.to }, retag.changes)
+        : this.Library.run("profileRemove", { tag }, retag.changes));
+      return;
+    }
     this.render();
   }
 
@@ -2305,7 +2632,7 @@ BetterAnnotations.PaneController = class {
     }
     try {
       await this.own(() => this.Library.restoreFullBackup(obj));
-      this.loadDraft(this.Store.data.activeProfileId);
+      this.loadDraft(this.SB.Profiles.currentId());
       await this.loadUsage();
       this.notice = this.S("fullRestoreDone");
       this.render();

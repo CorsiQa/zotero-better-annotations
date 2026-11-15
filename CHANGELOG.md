@@ -19,6 +19,12 @@ Changes for the next release are collected here. The section is renamed to the v
 - Tooltips of the plugin follow Zotero’s light and dark appearance
 - Clearer names: “Annotations” for the statistics in the reader toolbar
 - Profile files and full backups include the descriptions; older files remain valid
+- Profile per document: every document keeps its own profile. When a document opens, the plugin uses the profile last chosen in it, the profile of most of its annotations, the first rule for the collection it was opened from, or the default profile. The menu in the settings now only chooses which profile you edit; the default profile and the rules for collections are under “Profile per Document”
+- The profile menu in the reader toolbar, in the item pane section and in the separate window lists the profiles used in the document with their number of annotations, then the other profiles and “Manage Profiles…”, and says why the document uses its profile
+- Optional profile tags (off by default, under “Tags & Library”): new annotations get a tag such as “Profile: Reading”, also in the reader's sidebar filter. Renaming a profile renames its tags, deleting a profile asks what happens to them, and annotations without a profile tag can be assigned to a profile
+- Statistics, the item pane section and the number in the toolbar count the annotations of the document's profile; annotations without a profile tag belong to the profile of their document. The statistics can show all profiles. A notice appears if profiles in one document use the same colors
+- Recoloring and export can be limited to one profile. Exports take the labels from the profile of each annotation and have a column “Profile”
+- Full backups include the rules for collections and the profile chosen per document
 
 ## 1.0.0-beta.1 – 2026-11-13
 

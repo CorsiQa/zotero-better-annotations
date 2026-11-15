@@ -292,43 +292,27 @@ BetterAnnotations.Panel = {
     }
   },
 
-  /** Annotation colors of a target: Map color -> number. */
-  countColors(target) {
-    const counts = new Map();
-    const add = (color) => {
-      const c = this.SB.normalize(color);
-      if (c) {
-        counts.set(c, (counts.get(c) || 0) + 1);
-      }
-    };
+  /** Profile ID of a target: of the reader, else of the (first) file in the library. */
+  profileIdOf(target) {
+    const P = this.SB.Profiles;
+    const reader = this.readerOf(target);
+    if (reader) {
+      return P.forReader(reader);
+    }
+    return target && target.attachmentIDs && target.attachmentIDs.length ? P.forFile(target.attachmentIDs[0]) : P.defaultId();
+  },
+
+  /** Annotations of a target by profile (see Profiles.summarize). */
+  summarizeTarget(target) {
+    const P = this.SB.Profiles;
     if (!target) {
-      return counts;
+      return P.summarize([]);
     }
     const reader = this.readerOf(target);
-    let fromReader = false;
-    try {
-      const list = reader && reader._state && reader._state.annotations;
-      if (list) {
-        for (const a of Array.from(list)) {
-          add(a.color);
-        }
-        fromReader = true;
-      }
+    if (reader && reader._state && reader._state.annotations) {
+      return P.summarize(P.readerList(reader));
     }
-    catch (e) {}
-    if (!fromReader) {
-      for (const att of Zotero.Items.get(target.attachmentIDs || []).filter(Boolean)) {
-        try {
-          for (const a of att.getAnnotations()) {
-            add(a.annotationColor);
-          }
-        }
-        catch (e) {
-          this.SB.logError(e);
-        }
-      }
-    }
-    return counts;
+    return P.summarize(P.fileList(target.attachmentIDs));
   },
 
   /** Title of the item a target belongs to. */
@@ -785,7 +769,7 @@ BetterAnnotations.PanelView = class {
       n = reader ? String(Array.from(reader._state?.annotations || []).length) : "";
     }
     catch (e) {}
-    return [this.SB.Store.data.activeProfileId, this.target ? this.target.tabID || this.target.attachmentIDs.join(",") : "", tool, n].join("|");
+    return [this.Panel.profileIdOf(this.target), this.target ? this.target.tabID || this.target.attachmentIDs.join(",") : "", tool, n].join("|");
   }
 
   render() {
@@ -828,32 +812,36 @@ BetterAnnotations.PanelView = class {
   }
 
   /** Profile selection: a flat button like the reader's profile button, with a native menu. */
-  profileButton(profile) {
+  profileButton(profile, summary) {
     const SB = this.SB;
     const S = (k, a) => this.S(k, a);
+    const reader = this.Panel.readerOf(this.target);
+    const source = reader ? SB.Reader.sourceText(reader) : "";
     const b = this.h("button", {
       class: "bac-p-menu",
       "data-key": "profile",
-      title: S("panelProfile"),
+      title: S("panelProfile") + (source ? "\n" + source : ""),
       "aria-haspopup": "menu",
       "aria-label": S("panelProfile") + ": " + profile.name,
     }, this.h("span", { class: "bac-p-menu-name", text: profile.name }), this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
     b.addEventListener("click", (e) => {
       e.preventDefault();
-      this.openProfileMenu(b);
+      this.openProfileMenu(b, profile.id, summary);
     });
     return b;
   }
 
-  openProfileMenu(anchor) {
+  /** Profile menu: profiles with annotations here (with number), other profiles, “Manage Profiles…”. */
+  openProfileMenu(anchor, active, summary) {
     const SB = this.SB;
+    const P = SB.Profiles;
     const doc = this.doc;
-    const list = SB.Store.listForMenu();
-    const active = SB.Store.data.activeProfileId;
+    const target = this.target;
+    const { inDoc, others } = P.menuGroups(summary);
+    const reader = this.Panel.readerOf(target);
     const choose = (id) => {
-      if (id && id !== active) {
-        SB.Store.setActive(id).catch(err => SB.logError(err));
-      }
+      const task = reader ? P.setForReader(reader, id) : P.setForFiles(target ? target.attachmentIDs : [], id);
+      Promise.resolve(task).catch(err => SB.logError(err));
     };
     let popup = null;
     try {
@@ -861,19 +849,40 @@ BetterAnnotations.PanelView = class {
     }
     catch (e) {}
     if (popup && typeof popup.openPopup === "function") {
-      list.forEach((p, i) => {
-        if (i === 2) {
-          popup.append(doc.createXULElement("menuseparator"));
-        }
+      const caption = (text) => {
+        const mi = doc.createXULElement("menuitem");
+        mi.setAttribute("label", text);
+        mi.setAttribute("disabled", "true");
+        mi.classList.add("bac-menu-caption");
+        popup.append(mi);
+      };
+      const add = (p) => {
         const mi = doc.createXULElement("menuitem");
         mi.setAttribute("type", "radio");
         mi.setAttribute("label", p.name);
+        if (p.n) {
+          mi.setAttribute("acceltext", String(p.n));
+        }
         if (p.id === active) {
           mi.setAttribute("checked", "true");
         }
         mi.addEventListener("command", () => choose(p.id));
         popup.append(mi);
-      });
+      };
+      if (inDoc.length) {
+        caption(SB.S("menuInDocument"));
+        inDoc.forEach(add);
+        if (others.length) {
+          popup.append(doc.createXULElement("menuseparator"));
+          caption(SB.S("menuOtherProfiles"));
+        }
+      }
+      others.forEach(add);
+      popup.append(doc.createXULElement("menuseparator"));
+      const manage = doc.createXULElement("menuitem");
+      manage.setAttribute("label", SB.S("menuManageProfiles"));
+      manage.addEventListener("command", () => SB.openPrefs());
+      popup.append(manage);
       popup.addEventListener("popuphidden", () => popup.remove(), { once: true });
       (doc.getElementById("mainPopupSet") || doc.documentElement).append(popup);
       popup.openPopup(anchor, "after_start", 0, 2, false, false);
@@ -882,7 +891,8 @@ BetterAnnotations.PanelView = class {
     // Fallback without XUL (e.g. tests in a browser): a simple list below the button
     this.root.querySelector(".bac-p-fallback")?.remove();
     const menu = this.h("div", { class: "bac-p-fallback", role: "menu" });
-    for (const p of list) {
+    const group = (text) => menu.append(this.h("div", { class: "bac-p-caption", text }));
+    const add = (p) => {
       menu.append(this.h("button", {
         role: "menuitemradio",
         "aria-checked": p.id === active ? "true" : "false",
@@ -892,8 +902,25 @@ BetterAnnotations.PanelView = class {
             choose(p.id);
           },
         },
-      }, (p.id === active ? "✓ " : "") + p.name));
+      }, (p.id === active ? "✓ " : "") + p.name + (p.n ? " (" + p.n + ")" : "")));
+    };
+    if (inDoc.length) {
+      group(SB.S("menuInDocument"));
+      inDoc.forEach(add);
+      if (others.length) {
+        group(SB.S("menuOtherProfiles"));
+      }
     }
+    others.forEach(add);
+    menu.append(this.h("button", {
+      role: "menuitem",
+      on: {
+        click: () => {
+          menu.remove();
+          SB.openPrefs();
+        },
+      },
+    }, SB.S("menuManageProfiles")));
     anchor.after(menu);
   }
 
@@ -901,11 +928,12 @@ BetterAnnotations.PanelView = class {
     const SB = this.SB;
     const S = (k, a) => this.S(k, a);
     const Panel = this.Panel;
-    const profile = SB.Store.getActive();
     const target = this.target;
     const reader = Panel.readerOf(target);
-    const counts = Panel.countColors(target);
-    const total = [...counts.values()].reduce((a, b) => a + b, 0);
+    const profile = SB.Profiles.profile(Panel.profileIdOf(target));
+    const summary = Panel.summarizeTarget(target);
+    const counts = summary.colors.get(profile.id) || new Map();
+    const total = summary.byProfile.get(profile.id) || 0;
     const toolColor = reader ? SB.Reader.activeToolColor(reader) : null;
     this.lastSignature = this.signature();
 
@@ -914,7 +942,7 @@ BetterAnnotations.PanelView = class {
     const showDesc = SB.setting(descKey) === true;
     const keep = SB.setting("keepToolColor") !== false;
     const bar = this.h("div", { class: "bac-p-bar" },
-      this.profileButton(profile),
+      this.profileButton(profile, summary),
       this.iconButton("keep", S("panelKeepColor"), () => {
         SB.Store.setSetting("keepToolColor", !keep).catch(err => SB.logError(err));
       }, keep),
@@ -1000,6 +1028,16 @@ BetterAnnotations.PanelView = class {
       listEl.append(item);
     }
     parts.push(listEl);
+    const others = [...summary.byProfile.keys()].filter(id => id !== profile.id);
+    if (others.length) {
+      parts.push(this.h("div", { class: "bac-p-hint", text: S("statsOthers", {
+        list: others.map(id => SB.Profiles.name(id) + " (" + summary.byProfile.get(id) + ")").join(", "),
+      }) }));
+    }
+    const shared = SB.Profiles.sharedColorsText(summary);
+    if (shared) {
+      parts.push(this.h("div", { class: "bac-p-hint bac-p-warn", role: "note", text: shared }));
+    }
     if (showDesc && profile.preset) {
       parts.push(this.h("div", { class: "bac-p-hint", text: S("panelPresetDescHint") }));
     }
@@ -1157,6 +1195,9 @@ button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15));
 .bac-p-desc[readonly]:focus { outline: none; }
 .bac-p-clamp:not(:focus) { max-height: calc(3 * 1.4em + 8px); }
 .bac-p-hint { margin-top: 6px; color: var(--fill-secondary, GrayText); font-size: .92em; }
+.bac-p-warn { color: var(--fill-primary, CanvasText); }
+.bac-p-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
+.bac-p-caption { padding: 4px 10px 2px; font-size: .85em; font-weight: 600; color: var(--fill-secondary, GrayText); }
 `;
     return st;
   }

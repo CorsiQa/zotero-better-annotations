@@ -270,7 +270,7 @@ BetterAnnotations.Reader = {
 
   buildColorMenu(reader, append, opts) {
     const SB = this.SB;
-    const profile = SB.Store.getActive();
+    const profile = SB.Profiles.profileForReader(reader);
     this._menuSeq++;
     const spec = {
       seq: String(this._menuSeq),
@@ -847,7 +847,7 @@ BetterAnnotations.Reader = {
         return;
       }
       popup.setAttribute("data-bac-done", "1");
-      this._safe(() => this.enhancePopup(doc, popup));
+      this._safe(() => this.enhancePopup(doc, popup, reader));
     };
     place(0);
   },
@@ -856,9 +856,9 @@ BetterAnnotations.Reader = {
    * Color grid in the selection popup: N colors per row (left-aligned),
    * followed by the “Customize Annotation Colors…” button.
    */
-  enhancePopup(doc, popup) {
+  enhancePopup(doc, popup, reader) {
     const SB = this.SB;
-    const profile = SB.Store.getActive();
+    const profile = SB.Profiles.profileForReader(reader);
     const instant = SB.setting("instantTooltip") !== false;
     const fixedLayout = SB.setting("popupLayout") === "fixed";
     const columns = Math.max(1, (fixedLayout ? SB.setting("popupFixedColumns") : SB.setting("popupColumns")) || 8);
@@ -1158,6 +1158,13 @@ BetterAnnotations.Reader = {
 [data-bac-panel] .bac-check { width: 12px; text-align: center; }
 [data-bac-panel] .bac-sep { height: 1px; margin: 4px 0; background: var(--fill-quinary, rgba(127,127,127,.3)); }
 [data-bac-panel] .bac-head { padding: 4px 12px 6px; font-weight: 600; }
+[data-bac-panel] .bac-group { padding: 6px 12px 2px; font-size: 11px; font-weight: 600; color: var(--fill-secondary, GrayText); }
+[data-bac-panel] .bac-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+[data-bac-panel] .bac-item-n { margin-inline-start: 12px; font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
+[data-bac-panel] .bac-menu-hint { padding: 4px 12px; max-width: 300px; white-space: normal; font-size: 12px; color: var(--fill-secondary, GrayText); }
+[data-bac-panel] .bac-menu-warn { color: var(--fill-primary, CanvasText); }
+[data-bac-panel] .bac-menu-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
+[data-bac-panel] .bac-others { padding-top: 6px; white-space: normal; }
 [data-bac-panel] .bac-sub { padding: 0 12px 6px; opacity: .7; font-size: 12px; }
 [data-bac-panel] .bac-stat { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding: 3px 12px; }
 [data-bac-panel] .bac-dot { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
@@ -1272,6 +1279,8 @@ BetterAnnotations.Reader = {
     if (win) {
       this._scanWin = win;
       this._scanTimer = win.setInterval(() => {
+        // Choose the profile of new readers and prepare their profile tag
+        this._safe(() => this.SB.Profiles.openReaders().forEach(r => this.SB.Profiles.forReader(r)));
         this._safe(() => this.scanReaders());
         this._safe(() => this.refreshCounts());
       }, 1000);
@@ -1309,7 +1318,7 @@ BetterAnnotations.Reader = {
     profileBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.toggleProfileMenu(doc, profileBtn);
+      this.toggleProfileMenu(reader, doc, profileBtn);
     });
 
     const statsBtn = doc.createElement("button");
@@ -1351,9 +1360,18 @@ BetterAnnotations.Reader = {
     return wrap;
   },
 
+  /** Number next to the statistics icon: annotations of the active profile (or of all profiles). */
   annotationCount(reader) {
     try {
-      return Array.from(reader._state?.annotations || []).length;
+      if (!reader._state || !reader._state.annotations) {
+        return null;
+      }
+      const list = this.SB.Profiles.readerList(reader);
+      if (this.SB.setting("statsAllProfiles")) {
+        return list.length;
+      }
+      const id = this.SB.Profiles.forReader(reader);
+      return list.filter(a => a.profile === id).length;
     }
     catch (e) {
       return null;
@@ -1372,12 +1390,16 @@ BetterAnnotations.Reader = {
       if (rec.count.textContent !== text) {
         rec.count.textContent = text;
       }
+      const name = this.SB.Profiles.profileForReader(rec.reader).name;
+      if (rec.name.textContent !== name) {
+        rec.name.textContent = name;
+      }
     }
   },
 
   updateToolbar(rec) {
     const SB = this.SB;
-    rec.name.textContent = SB.Store.getActive().name;
+    rec.name.textContent = SB.Profiles.profileForReader(rec.reader).name;
     rec.profileBtn.style.display = SB.setting("showToolbarProfile") ? "" : "none";
     rec.statsBtn.style.display = SB.setting("showToolbarStats") ? "" : "none";
     const n = this.annotationCount(rec.reader);
@@ -1459,82 +1481,168 @@ BetterAnnotations.Reader = {
     return { panel, place };
   },
 
-  toggleProfileMenu(doc, anchor) {
+  /** Why the document uses its profile (shown at the bottom of the profile menu). */
+  sourceText(reader) {
+    const SB = this.SB;
+    const key = {
+      explicit: "srcExplicit",
+      annotations: "srcAnnotations",
+      rule: "srcRule",
+    }[SB.Profiles.sourceForReader(reader)] || "srcDefault";
+    return SB.S(key);
+  },
+
+  toggleProfileMenu(reader, doc, anchor) {
     if (doc.querySelector("[data-bac-panel=\"profile\"]")) {
       this.closePanel(doc, "profile");
       return;
     }
     const SB = this.SB;
+    const P = SB.Profiles;
     const { panel, place } = this.openPanel(doc, anchor, "profile");
-    const active = SB.Store.data.activeProfileId;
-    const list = SB.Store.listForMenu();
-    list.forEach((p, i) => {
-      if (i === 2) {
-        const sep = doc.createElement("div");
-        sep.className = "bac-sep";
-        panel.append(sep);
+    panel.setAttribute("role", "menu");
+    const active = P.forReader(reader);
+    const summary = P.summarize(P.readerList(reader));
+    const { inDoc, others } = P.menuGroups(summary);
+    const el = (cls, text) => {
+      const d = doc.createElement("div");
+      d.className = cls;
+      if (text) {
+        d.textContent = text;
       }
-      const item = doc.createElement("div");
-      item.className = "bac-item";
+      return d;
+    };
+    const addItem = (p) => {
+      const item = el("bac-item");
       item.setAttribute("role", "menuitemradio");
-      const check = doc.createElement("span");
-      check.className = "bac-check";
-      check.textContent = p.id === active ? "✓" : "";
+      item.setAttribute("aria-checked", p.id === active ? "true" : "false");
+      const check = el("bac-check", p.id === active ? "✓" : "");
       const label = doc.createElement("span");
+      label.className = "bac-item-name";
       label.textContent = p.name;
       item.append(check, label);
+      if (p.n) {
+        item.append(el("bac-item-n", String(p.n)));
+      }
       item.addEventListener("click", async () => {
         this.closePanel(doc, "profile");
         try {
-          await SB.Store.setActive(p.id);
+          if (p.id !== active || P.sourceForReader(reader) !== "explicit") {
+            await P.setForReader(reader, p.id);
+          }
         }
         catch (e) {
           SB.logError(e);
         }
       });
       panel.append(item);
-    });
-    const sep = doc.createElement("div");
-    sep.className = "bac-sep";
-    const custom = doc.createElement("div");
-    custom.className = "bac-item";
-    const icon = doc.createElement("span");
-    icon.className = "bac-check";
+    };
+    if (inDoc.length) {
+      panel.append(el("bac-group", SB.S("menuInDocument")));
+      inDoc.forEach(addItem);
+      if (others.length) {
+        panel.append(el("bac-sep"), el("bac-group", SB.S("menuOtherProfiles")));
+      }
+    }
+    others.forEach(addItem);
+    const hint = P.sharedColorsText(summary);
+    if (hint) {
+      panel.append(el("bac-menu-hint bac-menu-warn", hint));
+    }
+    panel.append(el("bac-menu-hint", this.sourceText(reader)));
+    const custom = el("bac-item");
+    custom.setAttribute("role", "menuitem");
+    const icon = el("bac-check");
     icon.append(this.makeTuneIcon(doc, 12));
     const label = doc.createElement("span");
-    label.textContent = SB.S("menuCustomize");
+    label.textContent = SB.S("menuManageProfiles");
     custom.append(icon, label);
     custom.addEventListener("click", () => {
       this.closePanel(doc, "profile");
       SB.openPrefs();
     });
-    panel.append(sep, custom);
+    panel.append(el("bac-sep"), custom);
     place();
   },
 
   showStats(reader, doc, anchor, onClose) {
     const SB = this.SB;
+    const P = SB.Profiles;
     const { panel, place } = this.openPanel(doc, anchor, "stats", onClose);
-    let annotations = [];
-    try {
-      annotations = Array.from(reader._state?.annotations || []);
-    }
-    catch (e) {}
-    const counts = new Map();
-    for (const a of annotations) {
-      const c = SB.normalize(a.color);
-      if (c) {
-        counts.set(c, (counts.get(c) || 0) + 1);
-      }
-    }
+    const activeId = P.forReader(reader);
+    const summary = P.summarize(P.readerList(reader));
+    const all = SB.setting("statsAllProfiles") === true;
+    const total = [...summary.byProfile.values()].reduce((a, b) => a + b, 0);
+    const own = summary.byProfile.get(activeId) || 0;
     const head = doc.createElement("div");
     head.className = "bac-head";
     head.textContent = SB.S("statsTitle");
     const sub = doc.createElement("div");
     sub.className = "bac-sub";
-    sub.textContent = annotations.length ? SB.S("statsTotal", { n: annotations.length }) : SB.S("statsEmpty");
+    if (!total) {
+      sub.textContent = SB.S("statsEmpty");
+    }
+    else if (all) {
+      sub.textContent = SB.S("statsTotal", { n: total });
+    }
+    else {
+      sub.textContent = SB.S("statsTotalProfile", { n: own, profile: P.name(activeId) });
+    }
     panel.append(head, sub);
-    const profile = SB.Store.getActive();
+    const ids = all
+      ? [activeId, ...[...summary.byProfile.keys()].filter(id => id !== activeId)].filter(id => summary.byProfile.get(id))
+      : [activeId];
+    const max = Math.max(1, ...ids.map(id => Math.max(0, ...(summary.colors.get(id) || new Map()).values())));
+    for (const id of ids) {
+      if (all && ids.length > 1) {
+        const g = doc.createElement("div");
+        g.className = "bac-group";
+        g.textContent = SB.S("statsProfileGroup", { profile: P.name(id), n: summary.byProfile.get(id) || 0 });
+        panel.append(g);
+      }
+      this.appendStatRows(doc, panel, P.profile(id), summary.colors.get(id) || new Map(), max);
+    }
+    // Other profiles: a line with their numbers and a switch for all profiles
+    const others = [...summary.byProfile.keys()].filter(id => id !== activeId);
+    if (others.length) {
+      if (!all) {
+        const line = doc.createElement("div");
+        line.className = "bac-sub bac-others";
+        line.textContent = SB.S("statsOthers", { list: others.map(id => P.name(id) + " (" + summary.byProfile.get(id) + ")").join(", ") });
+        panel.append(line);
+      }
+      const toggle = doc.createElement("div");
+      toggle.className = "bac-item";
+      toggle.setAttribute("role", "menuitemcheckbox");
+      toggle.setAttribute("aria-checked", all ? "true" : "false");
+      const check = doc.createElement("span");
+      check.className = "bac-check";
+      check.textContent = all ? "✓" : "";
+      const label = doc.createElement("span");
+      label.textContent = SB.S("statsAllProfiles");
+      toggle.append(check, label);
+      toggle.addEventListener("click", async () => {
+        await SB.Store.setSetting("statsAllProfiles", !all);
+        this.closePanel(doc, "stats");
+        this.showStats(reader, doc, anchor, onClose);
+      });
+      const sep = doc.createElement("div");
+      sep.className = "bac-sep";
+      panel.append(sep, toggle);
+    }
+    const hint = P.sharedColorsText(summary);
+    if (hint) {
+      const h = doc.createElement("div");
+      h.className = "bac-menu-hint bac-menu-warn";
+      h.textContent = hint;
+      panel.append(h);
+    }
+    place();
+  },
+
+  /** Rows of the statistics for one profile: color, name, number, bar. */
+  appendStatRows(doc, panel, profile, counts, max) {
+    const SB = this.SB;
     const showDesc = SB.setting("statsDescriptions") !== false;
     const order = profile.colors.map(c => c.color);
     const rows = [...counts.entries()].sort((a, b) => {
@@ -1548,7 +1656,6 @@ BetterAnnotations.Reader = {
       }
       return b[1] - a[1];
     });
-    const max = Math.max(1, ...counts.values());
     for (const [color, n] of rows) {
       const entry = profile.colors.find(c => c.color === color);
       const row = doc.createElement("div");
@@ -1584,7 +1691,6 @@ BetterAnnotations.Reader = {
       }
       panel.append(row);
     }
-    place();
   },
 
   // -------------------------------------------------------------------
@@ -1603,7 +1709,15 @@ BetterAnnotations.Reader = {
   },
 
   labelSidebar(doc) {
-    const profile = this.SB.Store.getActive();
+    const reader = this.SB.Profiles.openReaders().find((r) => {
+      try {
+        return r._iframeWindow && r._iframeWindow.document === doc;
+      }
+      catch (e) {
+        return false;
+      }
+    });
+    const profile = reader ? this.SB.Profiles.profileForReader(reader) : this.SB.Store.getActive();
     if (profile.standard) {
       return;
     }

@@ -85,6 +85,9 @@ var BetterAnnotations = {
     exportImages: true,
     exportLabeledOnly: false,
     exportDescriptions: false,
+    profileTagsEnabled: false,
+    profileTagPrefix: null, // fixed at the first start in the language of the interface
+    statsAllProfiles: false,
   },
 
   // ---------------------------------------------------------------------
@@ -212,6 +215,12 @@ var BetterAnnotations = {
 
     await this.readManifest();
     await this.Store.init();
+    try {
+      await this.Profiles.init();
+    }
+    catch (e) {
+      this.logError(e);
+    }
     // Hook into the reader first: Zotero restores open tabs during startup
     this.Reader.register();
     try {
@@ -268,7 +277,7 @@ var BetterAnnotations = {
   },
 
   shutdown() {
-    for (const part of [this.Panel, this.Reader, this.Library]) {
+    for (const part of [this.Panel, this.Reader, this.Library, this.Profiles]) {
       try {
         part.shutdown();
       }
@@ -626,6 +635,7 @@ BetterAnnotations.Store = {
       activeProfileId: "zoteroplus",
       settings: Object.assign({}, SB.DEFAULT_SETTINGS),
       profiles: [],
+      collectionRules: [],
       backups: [],
     };
     if (!input || typeof input !== "object") {
@@ -642,7 +652,8 @@ BetterAnnotations.Store = {
       .map(c => SB.normalize(c)).filter(Boolean).filter((c, i, a) => a.indexOf(c) === i).slice(0, 12);
     for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "showUsage",
       "showToolbarProfile", "showToolbarStats", "showItemPaneSection",
-      "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled"]) {
+      "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled",
+      "profileTagsEnabled", "statsAllProfiles"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
       }
@@ -655,6 +666,9 @@ BetterAnnotations.Store = {
     }
     if (typeof s.tagPrefix === "string") {
       out.settings.tagPrefix = s.tagPrefix.slice(0, 40);
+    }
+    if (typeof s.profileTagPrefix === "string") {
+      out.settings.profileTagPrefix = s.profileTagPrefix.slice(0, 40);
     }
     out.settings.menuLimit = this.clampInt(s.menuLimit, 1, 20, SB.DEFAULT_SETTINGS.menuLimit);
     out.settings.popupColumns = this.clampInt(s.popupColumns, 4, 16, SB.DEFAULT_SETTINGS.popupColumns);
@@ -693,11 +707,32 @@ BetterAnnotations.Store = {
     if (SB.PRESET_IDS.includes(active) || out.profiles.some(p => p.id === active)) {
       out.activeProfileId = active;
     }
+    out.collectionRules = this.sanitizeRules(input.collectionRules, out.profiles);
     if (Array.isArray(input.backups)) {
       out.backups = input.backups.filter(b => b && typeof b.file === "string" && typeof b.created === "string")
         .map(b => ({ file: b.file, created: b.created, kind: b.kind === "initial" ? "initial" : "manual", count: +b.count || 0 }));
     }
     return out;
+  },
+
+  /** Collection rules: { id, lib, key, profileId, sub }; library and key identify the collection. */
+  sanitizeRules(list, profiles) {
+    const SB = this.SB;
+    const known = new Set([...SB.PRESET_IDS, ...(profiles || this.data.profiles).map(p => p.id)]);
+    const out = [];
+    for (const r of Array.isArray(list) ? list : []) {
+      if (!r || typeof r.key !== "string" || !r.key || !Number.isFinite(+r.lib) || !known.has(r.profileId)) {
+        continue;
+      }
+      out.push({ id: typeof r.id === "string" && r.id ? r.id : SB.uid("r"), lib: +r.lib, key: r.key, profileId: r.profileId, sub: r.sub !== false });
+    }
+    return out.slice(0, 200);
+  },
+
+  async setRules(rules) {
+    this.data.collectionRules = this.sanitizeRules(rules);
+    await this.persist();
+    this.emit("rules");
   },
 
   clampInt(v, min, max, fallback) {
@@ -846,8 +881,20 @@ BetterAnnotations.Store = {
     return this.data.profiles.find(p => p.id === id) || null;
   },
 
-  /** Active profile (copy). */
+  /**
+   * Profile in use (copy): the profile of the document in the selected reader
+   * tab, else the default profile. Code for a specific reader asks
+   * BetterAnnotations.Profiles.profileForReader(reader).
+   */
   getActive() {
+    if (this.SB.Profiles) {
+      return this.SB.Profiles.profile(this.SB.Profiles.currentId());
+    }
+    return this.getDefault();
+  },
+
+  /** Default profile (copy): for documents without choice, profile annotations or matching rule. */
+  getDefault() {
     const p = this.getProfile(this.data.activeProfileId) || this.plusPreset();
     return JSON.parse(JSON.stringify(p));
   },
@@ -870,7 +917,8 @@ BetterAnnotations.Store = {
     return this.data.profiles.some(p => p.id !== exceptId && p.name.toLowerCase() === n);
   },
 
-  async setActive(id) {
+  /** Set the default profile (the stored key keeps its old name “activeProfileId”). */
+  async setDefault(id) {
     if (!this.getProfile(id)) {
       id = "zoteroplus";
     }
@@ -905,6 +953,13 @@ BetterAnnotations.Store = {
     this.data.profiles = this.data.profiles.filter(p => p.id !== id);
     if (this.data.activeProfileId === id) {
       this.data.activeProfileId = "zoteroplus";
+    }
+    this.data.collectionRules = (this.data.collectionRules || []).filter(r => r.profileId !== id);
+    try {
+      this.SB.Profiles.forgetProfile(id);
+    }
+    catch (e) {
+      this.SB.logError(e);
     }
     await this.persist();
     this.emit("profiles");
