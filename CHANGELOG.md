@@ -7,6 +7,9 @@ The project uses [Semantic Versioning](https://semver.org/).
 
 Changes for the next release are collected here. The section is renamed to the version number when the release is published.
 
+- Export: text and images now share one column “Extract”. Image and drawing annotations show their image there (Excel, HTML) or a placeholder such as “[Image]” (CSV, or when images are turned off)
+- Excel export: column widths follow the heading and the typical content, within sensible limits; images are scaled to the width of the column
+
 ## 1.0.0-beta.1 – 2026-11-13
 
 First public release (beta). Please report problems in the [issue tracker](https://github.com/CorsiQa/zotero-better-annotations/issues).
