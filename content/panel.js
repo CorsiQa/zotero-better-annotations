@@ -143,16 +143,16 @@ BetterAnnotations.Panel = {
         // Tooltips of header buttons come from Fluent only (locale/*/better-annotations.ftl)
         sectionButtons: [
           {
-            type: "bac-pin",
-            icon: "chrome://better-annotations/content/icons/pin.svg",
-            l10nID: "better-annotations-pin",
-            onClick: ({ body }) => this.togglePin(body),
-          },
-          {
             type: "bac-popout",
             icon: "chrome://better-annotations/content/icons/new-window.svg",
             l10nID: "better-annotations-popout",
-            onClick: ({ body, tabType }) => this.openPopout({ collapse: String(tabType || "").startsWith("reader") }),
+            onClick: ({ tabType }) => this.openPopout({ collapse: String(tabType || "").startsWith("reader") }),
+          },
+          {
+            type: "bac-top",
+            icon: "chrome://better-annotations/content/icons/to-top.svg",
+            l10nID: "better-annotations-top",
+            onClick: ({ body }) => this.scrollToTop(body),
           },
         ],
         onInit: ({ body }) => {
@@ -207,21 +207,19 @@ BetterAnnotations.Panel = {
   },
 
   /**
-   * Pin the section with Zotero's own mechanism (as “Pin Section” in the side
-   * navigation): it moves to the top and stays there. A second click unpins it.
+   * Show the section at the top of the item pane, opened, as a click on its
+   * icon in the side navigation does. Unlike pinning, the next scroll or
+   * section change works as usual.
    */
-  togglePin(body) {
+  scrollToTop(body) {
     try {
+      const section = body.closest("collapsible-section");
+      if (section && section.open === false) {
+        section.open = true;
+      }
       const details = body.closest("item-details");
-      if (!details || !this._sectionKey) {
-        return;
-      }
-      if (details.pinnedPane === this._sectionKey) {
-        details.pinnedPane = "";
-      }
-      else {
-        details.pinnedPane = this._sectionKey;
-        details.scrollToPane?.(this._sectionKey, "smooth");
+      if (details && this._sectionKey) {
+        details.scrollToPane(this._sectionKey, "smooth");
       }
     }
     catch (e) {
@@ -508,7 +506,47 @@ BetterAnnotations.Panel = {
     this.refreshAll();
   },
 
+  /**
+   * Readers in which a color was chosen in the panel while “keep color” is
+   * off: after the next annotation the reader switches back to the pointer.
+   */
+  _oneShot: new Map(),
+
+  armOneShot(reader, color) {
+    if (this.SB.setting("keepToolColor") === false) {
+      this._oneShot.set(reader, this.SB.normalize(color));
+    }
+    else {
+      this._oneShot.delete(reader);
+    }
+  },
+
+  onAnnotationsAdded(ids) {
+    if (!this._oneShot.size) {
+      return;
+    }
+    let parents = [];
+    try {
+      parents = Zotero.Items.get(ids).filter(i => i && i.isAnnotation && i.isAnnotation()).map(i => i.parentItemID);
+    }
+    catch (e) {
+      return;
+    }
+    for (const [reader, color] of [...this._oneShot]) {
+      if (!parents.includes(reader.itemID)) {
+        continue;
+      }
+      this._oneShot.delete(reader);
+      if (this.SB.Reader.activeToolColor(reader) === color) {
+        this.SB.Reader.pickToolColor(reader, color); // same color again = back to the pointer
+      }
+    }
+  },
+
   onNotify(event, type, ids) {
+    if (type === "item" && event === "add") {
+      this.onAnnotationsAdded(ids);
+    }
     if (type === "tab") {
       if (event === "select" || event === "close" || event === "load") {
         this.SB.setTimeout(() => this.retargetPopout(), 50);
@@ -638,7 +676,11 @@ BetterAnnotations.PanelView = class {
       p.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:" + (width || 1.1) + ";stroke-linecap:round;stroke-linejoin:round");
       svg.append(p);
     };
-    if (kind === "describe") {
+    if (kind === "keep") {
+      // Repeat: the color stays selected for further annotations
+      path("M2.5 7V6.5a2 2 0 0 1 2-2h8.5M11 2.5l2 2-2 2M13.5 9v.5a2 2 0 0 1-2 2H3M5 9.5l-2 2 2 2");
+    }
+    else if (kind === "describe") {
       path("M2.5 3.5h11M2.5 6.5h11M2.5 9.5h7M2.5 12.5h5");
     }
     else if (kind === "edit") {
@@ -814,8 +856,12 @@ BetterAnnotations.PanelView = class {
     // Toolbar: profile, descriptions, settings
     const descKey = this.kind === "section" ? "sectionDescriptions" : "popoutDescriptions";
     const showDesc = SB.setting(descKey) === true;
+    const keep = SB.setting("keepToolColor") !== false;
     const bar = this.h("div", { class: "bac-p-bar" },
       this.profileButton(profile),
+      this.iconButton("keep", S("panelKeepColor"), () => {
+        SB.Store.setSetting("keepToolColor", !keep).catch(err => SB.logError(err));
+      }, keep),
       this.iconButton("describe", S("panelDescriptions"), () => {
         SB.Store.setSetting(descKey, !showDesc).catch(err => SB.logError(err));
       }, showDesc),
@@ -875,6 +921,9 @@ BetterAnnotations.PanelView = class {
           on: {
             click: () => {
               SB.Reader.pickToolColor(reader, r.color);
+              if (SB.Reader.activeToolColor(reader)) {
+                Panel.armOneShot(reader, r.color);
+              }
               SB.setTimeout(() => this.render(), 30);
             },
           },
@@ -950,10 +999,7 @@ BetterAnnotations.PanelView = class {
       spellcheck: "true",
     });
     area.value = description;
-    const grow = () => {
-      area.style.height = "auto";
-      area.style.height = area.scrollHeight + "px";
-    };
+    SB.autoGrow(area);
     let original = description;
     let cancelled = false;
     area.addEventListener("focus", () => {
@@ -962,10 +1008,7 @@ BetterAnnotations.PanelView = class {
       }
       this.editing = entry.id;
       original = area.value;
-      area.setAttribute("placeholder", S("phDescription"));
-      grow();
     });
-    area.addEventListener("input", grow);
     area.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -1005,8 +1048,6 @@ BetterAnnotations.PanelView = class {
       }
       this._render();
     });
-    // Size the field once it is in the document
-    SB.setTimeout(grow, 0);
     return area;
   }
 
@@ -1045,15 +1086,16 @@ button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15));
 .bac-p-edit-btn { appearance: none; grid-column: 2; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
   margin: 0 0 0 2px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--fill-secondary, GrayText); opacity: 0; }
 .bac-p-item:hover .bac-p-edit-btn, .bac-p-item:focus-within .bac-p-edit-btn, .bac-p-edit-btn:focus-visible { opacity: 1; }
-.bac-p-desc { grid-column: 1; display: block; box-sizing: border-box; width: calc(100% - 20px); margin: 0 0 3px 20px; padding: 1px 5px;
-  min-height: 0; resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 4px; background: transparent;
-  color: var(--fill-secondary, GrayText); font: inherit; font-size: .95em; line-height: 1.35; }
-.bac-p-desc::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .8; }
+.bac-p-desc { grid-column: 1; display: block; box-sizing: border-box; width: calc(100% - 20px); min-height: 0; margin: 0 0 4px 20px;
+  padding: 2px 7px; resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 5px; background: transparent;
+  color: var(--fill-secondary, GrayText); font: inherit; font-size: 12px; line-height: 1.4; }
+.bac-p-desc::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .75; }
 .bac-p-desc:not([readonly]):hover { border-color: var(--fill-quinary, rgba(127,127,127,.3)); }
-.bac-p-desc:focus { outline: none; border-color: var(--color-focus-border, var(--accent-blue, #2e7bd1)); background: var(--material-background, Field);
-  color: var(--fill-primary, FieldText); }
-.bac-p-desc[readonly]:focus { border-color: transparent; background: transparent; color: var(--fill-secondary, GrayText); }
-.bac-p-clamp:not(:focus) { max-height: calc(3 * 1.35em + 4px); }
+.bac-p-desc:not([readonly]):focus { min-height: calc(3 * 1.4em + 6px); color: var(--fill-primary, FieldText);
+  background: var(--material-background, Field); border-color: var(--fill-quinary, rgba(127,127,127,.3));
+  outline: 2px solid color-mix(in srgb, var(--accent-blue, #2e7bd1) 55%, transparent); outline-offset: 0; }
+.bac-p-desc[readonly]:focus { outline: none; }
+.bac-p-clamp:not(:focus) { max-height: calc(3 * 1.4em + 6px); }
 .bac-p-hint { margin-top: 6px; color: var(--fill-secondary, GrayText); font-size: .92em; }
 `;
     return st;

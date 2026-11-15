@@ -81,13 +81,13 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-del { margin-top: 1px !important; }
 #bac-root .bac-labelcol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #bac-root .bac-labelcol .bac-label { flex: none; }
-#bac-root .bac-desc { display: block; box-sizing: border-box; width: 100%; min-height: 0; margin: 1px 0 0; padding: 1px 7px;
+#bac-root .bac-desc { display: block; box-sizing: border-box; width: 100%; min-height: 0; margin: 2px 0 0; padding: 2px 7px;
   resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 5px; background: transparent;
   color: var(--bac-muted); font: inherit; font-size: 12px; line-height: 1.4; }
-#bac-root .bac-desc:not(:focus) { max-height: calc(3 * 1.4em + 4px); }
-#bac-root .bac-desc::placeholder { color: var(--bac-muted); font-style: italic; opacity: .7; }
+#bac-root .bac-desc:not(:focus) { max-height: calc(3 * 1.4em + 6px); }
+#bac-root .bac-desc::placeholder { color: var(--bac-muted); font-style: italic; opacity: .75; }
 #bac-root .bac-desc:hover { border-color: var(--bac-border); }
-#bac-root .bac-desc:focus { color: inherit; background: var(--bac-bg); border-color: var(--bac-border);
+#bac-root .bac-desc:focus { min-height: calc(3 * 1.4em + 6px); color: inherit; background: var(--bac-bg); border-color: var(--bac-border);
   outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
 #bac-root .bac-indent { padding-inline-start: 22px; }
 #bac-root .bac-usage { font-size: 11px; color: var(--bac-muted); width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; }
@@ -96,8 +96,8 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-del:hover:not(:disabled) { background: rgba(220,40,60,.12); color: #d14; }
 #bac-root .bac-del:disabled { opacity: .25; cursor: default; }
 #bac-root .bac-actions { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bac-border); }
-#bac-root .bac-savebar { margin-top: 4px; }
-#bac-root .bac-savebar.bac-actions-dirty { position: sticky; bottom: 0; z-index: 4; flex-wrap: nowrap; margin-inline: -8px; padding: 8px 15px;
+#bac-root .bac-savebar:not(.bac-actions-dirty) { display: none; }
+#bac-root .bac-savebar.bac-actions-dirty { position: sticky; bottom: 0; z-index: 4; flex-wrap: nowrap; margin: 4px 0 0; padding: 8px 15px;
   border-radius: 8px; background: var(--bac-raise); border: 1px solid var(--bac-border); box-shadow: 0 -4px 14px rgba(0,0,0,.12); }
 #bac-root .bac-actions-dirty .bac-spacer { min-width: 0; }
 #bac-root .bac-actions-dirty .bac-status { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

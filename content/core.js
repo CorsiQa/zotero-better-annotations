@@ -70,7 +70,8 @@ var BetterAnnotations = {
     showUsage: true,
     showToolbarProfile: true,
     showToolbarStats: true,
-    statsDescriptions: true,
+    statsDescriptions: false,
+    keepToolColor: true,
     showItemPaneSection: true,
     sectionDescriptions: false,
     popoutDescriptions: true,
@@ -414,6 +415,40 @@ var BetterAnnotations = {
   },
 
   /**
+   * Let a text field grow with its content. Also sizes fields that were
+   * created while hidden (closed section, hidden settings tab) as soon as
+   * they become visible. Returns the function that recalculates the height.
+   */
+  autoGrow(area) {
+    const grow = () => {
+      if (!area.isConnected || !area.getClientRects().length) {
+        area.style.height = "";
+        return;
+      }
+      area.style.height = "auto";
+      area.style.height = area.scrollHeight + "px";
+    };
+    let lastWidth = -1;
+    try {
+      const RO = area.ownerDocument.defaultView.ResizeObserver;
+      if (RO) {
+        new RO(() => {
+          if (area.clientWidth !== lastWidth) {
+            lastWidth = area.clientWidth;
+            grow();
+          }
+        }).observe(area);
+      }
+    }
+    catch (e) {}
+    area.addEventListener("input", grow);
+    area.addEventListener("focus", grow);
+    area.addEventListener("blur", grow);
+    this.setTimeout(grow, 0);
+    return grow;
+  },
+
+  /**
    * Text for a system tooltip: the label, then the shortened description
    * after an empty line, each line marked with “›”.
    */
@@ -604,7 +639,7 @@ BetterAnnotations.Store = {
       .map(c => SB.normalize(c)).filter(Boolean).filter((c, i, a) => a.indexOf(c) === i).slice(0, 12);
     for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "showUsage",
       "showToolbarProfile", "showToolbarStats", "showItemPaneSection",
-      "statsDescriptions", "sectionDescriptions", "popoutDescriptions", "tagsEnabled"]) {
+      "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
       }

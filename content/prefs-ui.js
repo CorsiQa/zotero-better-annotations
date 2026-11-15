@@ -379,13 +379,6 @@ BetterAnnotations.PaneController = class {
         this.button(S("btnResetPlus"), () => this.resetToPlus()),
         paletteBtn,
       ),
-      // Save bar: stays at the bottom of the visible area while there are changes
-      this.actionsBar = this.h("div", { class: "bac-bar bac-savebar" },
-        this.statusEl,
-        this.h("span", { class: "bac-spacer" }),
-        this.discardBtn,
-        this.saveBtn,
-      ),
       this.h("div", { class: "bac-sub" },
         this.checkbox(S("optShowUsage"), settings.showUsage !== false, v => set("showUsage", v,
           () => this.listEl.classList.toggle("bac-no-usage", !v))),
@@ -505,6 +498,16 @@ BetterAnnotations.PaneController = class {
         ),
       ),
     );
+
+    // Save bar for the profile: appears in every tab while there are unsaved
+    // changes and stays at the bottom of the visible area
+    this.actionsBar = this.h("div", { class: "bac-bar bac-savebar", role: "region", "aria-label": S("unsaved") },
+      this.statusEl,
+      this.h("span", { class: "bac-spacer" }),
+      this.discardBtn,
+      this.saveBtn,
+    );
+    this.root.append(this.actionsBar);
 
     if (message) {
       const panel = this.panels.get(this.tab);
@@ -1516,23 +1519,13 @@ BetterAnnotations.PaneController = class {
       spellcheck: "true",
     });
     area.value = entry.description || "";
-    const grow = () => {
-      area.style.height = "auto";
-      area.style.height = area.scrollHeight + "px";
-    };
+    this.SB.autoGrow(area);
     let original = area.value;
     area.addEventListener("focus", () => {
       original = area.value;
-      area.setAttribute("placeholder", S("phDescription"));
-      grow();
-    });
-    area.addEventListener("blur", () => {
-      area.setAttribute("placeholder", S("btnAddDescription"));
-      grow();
     });
     area.addEventListener("input", () => {
       entry.description = area.value;
-      grow();
       this.updateDirty();
     });
     area.addEventListener("keydown", (e) => {
@@ -1550,7 +1543,6 @@ BetterAnnotations.PaneController = class {
         area.blur();
       }
     });
-    this.SB.setTimeout(grow, 0);
     return area;
   }
 
@@ -1619,7 +1611,7 @@ BetterAnnotations.PaneController = class {
       return;
     }
     const dirty = this.isDirty();
-    this.statusEl.textContent = dirty ? this.S("unsaved") : "";
+    this.statusEl.textContent = dirty ? this.S("unsavedProfile", { name: this.draft.name }) : "";
     if (this.actionsBar) {
       // While there are changes, the bar stays at the bottom of the visible area
       this.actionsBar.classList.toggle("bac-actions-dirty", dirty);
