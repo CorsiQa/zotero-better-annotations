@@ -275,8 +275,9 @@ BetterAnnotations.PaneController = class {
     return this.Store.isPreset(this.baseId);
   }
 
+  /** Colors in use; with “Profile per Document” only the annotations of the profile shown. */
   async loadUsage() {
-    this.usage = await this.SB.Library.getColorUsage();
+    this.usage = await this.SB.Library.getColorUsage(null, this.SB.Profiles.enabled() ? this.baseId : null);
     this.updateUsage();
     if (this.recolorBox) {
       this.renderRecolor();
@@ -303,7 +304,8 @@ BetterAnnotations.PaneController = class {
     this.root.append(this.renderHeader());
 
     // --- Tabs -----------------------------------------------------------
-    const tabs = [["colors", "tabColors"], ["display", "tabDisplay"], ["library", "tabLibrary"], ["export", "tabExport"], ["about", "tabAbout"]];
+    const tabs = [["colors", "tabColors"], ["display", "tabDisplay"], ["library", "tabLibrary"], ["export", "tabExport"],
+      ["advanced", "tabAdvanced"], ["about", "tabAbout"]];
     if (!tabs.some(([id]) => id === this.tab)) {
       this.tab = tabs.some(([id]) => id === settings.uiTab) ? settings.uiTab : "colors";
     }
@@ -341,26 +343,32 @@ BetterAnnotations.PaneController = class {
     if (this.isPreset()) {
       notices.push(S("presetInfo", { name: this.draft.name }));
     }
+    const perDocument = SB.Profiles.enabled();
     // Messages appear at the top of the active tab
     const message = this.notice;
     this.notice = null;
-    colors.append(this.card(S("secProfile"), S("infoProfile"), null,
-      this.h("div", { class: "bac-bar" },
+    // Buttons wrap only in groups that belong together
+    const group = (...items) => this.h("span", { class: "bac-group" }, ...items);
+    colors.append(this.card(S("secProfile"), S(perDocument ? "infoProfilePerDoc" : "infoProfile"), null,
+      this.h("div", { class: "bac-bar bac-profile-row" },
         this.profileMenu,
-        this.h("span", { class: "bac-spacer" }),
-        this.button(S("btnNewProfile"), () => this.newProfile()),
-        this.button(S("btnRename"), () => this.renameProfile(), { disabled: this.isPreset() }),
-        this.button(S("btnDelete"), () => this.deleteProfile(), { disabled: this.isPreset() }),
+        group(
+          this.button(S("btnNewProfile"), () => this.newProfile()),
+          this.button(S("btnRename"), () => this.renameProfile(), { disabled: this.isPreset() }),
+          this.button(S("btnDelete"), () => this.deleteProfile(), { disabled: this.isPreset() }),
+        ),
       ),
-      this.h("div", { class: "bac-bar" },
-        this.button(S(this.libraryOpen ? "btnHideTemplates" : "btnTemplates"), () => {
+      this.h("div", { class: "bac-bar bac-profile-row" },
+        group(this.button(S(this.libraryOpen ? "btnHideTemplates" : "btnTemplates"), () => {
           this.libraryOpen = !this.libraryOpen;
           this.render();
-        }),
-        this.h("span", { class: "bac-spacer" }),
-        this.button(S("btnImport"), () => this.importProfiles()),
-        this.button(S("btnExport"), () => this.exportProfiles()),
+        })),
+        group(
+          this.button(S("btnImport"), () => this.importProfiles()),
+          this.button(S("btnExport"), () => this.exportProfiles()),
+        ),
       ),
+      perDocument ? this.h("div", { class: "bac-hint", text: S("profilePerDocHint") }) : null,
       this.libraryOpen ? this.renderLibrary() : null,
       ...notices.map(n => this.h("div", { class: "bac-notice", text: n })),
     ));
@@ -373,7 +381,7 @@ BetterAnnotations.PaneController = class {
     this.saveBtn.classList.add("bac-save");
     this.discardBtn = this.button(S("btnDiscard"), () => this.discard());
     const paletteBtn = this.button(S("btnApplyPalette"), () => this.openPaletteMenu(paletteBtn), { tooltip: S("applyPaletteHint") });
-    colors.append(this.card(S("secColors"), S("infoColors") + "\n\n" + S("infoDescriptions"), null,
+    colors.append(this.card(S("secColors"), S("infoColors") + (SB.descriptionsOn() ? "\n\n" + S("infoDescriptions") : ""), null,
       this.listEl,
       this.h("div", { class: "bac-bar bac-end" }, this.addBtn),
       this.h("div", { class: "bac-bar bac-actions" },
@@ -385,9 +393,6 @@ BetterAnnotations.PaneController = class {
           () => this.listEl.classList.toggle("bac-no-usage", !v))),
       ),
     ));
-    this.docProfileBox = this.h("div");
-    colors.append(this.card(S("secDocProfile"), S("infoDocProfile"), null, this.docProfileBox));
-    this.renderDocProfiles();
 
     // --- Tab “Menus & Reader” --------------------------------------------
     const display = this.panels.get("display");
@@ -428,8 +433,6 @@ BetterAnnotations.PaneController = class {
       this.card(S("secToolbar"), S("infoToolbar"), null,
         this.checkbox(S("optToolbarProfile"), settings.showToolbarProfile !== false, v => set("showToolbarProfile", v)),
         this.checkbox(S("optToolbarStats"), settings.showToolbarStats !== false, v => set("showToolbarStats", v)),
-        this.h("div", { class: "bac-indent" },
-          this.checkbox(S("optStatsDescriptions"), settings.statsDescriptions !== false, v => set("statsDescriptions", v))),
       ),
       this.card(S("secItemPane"), S("infoItemPane"), null,
         this.checkbox(S("optItemPaneSection"), settings.showItemPaneSection !== false, v => set("showItemPaneSection", v)),
@@ -438,20 +441,14 @@ BetterAnnotations.PaneController = class {
 
     // --- Tab “Tags & Library” --------------------------------------------
     const library = this.panels.get("library");
-    this.tagsBox = this.h("div");
-    this.profileTagsBox = this.h("div");
     this.recolorBox = this.h("div");
     this.backupBox = this.h("div");
     this.historyBox = this.h("div");
     library.append(
-      this.card(S("secProfileTags"), S("infoProfileTags"), null, this.profileTagsBox),
-      this.card(S("secTags"), S("infoTags"), null, this.tagsBox),
       this.card(S("secRecolor"), S("infoRecolor"), null, this.recolorBox),
       this.card(S("secBackups"), S("infoBackups"), null, this.backupBox),
       this.card(S("secHistory"), S("infoHistory"), null, this.historyBox),
     );
-    this.renderTags();
-    this.renderProfileTags();
     this.renderRecolor();
     this.renderBackups();
     this.renderHistory();
@@ -460,6 +457,20 @@ BetterAnnotations.PaneController = class {
     this.exportBox = this.h("div");
     this.panels.get("export").append(this.card(S("secExport"), S("infoExport"), null, this.exportBox));
     this.renderExport();
+
+    // --- Tab “Advanced”: functions that are off by default ----------------
+    this.descBox = this.h("div");
+    this.tagsBox = this.h("div");
+    this.docProfileBox = this.h("div");
+    this.panels.get("advanced").append(
+      this.h("div", { class: "bac-hint bac-tab-intro", text: S("advancedIntro") }),
+      this.card(S("secDescriptions"), S("infoDescriptionsCard"), null, this.descBox),
+      this.card(S("secTags"), S("infoTags"), null, this.tagsBox),
+      this.card(S("secDocProfile"), S("infoDocProfile"), null, this.docProfileBox),
+    );
+    this.renderDescriptionsCard();
+    this.renderTags();
+    this.renderDocProfiles();
 
     // --- Tab “About” -----------------------------------------------------
     const P = SB.PROJECT;
@@ -599,9 +610,9 @@ BetterAnnotations.PaneController = class {
     const colors = t.colors.map((color, i) => ({ id: SB.uid("c"), color, label: text.labels[i] || "", enabled: true }));
     try {
       const saved = await this.own(() => this.Store.saveProfile({ id: SB.uid("p"), name, colors }));
+      await this.afterNewProfile(saved);
       this.loadDraft(saved.id);
       this.libraryOpen = false;
-      this.notice = this.S("newProfileHint", { name: saved.name });
       this.render();
     }
     catch (e) {
@@ -831,7 +842,18 @@ BetterAnnotations.PaneController = class {
       }
       return;
     }
-    // The profile shown here is only for editing; other changes concern the document profiles
+    // Without “Profile per Document” the settings show the active profile, as in the reader
+    if (what === "active" && !this.SB.Profiles.enabled() && this.Store.data.activeProfileId !== this.baseId) {
+      if (this.isDirty()) {
+        this.notice = this.S("externalSwitch", { name: this.SB.Profiles.name(this.Store.data.activeProfileId) });
+      }
+      else {
+        this.loadDraft(this.Store.data.activeProfileId);
+      }
+      this.render();
+      return;
+    }
+    // With it, the profile shown here is only for editing; other changes concern the document profiles
     if ((what === "active" || what === "rules" || what === "profiles") && this.docProfileBox && this.docProfileBox.isConnected) {
       this.renderDocProfiles();
     }
@@ -931,6 +953,11 @@ BetterAnnotations.PaneController = class {
     const S = (k, a) => this.S(k, a);
     const Store = this.Store;
     const P = this.SB.Profiles;
+    const toggle = this.checkbox(S("optProfilesPerDocument"), P.enabled(), v => this.onProfilesToggle(v));
+    if (!P.enabled()) {
+      this.docProfileBox.replaceChildren(this.h("div", { class: "bac-hint", text: S("docProfileIntro") }), toggle);
+      return;
+    }
     const profiles = Store.listForMenu();
     const profileItems = profiles.map(p => ({ value: p.id, label: p.name }));
     const defaultMenu = this.menulist(profileItems, P.defaultId(), (id) => {
@@ -1015,95 +1042,107 @@ BetterAnnotations.PaneController = class {
       rules.push({ id: this.SB.uid("r"), lib, key, profileId: Store.getProfile(this.baseId) ? this.baseId : P.defaultId(), sub: true });
       saveRules();
     }, { disabled: !hasCollections });
+    // Assign annotations without a profile tag in an area
+    const scope = this.scopeControls("assign", () => {});
+    this.assignScope = scope;
+    if (!this.assignProfile || !Store.getProfile(this.assignProfile)) {
+      this.assignProfile = P.currentId();
+    }
+    const assignTarget = this.menulist(profileItems, this.assignProfile, (v) => {
+      this.assignProfile = v;
+    });
+    const count = this.h("div", { class: "bac-hint" });
     this.docProfileBox.replaceChildren(
-      this.h("div", { class: "bac-hint", text: S("docStepsIntro") }),
-      this.h("ol", { class: "bac-steps" },
-        this.h("li", { text: S("docStepChoice") }),
-        this.h("li", { text: S("docStepAnnotations") }),
-        this.h("li", { text: S("docStepRule") }),
-        this.h("li", { text: S("docStepDefault") }),
-      ),
+      this.h("div", { class: "bac-hint", text: S("docProfileSummary") }),
+      toggle,
       this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optDefaultProfile") }), defaultMenu),
+      this.checkbox(S("optProfileFilterDefault"), this.SB.setting("profileFilterDefault") === true,
+        v => this.own(() => Store.setSetting("profileFilterDefault", v))),
+      this.checkbox(S("optProfileTagColor"), this.SB.setting("profileTagColor") !== false,
+        v => this.own(() => Store.setSetting("profileTagColor", v)).then(() => P.syncTagColors())),
+      count,
       this.h("h4", { class: "bac-subhead", text: S("rulesTitle") }),
       rows.length
         ? this.h("div", { class: "bac-rules", role: "list" }, rows)
         : this.h("div", { class: "bac-hint", text: hasCollections ? S("rulesEmpty") : S("rulesNoCollections") }),
       this.h("div", { class: "bac-bar bac-end" }, addBtn),
-    );
-  }
-
-  // --- Profile tags ------------------------------------------------------
-
-  renderProfileTags() {
-    const S = (k, a) => this.S(k, a);
-    const SB = this.SB;
-    const P = SB.Profiles;
-    const prefix = this.h("input", {
-      class: "bac-text",
-      type: "text",
-      value: P.prefix(),
-      maxlength: "40",
-      "aria-label": S("optProfileTagPrefix"),
-      on: { change: e => this.onProfilePrefix(e.target) },
-    });
-    const count = this.h("div", { class: "bac-hint" });
-    const scope = this.scopeControls("assign", () => {});
-    this.assignScope = scope;
-    const items = this.Store.listForMenu().map(p => ({ value: p.id, label: p.name }));
-    if (!this.assignProfile || !this.Store.getProfile(this.assignProfile)) {
-      this.assignProfile = P.currentId();
-    }
-    const target = this.menulist(items, this.assignProfile, (v) => {
-      this.assignProfile = v;
-    });
-    this.profileTagsBox.replaceChildren(
-      this.h("div", { class: "bac-hint", text: S("profileTagsIntro") }),
-      this.checkbox(S("optProfileTags"), SB.setting("profileTagsEnabled") === true,
-        v => this.own(() => this.Store.setSetting("profileTagsEnabled", v))),
-      this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optProfileTagPrefix") }), prefix),
-      count,
       this.h("h4", { class: "bac-subhead", text: S("assignTitle") }),
       this.h("div", { class: "bac-hint", text: S("assignIntro") }),
       scope.el,
-      this.h("div", { class: "bac-recolor-grid" }, this.h("label", { text: S("assignTo") }), target),
+      this.h("div", { class: "bac-recolor-grid" }, this.h("label", { text: S("assignTo") }), assignTarget),
       this.h("div", { class: "bac-bar bac-end" }, this.button(S("btnAssignProfile"), () => this.assignProfileTags())),
     );
     this.Library.countProfileTags().then((n) => {
       count.textContent = S("profileTagsCount", { n });
-    }).catch(e => SB.logError(e));
+    }).catch(e => this.SB.logError(e));
   }
 
-  async onProfilePrefix(input) {
+  /** Card “Descriptions”: switch and where descriptions are shown. */
+  renderDescriptionsCard() {
+    const S = (k, a) => this.S(k, a);
     const SB = this.SB;
-    const P = SB.Profiles;
-    const oldPrefix = P.prefix();
-    const newPrefix = String(input.value || "").slice(0, 40);
-    if (newPrefix === oldPrefix) {
-      return;
-    }
-    if (!newPrefix.trim()) {
-      // Without a prefix, every tag that is called like a profile would count as a profile tag
-      this.alert(this.S("prefixEmpty"));
-      input.value = oldPrefix;
-      return;
-    }
-    const changes = await this.Library.planPrefix(oldPrefix, newPrefix);
-    let rename = false;
-    if (changes.length) {
-      const choice = this.confirm3(this.S("dlgPrefixTitle"), this.S("dlgPrefixText", { n: changes.length, from: oldPrefix, to: newPrefix }),
-        this.S("dlgRenameTags"), this.S("dlgKeepTags"), 2);
+    const set = (key, value) => this.own(() => this.Store.setSetting(key, value));
+    const on = SB.descriptionsOn();
+    const toggle = this.checkbox(S("optDescriptions"), on, async (v) => {
+      await set("descriptionsEnabled", v);
+      this.render(); // the color list gets or loses its description fields
+    });
+    this.descBox.replaceChildren(
+      this.h("div", { class: "bac-hint", text: S("descriptionsIntro") }),
+      toggle,
+      on ? this.h("div", { class: "bac-indent" },
+        this.checkbox(S("optSectionDescriptions"), SB.setting("sectionDescriptions") === true, v => set("sectionDescriptions", v)),
+        this.checkbox(S("optPopoutDescriptions"), SB.setting("popoutDescriptions") !== false, v => set("popoutDescriptions", v)),
+        this.checkbox(S("optStatsDescriptions"), SB.setting("statsDescriptions") !== false, v => set("statsDescriptions", v)),
+      ) : null,
+    );
+  }
+
+  /**
+   * Turn “Profile per Document” on: new annotations get profile tags;
+   * existing annotations without one can get the tag of their document's
+   * profile. Turn it off: one profile for all documents again; the tags can
+   * stay or be removed.
+   */
+  async onProfilesToggle(value) {
+    const S = (k, a) => this.S(k, a);
+    const P = this.SB.Profiles;
+    if (value) {
+      const choice = this.confirm3(S("dlgProfilesOnTitle"), S("dlgProfilesOnText", { profile: P.name(P.defaultId()) }),
+        S("btnEnableAndAssign"), S("btnEnableOnly"), 0);
       if (choice === 1) {
-        input.value = oldPrefix;
+        this.renderDocProfiles();
         return;
       }
-      rename = choice === 0;
-    }
-    await this.own(() => this.Store.setSetting("profileTagPrefix", newPrefix));
-    if (rename) {
-      await this.runLibraryTask(() => this.Library.run("profilePrefix", { from: oldPrefix, to: newPrefix }, changes));
+      await this.own(() => this.Store.setSetting("profilesPerDocument", true));
+      if (choice === 0) {
+        const changes = await this.Library.planProfileAssignByDocument();
+        if (changes.length) {
+          await this.runLibraryTask(() => this.Library.run("profileAssignAll", {}, changes));
+          return;
+        }
+      }
+      await P.syncTagColors();
+      this.render();
       return;
     }
-    this.renderProfileTags();
+    const changes = await this.Library.planRemoveProfileTags();
+    let remove = false;
+    if (changes.length) {
+      const choice = this.confirm3(S("dlgProfilesOffTitle"), S("dlgProfilesOffText", { n: changes.length }),
+        S("btnKeepProfileTags"), S("btnRemoveProfileTags"), 0);
+      if (choice === 1) {
+        this.renderDocProfiles();
+        return;
+      }
+      remove = choice === 2;
+    }
+    await this.own(() => this.Store.setSetting("profilesPerDocument", false));
+    if (remove) {
+      await this.runLibraryTask(() => this.Library.run("profileRemoveAll", {}, changes));
+      return;
+    }
+    this.render();
   }
 
   async assignProfileTags() {
@@ -1170,8 +1209,8 @@ BetterAnnotations.PaneController = class {
     if (this.recolorBox) {
       this.renderRecolor();
     }
-    if (this.profileTagsBox) {
-      this.renderProfileTags();
+    if (this.docProfileBox && this.SB.Profiles.enabled()) {
+      this.renderDocProfiles();
     }
     if (this.exportBox) {
       this.renderExport();
@@ -1195,6 +1234,9 @@ BetterAnnotations.PaneController = class {
   }
 
   filterValue(key) {
+    if (!this.SB.Profiles.enabled()) {
+      return null;
+    }
     return (this.profileSel && this.profileSel[key]) || null;
   }
 
@@ -1211,7 +1253,7 @@ BetterAnnotations.PaneController = class {
     images.hidden = format === "csv";
     // HTML shows the descriptions in the legend at the top
     const descriptions = this.checkbox(S("optExportDescriptions"), SB.setting("exportDescriptions") === true, v => set("exportDescriptions", v));
-    descriptions.hidden = format === "html";
+    descriptions.hidden = format === "html" || !SB.descriptionsOn();
     const formatMenu = this.menulist([
       { value: "xlsx", label: S("fmtXlsx") },
       { value: "csv", label: S("fmtCsv") },
@@ -1219,7 +1261,7 @@ BetterAnnotations.PaneController = class {
     ], format, (v) => {
       set("exportFormat", v);
       images.hidden = v === "csv";
-      descriptions.hidden = v === "html";
+      descriptions.hidden = v === "html" || !SB.descriptionsOn();
       formatHint.textContent = S(v === "csv" ? "fmtCsvHint" : v === "html" ? "fmtHtmlHint" : "fmtXlsxHint");
     });
     const formatHint = this.h("div", { class: "bac-hint", text: S(format === "csv" ? "fmtCsvHint" : format === "html" ? "fmtHtmlHint" : "fmtXlsxHint") });
@@ -1234,7 +1276,7 @@ BetterAnnotations.PaneController = class {
       this.h("div", { class: "bac-hint", text: S("exportIntro") }),
       scope.el,
       this.h("div", { class: "bac-recolor-grid" },
-        this.h("label", { text: S("filterProfile") }), profileMenu,
+        ...(SB.Profiles.enabled() ? [this.h("label", { text: S("filterProfile") }), profileMenu] : []),
         this.h("label", { text: S("exportFormat") }), formatMenu,
         this.h("label", { text: S("exportSort") }), sortMenu,
       ),
@@ -1303,7 +1345,7 @@ BetterAnnotations.PaneController = class {
       }
       const n = await E.write(path, format, rows, {
         images: SB.setting("exportImages") !== false,
-        descriptions: format !== "html" && SB.setting("exportDescriptions") === true,
+        descriptions: format !== "html" && SB.descriptionsOn() && SB.setting("exportDescriptions") === true,
         sort: SB.setting("exportSort"),
         profile: only ? profile.name : E.profileNames(rows),
         profileObj: profile,
@@ -1355,7 +1397,7 @@ BetterAnnotations.PaneController = class {
       this.h("div", { class: "bac-hint", text: S("recolorIntro") }),
       scope.el,
       this.h("div", { class: "bac-recolor-grid" },
-        this.h("label", { text: S("filterProfile") }), profileMenu,
+        ...(this.SB.Profiles.enabled() ? [this.h("label", { text: S("filterProfile") }), profileMenu] : []),
         this.h("label", { text: S("recolorFrom") }), this.recolorFromSlot,
         this.h("label", { text: S("recolorTo") }), this.recolorToSlot,
       ),
@@ -1763,7 +1805,7 @@ BetterAnnotations.PaneController = class {
         },
       },
     });
-    const labelCol = this.h("div", { class: "bac-labelcol" }, input, this.descriptionEditor(entry));
+    const labelCol = this.h("div", { class: "bac-labelcol" }, input, this.SB.descriptionsOn() ? this.descriptionEditor(entry) : null);
     const usage = this.h("span", { class: "bac-usage" });
     const del = this.h("button", {
       class: "bac-del",
@@ -2244,9 +2286,21 @@ BetterAnnotations.PaneController = class {
       this.selectMenu(this.profileMenu, this.baseId);
       return;
     }
-    // Only chooses the profile to edit; documents keep their profiles
+    // With “Profile per Document” the menu only chooses the profile to edit.
+    // Without it, it also activates the profile for all documents, as in the reader.
+    if (!this.SB.Profiles.enabled()) {
+      try {
+        await this.own(() => this.Store.setDefault(id));
+      }
+      catch (e) {
+        this.SB.logError(e);
+      }
+    }
     this.loadDraft(id);
     this.render();
+    if (this.SB.Profiles.enabled()) {
+      this.loadUsage();
+    }
   }
 
   async onLanguage(lang) {
@@ -2312,9 +2366,12 @@ BetterAnnotations.PaneController = class {
     }
 
     let recolor = false;
+    // With “Profile per Document” only the annotations of this profile change
+    const recolorOnly = SB.Profiles.enabled() ? this.baseId : null;
     if (used.length) {
       const list = used.map(u => "• " + u.label + ": " + u.from + " → " + u.to + " (" + u.n + "×)").join("\n");
-      const choice = this.confirm3(this.S("dlgSaveRecolorTitle"), this.S("dlgSaveRecolorText", { list }),
+      const choice = this.confirm3(this.S("dlgSaveRecolorTitle"),
+        recolorOnly ? this.S("dlgSaveRecolorTextProfile", { list, profile: this.draft.name }) : this.S("dlgSaveRecolorText", { list }),
         this.S("dlgRecolor"), this.S("dlgSaveOnly"), 2);
       if (choice === 1) {
         return false;
@@ -2371,7 +2428,7 @@ BetterAnnotations.PaneController = class {
         };
         if (recolor) {
           const pairs = used.map(u => [u.from, u.to]);
-          add(await Library.run("recolor", Library.recolorParams(pairs, used.map(u => u.label)), await Library.planRecolor(pairs)));
+          add(await Library.run("recolor", Library.recolorParams(pairs, used.map(u => u.label)), await Library.planRecolor(pairs, { only: recolorOnly })));
         }
         for (const r of doRenames) {
           add(await Library.run("tagsRename", { from: r.fromTag, to: r.toTag }, Library.planRenameTag(r.fromTag, r.toTag)));
@@ -2387,8 +2444,29 @@ BetterAnnotations.PaneController = class {
   }
 
   /** Open documents with profile `from` switch to profile `to` (after saving a changed preset). */
+  /**
+   * A new profile: without “Profile per Document” it becomes the active
+   * profile (as before); the second own profile brings a one-time tip about
+   * the function. With it, a notice says where to choose the profile.
+   */
+  async afterNewProfile(saved) {
+    const SB = this.SB;
+    if (SB.Profiles.enabled()) {
+      this.notice = this.S("newProfileHint", { name: saved.name });
+      return;
+    }
+    await this.own(() => this.Store.setDefault(saved.id));
+    if (this.Store.getProfiles().length >= 2 && !SB.setting("tipProfilesShown")) {
+      this.notice = this.S("tipProfilesPerDocument");
+      await this.own(() => this.Store.setSetting("tipProfilesShown", true));
+    }
+  }
+
   async replaceInOpenDocuments(from, to) {
     const P = this.SB.Profiles;
+    if (!P.enabled()) {
+      return;
+    }
     for (const reader of P.openReaders()) {
       try {
         if (P.forReader(reader) === from) {
@@ -2440,8 +2518,8 @@ BetterAnnotations.PaneController = class {
     const colors = source.map(c => Object.assign({}, c, { id: this.SB.uid("c") }));
     try {
       const saved = await this.own(() => this.Store.saveProfile({ id: this.SB.uid("p"), name, colors }));
+      await this.afterNewProfile(saved);
       this.loadDraft(saved.id);
-      this.notice = this.S("newProfileHint", { name: saved.name });
       this.render();
     }
     catch (e) {

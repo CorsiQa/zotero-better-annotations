@@ -9,7 +9,7 @@ Changes for the next release are collected here. The section is renamed to the v
 
 - New section “Better Annotations” in the item pane, in the library and next to the reader: labels of the active profile with the number of annotations and a profile menu. In the reader, a click on a label turns on highlighting in its color; a second click switches back to the pointer. A button chooses whether the color stays selected or the reader returns to the pointer after each annotation. The header has buttons to open the list in a separate window and to show the section at the top. Can be turned off under “Menus & Reader”
 - Separate window with the same list. It follows the active reader tab, closes the reader’s side pane while it is open and keeps a narrow width, for example for a second screen
-- Descriptions for labels: click below a label to add a description, for example what the label stands for and when to use it. Descriptions appear in tooltips, in the statistics (optional), in the item pane section and in the separate window, where they can be edited in place as well
+- Descriptions for labels (turn on under “Advanced”): add a description below a label, for example what the label stands for and when to use it. Descriptions appear in tooltips, in the statistics (optional), in the item pane section and in the separate window; there the pencil next to a label opens the field
 - Export: text and images share one column “Extract”. Image and drawing annotations show their image there (Excel, HTML) or a placeholder such as “[Image]”
 - Excel export: the number column carries the annotation color instead of a separate column with the hex code; columns are grouped into “Details” and “Source” and can be folded; column widths follow the content; images are scaled to the column width; the “Labels” sheet lists the descriptions
 - HTML export starts with a legend of the labels; Excel and CSV can add a column “Description”
@@ -19,12 +19,15 @@ Changes for the next release are collected here. The section is renamed to the v
 - Tooltips of the plugin follow Zotero’s light and dark appearance
 - Clearer names: “Annotations” for the statistics in the reader toolbar
 - Profile files and full backups include the descriptions; older files remain valid
-- Profile per document: every document keeps its own profile. When a document opens, the plugin uses the profile last chosen in it, the profile of most of its annotations, the first rule for the collection it was opened from, or the default profile. The menu in the settings now only chooses which profile you edit; the default profile and the rules for collections are under “Profile per Document”
-- The profile menu in the reader toolbar, in the item pane section and in the separate window lists the profiles used in the document with their number of annotations, then the other profiles and “Manage Profiles…”, and says why the document uses its profile
-- Optional profile tags (off by default, under “Tags & Library”): new annotations get a tag such as “Profile: Reading”, also in the reader's sidebar filter. Renaming a profile renames its tags, deleting a profile asks what happens to them, and annotations without a profile tag can be assigned to a profile
-- Statistics, the item pane section and the number in the toolbar count the annotations of the document's profile; annotations without a profile tag belong to the profile of their document. The statistics can show all profiles. A notice appears if profiles in one document use the same colors
-- Recoloring and export can be limited to one profile. Exports take the labels from the profile of each annotation and have a column “Profile”
+- New tab “Advanced” in the settings: descriptions, labels as tags and profile per document are off by default and turned on there, each with its options. The tab “Tags & Library” is now called “Library”
+- Profile per document (turn on under “Advanced”): every document keeps its own profile. When a document opens, the plugin uses the profile last chosen in it, the profile of most of its annotations, the first rule for the collection it was opened from, or the default profile. New annotations get a profile tag such as “ZBA: Reading” (the same in every language), colored in the plugin’s color if Zotero has a free slot for colored tags. Turning the function on offers to assign existing annotations; turning it off asks whether the tags stay. Without the function, one profile applies to all documents, as before
+- With profile per document, the profile menu in the reader toolbar, in the item pane section and in the separate window lists the profiles used in the document with their number of annotations, then the other profiles and “Manage Profiles…”; the tooltip of the profile button says why the document uses its profile. A filter button in the section shows only the annotations of the document’s profile, in the document and in the sidebar (Zotero’s tag filter); annotations without a profile tag can be assigned there
+- Renaming a profile renames its tags, deleting a profile asks what happens to them, and annotations without a profile tag can be assigned to a profile for any area
+- Statistics, the item pane section and the number in the toolbar count the annotations of the document’s profile. The statistics can show all profiles. A notice appears if profiles in one document use the same colors
+- Recoloring and export can be limited to one profile; exports take the labels from the profile of each annotation and have a column “Profile”. When colors of a profile change, only its own annotations are recolored
 - Full backups include the rules for collections and the profile chosen per document
+- The buttons of the profile card wrap in groups when the settings window is narrow
+- Norwegian Bokmål and Swedish are no longer available; the plugin then follows Zotero’s language or uses English
 
 ## 1.0.0-beta.1 – 2026-11-13
 

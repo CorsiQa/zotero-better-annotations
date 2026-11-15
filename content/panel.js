@@ -309,7 +309,7 @@ BetterAnnotations.Panel = {
       return P.summarize([]);
     }
     const reader = this.readerOf(target);
-    if (reader && reader._state && reader._state.annotations) {
+    if (reader && BetterAnnotations.readerState(reader) && BetterAnnotations.readerState(reader).annotations) {
       return P.summarize(P.readerList(reader));
     }
     return P.summarize(P.fileList(target.attachmentIDs));
@@ -510,7 +510,7 @@ BetterAnnotations.Panel = {
 
   readerAnnotationCount(reader) {
     try {
-      return Array.from(reader._state?.annotations || []).length;
+      return Array.from(BetterAnnotations.readerState(reader)?.annotations || []).length;
     }
     catch (e) {
       return -1;
@@ -720,6 +720,10 @@ BetterAnnotations.PanelView = class {
       // Repeat: the color stays selected for further annotations
       path("M2.5 7V6.5a2 2 0 0 1 2-2h8.5M11 2.5l2 2-2 2M13.5 9v.5a2 2 0 0 1-2 2H3M5 9.5l-2 2 2 2");
     }
+    else if (kind === "filter") {
+      // Funnel: show only the annotations of this profile
+      path("M2.5 3h11l-4.2 5v4.5l-2.6 1.3V8z");
+    }
     else if (kind === "describe") {
       path("M2.5 3.5h11M2.5 6.5h11M2.5 9.5h7M2.5 12.5h5");
     }
@@ -759,17 +763,35 @@ BetterAnnotations.PanelView = class {
     return b;
   }
 
+  /** Give the annotations of the document without a profile tag the tag of its profile (in the history, can be undone). */
+  async assignUntagged(reader, profile) {
+    const SB = this.SB;
+    try {
+      const scope = { type: "doc", id: reader.itemID, label: this.Panel.targetTitle(this.target) || "" };
+      const changes = await SB.Library.planProfileAssign(scope, profile.id);
+      if (changes.length) {
+        await SB.Library.run("profileAssign", { profile: profile.name, scope: scope.label }, changes);
+      }
+    }
+    catch (e) {
+      SB.logError(e);
+    }
+    this.render();
+  }
+
   /** Changes when something visible changes (tool color, number of annotations). */
   signature() {
     const reader = this.Panel.readerOf(this.target);
     let tool = "";
     let n = "";
+    let filter = "";
     try {
       tool = reader ? String(this.SB.Reader.activeToolColor(reader) || "") : "";
-      n = reader ? String(Array.from(reader._state?.annotations || []).length) : "";
+      n = reader ? String(Array.from(BetterAnnotations.readerState(reader)?.annotations || []).length) : "";
+      filter = reader && this.SB.Profiles.filterActive(reader) ? "f" : "";
     }
     catch (e) {}
-    return [this.Panel.profileIdOf(this.target), this.target ? this.target.tabID || this.target.attachmentIDs.join(",") : "", tool, n].join("|");
+    return [this.Panel.profileIdOf(this.target), this.target ? this.target.tabID || this.target.attachmentIDs.join(",") : "", tool, n, filter].join("|");
   }
 
   render() {
@@ -939,17 +961,25 @@ BetterAnnotations.PanelView = class {
 
     // Toolbar: profile, descriptions, settings
     const descKey = this.kind === "section" ? "sectionDescriptions" : "popoutDescriptions";
-    const showDesc = SB.setting(descKey) === true;
+    const descOn = SB.descriptionsOn();
+    const showDesc = descOn && SB.setting(descKey) === true;
     const keep = SB.setting("keepToolColor") !== false;
     const bar = this.h("div", { class: "bac-p-bar" },
       this.profileButton(profile, summary),
       this.iconButton("keep", S("panelKeepColor"), () => {
         SB.Store.setSetting("keepToolColor", !keep).catch(err => SB.logError(err));
-      }, keep),
-      this.iconButton("describe", S("panelDescriptions"), () => {
+      }, keep));
+    // “Only this profile”: Zotero's filter hides the other profiles in the document and the sidebar
+    if (reader && SB.Profiles.enabled()) {
+      const filtered = SB.Profiles.filterActive(reader);
+      bar.append(this.iconButton("filter", S(filtered ? "panelFilterOff" : "panelFilterOn"), () => SB.Profiles.toggleFilter(reader), filtered));
+    }
+    if (descOn) {
+      bar.append(this.iconButton("describe", S("panelDescriptions"), () => {
         SB.Store.setSetting(descKey, !showDesc).catch(err => SB.logError(err));
-      }, showDesc),
-      this.iconButton("settings", S("panelSettings"), () => SB.openPrefs()));
+      }, showDesc));
+    }
+    bar.append(this.iconButton("settings", S("panelSettings"), () => SB.openPrefs()));
 
     const parts = [this.style()];
     if (this.kind === "popout") {
@@ -977,7 +1007,7 @@ BetterAnnotations.PanelView = class {
       }
     }
     const editable = showDesc && !profile.preset && !!SB.Store.getProfile(profile.id);
-    const clickable = !!reader && !reader._state?.readOnly;
+    const clickable = !!reader && !BetterAnnotations.readerState(reader)?.readOnly;
     const listEl = this.h("div", { class: "bac-p-list", role: "list" });
     for (const r of rows) {
       const name = this.h("span", { class: "bac-p-name", text: r.name });
@@ -1023,7 +1053,8 @@ BetterAnnotations.PanelView = class {
         item.append(this.iconButtonEdit(r));
       }
       if (showDesc && r.entry && (description || this.reveal === r.entry.id)) {
-        item.append(this.descriptionField(profile, r.entry, description, canEdit));
+        // A click on the text selects the color like the rest of the row
+        item.append(this.descriptionField(profile, r.entry, description, canEdit, clickable ? () => row.click() : null));
       }
       listEl.append(item);
     }
@@ -1033,6 +1064,18 @@ BetterAnnotations.PanelView = class {
       parts.push(this.h("div", { class: "bac-p-hint", text: S("statsOthers", {
         list: others.map(id => SB.Profiles.name(id) + " (" + summary.byProfile.get(id) + ")").join(", "),
       }) }));
+    }
+    // Annotations without a profile tag (older ones, from Zotero's apps): offer to assign them
+    const untagged = reader ? SB.Profiles.untaggedCount(reader) : 0;
+    if (untagged) {
+      const filtered = SB.Profiles.filterActive(reader);
+      parts.push(this.h("div", { class: "bac-p-hint bac-p-untagged" },
+        this.h("span", { text: S(filtered ? "untaggedHidden" : "untaggedHint", { n: untagged }) + " " }),
+        this.h("button", {
+          class: "bac-p-link",
+          "data-key": "assign-untagged",
+          on: { click: () => this.assignUntagged(reader, profile) },
+        }, S("btnAssignHere", { profile: profile.name }))));
     }
     const shared = SB.Profiles.sharedColorsText(summary);
     if (shared) {
@@ -1065,34 +1108,45 @@ BetterAnnotations.PanelView = class {
       on: {
         click: (e) => {
           e.preventDefault();
+          // Only the pencil opens the field
+          this.unlocked = r.entry.id;
           if (!this.SB.cleanDescription(r.entry.description)) {
             this.reveal = r.entry.id;
-            this._render();
           }
-          this.focusKey("desc-" + r.entry.id);
+          this._render();
+          const area = this.focusKey("desc-" + r.entry.id);
+          if (area && area.setSelectionRange) {
+            area.setSelectionRange(area.value.length, area.value.length);
+          }
         },
       },
     }, this.icon("edit"));
   }
 
   /**
-   * Description as text that turns into a field on click: plain text with line
-   * breaks, saved to the profile when the field loses the focus.
+   * Description as text; the pencil turns it into a field. Plain text with
+   * line breaks, saved to the profile when the field loses the focus.
    * Esc restores the previous text, Ctrl/Cmd+Enter finishes.
    */
-  descriptionField(profile, entry, description, canEdit) {
+  descriptionField(profile, entry, description, canEdit, onTextClick) {
     const SB = this.SB;
     const S = (k, a) => this.S(k, a);
+    const open = canEdit && this.unlocked === entry.id;
     const area = this.h("textarea", {
-      class: "bac-p-desc" + (this.kind === "section" ? " bac-p-clamp" : ""),
+      class: "bac-p-desc" + (this.kind === "section" ? " bac-p-clamp" : "") + (open ? "" : " bac-p-desc-text"),
       "data-key": "desc-" + entry.id,
       rows: "1",
       maxlength: String(SB.MAX_DESCRIPTION),
       placeholder: S("btnAddDescription"),
       "aria-label": S("ariaDescription", { label: entry.label.trim() || entry.color }),
-      readonly: canEdit ? null : true,
+      readonly: open ? null : true,
+      tabindex: open ? null : "-1",
       spellcheck: "true",
     });
+    if (!open && onTextClick) {
+      area.addEventListener("click", () => onTextClick());
+    }
+    canEdit = open;
     area.value = description;
     SB.autoGrow(area);
     let original = description;
@@ -1126,6 +1180,7 @@ BetterAnnotations.PanelView = class {
       cancelled = false;
       this.editing = null;
       this.reveal = null;
+      this.unlocked = null;
       if (changed) {
         try {
           const stored = SB.Store.getProfile(profile.id);
@@ -1193,10 +1248,13 @@ button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15));
   background: var(--material-background, Field); border-color: var(--fill-quinary, rgba(127,127,127,.3));
   outline: 2px solid color-mix(in srgb, var(--accent-blue, #2e7bd1) 55%, transparent); outline-offset: 0; }
 .bac-p-desc[readonly]:focus { outline: none; }
+.bac-p-desc-text { cursor: default; }
 .bac-p-clamp:not(:focus) { max-height: calc(3 * 1.4em + 8px); }
 .bac-p-hint { margin-top: 6px; color: var(--fill-secondary, GrayText); font-size: .92em; }
 .bac-p-warn { color: var(--fill-primary, CanvasText); }
 .bac-p-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
+.bac-p-link { -moz-appearance: none; appearance: none; border: none; background: none; padding: 0; color: var(--accent-blue, LinkText); font: inherit; cursor: pointer; text-decoration: underline; }
+.bac-p-link:focus-visible { outline: 2px solid var(--color-focus-border, Highlight); outline-offset: 1px; border-radius: 2px; }
 .bac-p-caption { padding: 4px 10px 2px; font-size: .85em; font-weight: 600; color: var(--fill-secondary, GrayText); }
 `;
     return st;

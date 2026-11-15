@@ -85,9 +85,13 @@ var BetterAnnotations = {
     exportImages: true,
     exportLabeledOnly: false,
     exportDescriptions: false,
-    profileTagsEnabled: false,
-    profileTagPrefix: null, // fixed at the first start in the language of the interface
+    // Advanced functions, off by default (tab “Advanced”)
+    descriptionsEnabled: false,
+    profilesPerDocument: false,
+    profileTagColor: true,
+    profileFilterDefault: false,
     statsAllProfiles: false,
+    tipProfilesShown: false,
   },
 
   // ---------------------------------------------------------------------
@@ -137,11 +141,9 @@ var BetterAnnotations = {
     ["fr", "Français", "fr-FR"],
     ["it", "Italiano", "it-IT"],
     ["ja", "日本語", "ja-JP"],
-    ["nb", "Norsk bokmål", "nb-NO"],
     ["pl", "Polski", "pl-PL"],
     ["pt", "Português", "pt-BR"],
     ["ru", "Русский", "ru-RU"],
-    ["sv", "Svenska", "sv-SE"],
     ["zh", "简体中文", "zh-CN"],
     ["zh-TW", "繁體中文", "zh-TW"],
   ],
@@ -152,11 +154,7 @@ var BetterAnnotations = {
     if (/^zh-(tw|hk|mo|hant)/.test(l)) {
       return "zh-TW";
     }
-    const base = l.split("-")[0];
-    if (base === "no" || base === "nn") {
-      return "nb";
-    }
-    return base;
+    return l.split("-")[0];
   },
 
   get lang() {
@@ -187,6 +185,26 @@ var BetterAnnotations = {
       }
     }
     return text;
+  },
+
+  /**
+   * State of a reader (annotations, tool, filter, read-only). Zotero keeps it
+   * in the internal reader; older test setups had it on the reader itself.
+   */
+  readerState(reader) {
+    try {
+      const state = reader && reader._internalReader && reader._internalReader._state;
+      if (state) {
+        return state;
+      }
+    }
+    catch (e) {}
+    return (reader && reader._state) || null;
+  },
+
+  /** Are descriptions of labels used (tab “Advanced”)? */
+  descriptionsOn() {
+    return this.setting("descriptionsEnabled") === true;
   },
 
   setting(key) {
@@ -466,7 +484,7 @@ var BetterAnnotations = {
    */
   tooltipText(label, description) {
     const name = String(label || "").trim();
-    const desc = this.shortDescription(description);
+    const desc = this.descriptionsOn() ? this.shortDescription(description) : "";
     if (!desc) {
       return name;
     }
@@ -653,7 +671,8 @@ BetterAnnotations.Store = {
     for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "showUsage",
       "showToolbarProfile", "showToolbarStats", "showItemPaneSection",
       "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled",
-      "profileTagsEnabled", "statsAllProfiles"]) {
+      "descriptionsEnabled", "profilesPerDocument", "profileTagColor", "profileFilterDefault", "statsAllProfiles",
+      "tipProfilesShown"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
       }
@@ -666,9 +685,6 @@ BetterAnnotations.Store = {
     }
     if (typeof s.tagPrefix === "string") {
       out.settings.tagPrefix = s.tagPrefix.slice(0, 40);
-    }
-    if (typeof s.profileTagPrefix === "string") {
-      out.settings.profileTagPrefix = s.profileTagPrefix.slice(0, 40);
     }
     out.settings.menuLimit = this.clampInt(s.menuLimit, 1, 20, SB.DEFAULT_SETTINGS.menuLimit);
     out.settings.popupColumns = this.clampInt(s.popupColumns, 4, 16, SB.DEFAULT_SETTINGS.popupColumns);
@@ -708,6 +724,10 @@ BetterAnnotations.Store = {
       out.activeProfileId = active;
     }
     out.collectionRules = this.sanitizeRules(input.collectionRules, out.profiles);
+    // Descriptions stay visible for profiles that already have them
+    if (typeof s.descriptionsEnabled !== "boolean") {
+      out.settings.descriptionsEnabled = out.profiles.some(p => p.colors.some(c => c.description));
+    }
     if (Array.isArray(input.backups)) {
       out.backups = input.backups.filter(b => b && typeof b.file === "string" && typeof b.created === "string")
         .map(b => ({ file: b.file, created: b.created, kind: b.kind === "initial" ? "initial" : "manual", count: +b.count || 0 }));

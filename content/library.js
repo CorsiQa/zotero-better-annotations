@@ -482,7 +482,7 @@ BetterAnnotations.Library = {
   describe(entry) {
     const key = { recolor: "hRecolor", tagsApply: "hTagsApply", tagsRemove: "hTagsRemove",
       tagsRename: "hTagsRename", restore: "hRestore", profileAssign: "hProfileAssign", profileRename: "hProfileRename",
-      profileRemove: "hProfileRemove", profilePrefix: "hProfilePrefix" }[entry.type] || "hRecolor";
+      profileRemove: "hProfileRemove", profileAssignAll: "hProfileAssignAll", profileRemoveAll: "hProfileRemoveAll" }[entry.type] || "hRecolor";
     const params = Object.assign({ n: entry.count }, entry.params || {});
     if (entry.type === "restore" && params.created) {
       params.date = this.SB.formatDate(params.created);
@@ -490,10 +490,16 @@ BetterAnnotations.Library = {
     return this.SB.S(key, params);
   },
 
+  PROFILE_TYPES: ["profileAssign", "profileRename", "profileRemove", "profileAssignAll", "profileRemoveAll"],
+
   async run(type, params, changes) {
     const result = await this.execute(changes, false);
     if (result.done) {
       await this.record(type, Object.assign({}, params, { n: result.done }), changes);
+    }
+    if (this.PROFILE_TYPES.includes(type)) {
+      await this.SB.Profiles.syncTagColors();
+      this.SB.Profiles.reresolve();
     }
     return result;
   },
@@ -507,6 +513,9 @@ BetterAnnotations.Library = {
     entry.undone = true;
     entry.undoneTime = new Date().toISOString();
     await this.saveHistory();
+    if (this.PROFILE_TYPES.includes(entry.type)) {
+      await this.SB.Profiles.syncTagColors();
+    }
     return result;
   },
 
@@ -661,23 +670,32 @@ BetterAnnotations.Library = {
     return (await this.changeable()).filter(r => match(r) && !resolver.tagged.has(r.id)).map(r => ({ l: r.l, k: r.k, add: [tag] }));
   },
 
-  /** New prefix: rename the tags of all profiles. */
-  async planPrefix(oldPrefix, newPrefix) {
+  /**
+   * When “Profile per Document” is turned on: every annotation without a
+   * profile tag gets the tag of the profile its document uses now.
+   */
+  async planProfileAssignByDocument() {
     const Profiles = this.SB.Profiles;
-    const names = [];
-    const pairs = new Map();
-    for (const p of this.Store.listForMenu()) {
-      const variants = this.Store.isPreset(p.id) ? [...Profiles.presetNames(p.id)] : [p.name];
-      for (const v of variants) {
-        const from = Profiles.tagForName(v, oldPrefix);
-        const to = Profiles.tagForName(v, newPrefix);
-        if (from && to && from !== to) {
-          names.push(from);
-          pairs.set(from, to);
-        }
+    const resolver = await Profiles.resolver();
+    return (await this.changeable()).filter(r => !resolver.tagged.has(r.id)).map((r) => {
+      const tag = Profiles.tagFor(resolver.fileProfile(r.att, r.top));
+      return tag ? { l: r.l, k: r.k, add: [tag] } : null;
+    }).filter(Boolean);
+  },
+
+  /** All profile tags (to remove them when the function is turned off). */
+  async planRemoveProfileTags() {
+    const Profiles = this.SB.Profiles;
+    const names = [...new Set((await Profiles.tagsInUse()).map(r => r.name).filter(n => Profiles.idForTag(n)))];
+    const byKey = new Map();
+    for (const r of await this.annotationsWithTags(names)) {
+      const key = r.l + "/" + r.k;
+      if (!byKey.has(key)) {
+        byKey.set(key, { l: r.l, k: r.k, rem: [] });
       }
+      byKey.get(key).rem.push(r.name);
     }
-    return (await this.annotationsWithTags(names)).map(r => ({ l: r.l, k: r.k, rem: [r.name], add: [pairs.get(r.name)] }));
+    return [...byKey.values()];
   },
 
   countTag(tag) {

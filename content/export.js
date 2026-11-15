@@ -72,7 +72,7 @@ BetterAnnotations.Export = {
         profileId: pid,
         profile: p.profile.name,
         profileOrder: p.order,
-        description: label ? SB.cleanDescription(entry.description) : "",
+        description: label && SB.descriptionsOn() ? SB.cleanDescription(entry.description) : "",
         labelOrder: label ? p.profile.colors.indexOf(entry) : 9999,
         type,
         text: item.annotationText || "",
@@ -374,11 +374,13 @@ BetterAnnotations.Export = {
       { key: "extract", head: S("colExtract"), min: 30, max: 70, get: r => this.extractText(r), wrap: true, extract: true },
       { key: "comment", head: S("colComment"), min: 16, max: 50, get: r => r.comment, wrap: true },
     );
-    if (options.descriptions) {
+    if (options.descriptions && this.SB.descriptionsOn()) {
       cols.push({ key: "description", head: S("colDescription"), min: 16, max: 50, get: r => r.description, wrap: true, group: "details" });
     }
+    if (this.SB.Profiles.enabled()) {
+      cols.push({ key: "profile", head: S("colProfile"), min: 8, max: 24, get: r => r.profile || "", wrap: true, group: "details" });
+    }
     cols.push(
-      { key: "profile", head: S("colProfile"), min: 8, max: 24, get: r => r.profile || "", wrap: true, group: "details" },
       { key: "tags", head: S("colTags"), min: 8, max: 30, get: r => r.tags.join("; "), wrap: true, group: "details" },
       { key: "created", head: S("colCreated"), min: 16, max: 18, get: r => r.created, group: "details" },
       { key: "modified", head: S("colModified"), min: 16, max: 18, get: r => r.modified, group: "details" },
@@ -778,25 +780,19 @@ BetterAnnotations.Export = {
     });
 
     // --- Sheet 2: labels ---
+    // Columns: profile only with several profiles, description only if descriptions are used
     const cbCols = this.fitWidths([
-      ...(codebook.multi ? [{ head: S("colProfile"), min: 10, max: 24, get: c => c.profile }] : []),
-      { head: S("colColor"), min: 9, max: 10, get: c => c.color },
-      { head: S("colLabel"), min: 12, max: 32, get: c => c.label },
-      { head: S("colDescription"), min: 16, max: 70, get: c => c.description },
-      { head: S("colCount"), min: 8, max: 14, get: c => String(c.n) },
-      { head: S("colShown"), min: 8, max: 18, get: c => (c.shown ? S("yes") : S("no")) },
+      ...(codebook.multi ? [{ head: S("colProfile"), min: 10, max: 24, get: c => c.profile, style: () => ST.wrap }] : []),
+      { head: S("colColor"), min: 9, max: 10, get: c => c.color, style: c => (colorStyle.get(c.color) ? colorStyle.get(c.color).full : ST.plain) },
+      { head: S("colLabel"), min: 12, max: 32, get: c => c.label, style: c => (colorStyle.get(c.color) ? colorStyle.get(c.color).light : ST.wrap) },
+      ...(this.SB.descriptionsOn() ? [{ head: S("colDescription"), min: 16, max: 70, get: c => c.description, style: () => ST.wrap }] : []),
+      { head: S("colCount"), min: 8, max: 14, get: c => String(c.n), value: c => c.n, num: true, style: () => ST.plain },
+      { head: S("colShown"), min: 8, max: 18, get: c => (c.shown ? S("yes") : S("no")), style: () => ST.plain },
     ], codebook, (c, row) => c.get(row));
     const cbRows = codebook.map((c, idx) => {
       const rowNo = idx + 2;
-      const st = colorStyle.get(c.color);
-      const col = n => String.fromCharCode(65 + n + (codebook.multi ? 1 : 0));
       return "<row r=\"" + rowNo + "\">"
-        + (codebook.multi ? cell("A" + rowNo, c.profile, ST.wrap) : "")
-        + cell(col(0) + rowNo, c.color, st ? st.full : ST.plain)
-        + cell(col(1) + rowNo, c.label, st ? st.light : ST.wrap)
-        + cell(col(2) + rowNo, c.description, ST.wrap)
-        + cell(col(3) + rowNo, c.n, ST.plain, true)
-        + cell(col(4) + rowNo, c.shown ? S("yes") : S("no"), ST.plain)
+        + cbCols.map((col, i) => cell(String.fromCharCode(65 + i) + rowNo, col.value ? col.value(c) : col.get(c), col.style(c), !!col.num)).join("")
         + "</row>";
     });
     const sheet2 = sheet(cbCols, headRow(cbCols), cbRows);

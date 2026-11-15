@@ -8,8 +8,13 @@
  *      was opened from, or – without one – the collections of the item
  *   4. the default profile
  *
- * Profile tags: if turned on, every new annotation gets the tag
- * "<prefix><profile name>", e.g. “Profile: Reading”. The tag is added in the
+ * The function is optional (tab “Advanced”, setting profilesPerDocument).
+ * Without it, one profile is active for all documents, as in 1.0.0-beta.1,
+ * and nothing of the following runs: no tags, no observer, no wrapping.
+ *
+ * Profile tags: every new annotation gets the tag "ZBA: <profile name>"
+ * (Zotero Better Annotations, the same in every language), colored in the
+ * brand color if possible. The tag is added in the
  * reader's annotation manager before the reader saves the annotation, so it
  * is part of the same save and of the same undo step. If that is not
  * possible (e.g. after a Zotero update), the tag is added afterwards.
@@ -36,31 +41,63 @@ BetterAnnotations.Profiles = {
     return BetterAnnotations.Store;
   },
 
+  /** Prefix of profile tags, the same in every language. */
+  PREFIX: "ZBA: ",
+
+  /** Color of profile tags in Zotero (brand color). */
+  TAG_COLOR: "#6B5BD6",
+
   async init() {
     const Store = this.Store;
     const { data } = await Store.readJSON(Store.join(Store.dir, "documents.json"));
     this.docs = new Map(Object.entries(data?.docs || {}).filter(([, v]) => v && typeof v.p === "string"));
-    // The prefix is fixed in the language of the first start, so that a later
-    // change of language does not leave the existing tags behind
-    if (typeof Store.data.settings.profileTagPrefix !== "string") {
-      await Store.setSetting("profileTagPrefix", this.SB.S("profileTagPrefixDefault"));
-    }
     for (const reader of this.openReaders()) {
       this._restored.add(reader);
     }
-    try {
-      this._observerID = Zotero.Notifier.registerObserver({
-        notify: (event, type, ids, extra) => {
-          if (type === "item") {
-            this.onItems(event, ids, extra);
-          }
-        },
-      }, ["item"], "better-annotations-profiles");
-    }
-    catch (e) {
-      this.SB.logError(e);
-    }
     this._unlisten = Store.onChange(what => this.onStoreChange(what));
+    this.sync();
+  },
+
+  /** Is “Profile per Document” turned on? */
+  enabled() {
+    return this.SB.setting("profilesPerDocument") === true;
+  },
+
+  /** Start or stop the observer and the wrapping when the function is turned on or off. */
+  sync() {
+    if (this.enabled()) {
+      // Readers that are already open were not opened from the collection selected now
+      for (const reader of this.openReaders()) {
+        if (!this._readers.has(reader)) {
+          this._restored.add(reader);
+        }
+      }
+      if (!this._observerID) {
+        try {
+          this._observerID = Zotero.Notifier.registerObserver({
+            notify: (event, type, ids, extra) => {
+              if (type === "item") {
+                this.onItems(event, ids, extra);
+              }
+            },
+          }, ["item"], "better-annotations-profiles");
+        }
+        catch (e) {
+          this.SB.logError(e);
+        }
+      }
+      return;
+    }
+    if (this._observerID) {
+      Zotero.Notifier.unregisterObserver(this._observerID);
+      this._observerID = null;
+    }
+    for (const reader of [...this._wrapped.keys()]) {
+      this.setFilter(reader, false);
+      this.unwrap(reader);
+    }
+    this._readers = new WeakMap();
+    this._files.clear();
   },
 
   shutdown() {
@@ -114,8 +151,7 @@ BetterAnnotations.Profiles = {
   },
 
   prefix() {
-    const p = this.SB.setting("profileTagPrefix");
-    return typeof p === "string" ? p : this.SB.S("profileTagPrefixDefault");
+    return this.PREFIX;
   },
 
   tagForName(name, prefix) {
@@ -373,7 +409,7 @@ BetterAnnotations.Profiles = {
    * finished, a choice by hand or the default profile applies.
    */
   forReader(reader) {
-    if (!reader) {
+    if (!reader || !this.enabled()) {
       return this.defaultId();
     }
     let entry = this._readers.get(reader);
@@ -397,10 +433,14 @@ BetterAnnotations.Profiles = {
       entry.source = "default";
     }
     this.wrap(reader);
+    this.initFilter(reader, entry);
     return entry.id;
   },
 
   sourceForReader(reader) {
+    if (!this.enabled()) {
+      return "default";
+    }
     this.forReader(reader);
     return this._readers.get(reader)?.source || "default";
   },
@@ -426,6 +466,7 @@ BetterAnnotations.Profiles = {
     entry.id = result.id;
     entry.source = result.source;
     if (changed) {
+      this.updateFilter(reader);
       this.Store.emit("doc");
     }
   },
@@ -436,6 +477,11 @@ BetterAnnotations.Profiles = {
 
   /** Choose a profile in a document by hand; the choice is remembered. */
   async setForReader(reader, id) {
+    if (!this.enabled()) {
+      // Without “Profile per Document”, one profile applies to all documents
+      await this.Store.setDefault(this.valid(id));
+      return;
+    }
     const item = this.readerItem(reader);
     id = this.valid(id);
     const entry = this._readers.get(reader) || { ctx: null, token: 0 };
@@ -448,11 +494,16 @@ BetterAnnotations.Profiles = {
       this._files.delete(item.id);
       this.saveDocsSoon();
     }
+    this.updateFilter(reader);
     this.Store.emit("doc");
   },
 
   /** Choose a profile for files from the library (item pane section). */
   async setForFiles(ids, id) {
+    if (!this.enabled()) {
+      await this.Store.setDefault(this.valid(id));
+      return;
+    }
     id = this.valid(id);
     for (const item of Zotero.Items.get(ids).filter(Boolean)) {
       this.docs.set(this.docKey(item), { p: id, t: new Date().toISOString() });
@@ -464,6 +515,7 @@ BetterAnnotations.Profiles = {
             entry.id = id;
             entry.source = "explicit";
             entry.token = ++this._token;
+            this.updateFilter(reader);
           }
         }
       }
@@ -478,6 +530,9 @@ BetterAnnotations.Profiles = {
    * so the section does not flicker.
    */
   forFile(attachmentID) {
+    if (!this.enabled()) {
+      return this.defaultId();
+    }
     let entry = this._files.get(attachmentID);
     if (!entry || entry.stale) {
       const item = Zotero.Items.get(attachmentID);
@@ -534,7 +589,21 @@ BetterAnnotations.Profiles = {
 
   /** Choose again where the choice depends on rules, annotations or the default profile. */
   onStoreChange(what) {
+    if (what === "settings") {
+      this.sync();
+    }
+    if (!this.enabled()) {
+      return;
+    }
     if (what !== "active" && what !== "profiles" && what !== "rules" && what !== "settings") {
+      return;
+    }
+    this.reresolve();
+  },
+
+  /** Choose the profiles of open documents again (except choices by hand), e.g. after tags were assigned. */
+  reresolve() {
+    if (!this.enabled()) {
       return;
     }
     this.invalidateFiles();
@@ -558,7 +627,7 @@ BetterAnnotations.Profiles = {
   /** Annotations of a reader (its own list, changes without delay). */
   readerAnnotations(reader) {
     try {
-      return Array.from(reader._state?.annotations || []);
+      return Array.from(BetterAnnotations.readerState(reader)?.annotations || []);
     }
     catch (e) {
       return [];
@@ -567,6 +636,9 @@ BetterAnnotations.Profiles = {
 
   /** Profile of an annotation from the reader: its tag, else the profile of the document. */
   ofReaderAnnotation(a, docId) {
+    if (!this.enabled()) {
+      return docId;
+    }
     let tags = [];
     try {
       tags = Array.from(a.tags || []);
@@ -577,6 +649,9 @@ BetterAnnotations.Profiles = {
 
   /** Profile of an annotation item: its tag, else the given profile of the document. */
   ofItem(item, docId) {
+    if (!this.enabled()) {
+      return docId;
+    }
     let tags = [];
     try {
       tags = item.getTags().map(t => t.tag);
@@ -658,6 +733,9 @@ BetterAnnotations.Profiles = {
 
   /** Text of the notice about shared colors, or "". */
   sharedColorsText(summary) {
+    if (!this.enabled()) {
+      return "";
+    }
     const pairs = this.sharedColors(summary);
     if (!pairs.length) {
       return "";
@@ -672,6 +750,9 @@ BetterAnnotations.Profiles = {
    */
   menuGroups(summary) {
     const all = this.Store.listForMenu();
+    if (!this.enabled()) {
+      return { inDoc: [], others: all };
+    }
     const inDoc = all.filter(p => summary.byProfile.get(p.id)).map(p => Object.assign({}, p, { n: summary.byProfile.get(p.id) }));
     const others = all.filter(p => !summary.byProfile.get(p.id));
     return { inDoc, others };
@@ -682,7 +763,7 @@ BetterAnnotations.Profiles = {
   // -------------------------------------------------------------------
 
   tagsEnabled() {
-    return this.SB.setting("profileTagsEnabled") === true;
+    return this.enabled();
   },
 
   /**
@@ -750,6 +831,212 @@ BetterAnnotations.Profiles = {
     const tags = Array.from(raw.tags || []).map(t => ({ name: String(t.name) })).filter(t => !this.isProfileTag(t.name));
     tags.push({ name: tag });
     raw.tags = Components.utils.cloneInto(tags, reader._iframeWindow);
+    const item = this.readerItem(reader);
+    if (item) {
+      this.ensureTagColor(item.libraryID, tag);
+    }
+  },
+
+  // -------------------------------------------------------------------
+  // Color of profile tags in Zotero (tag selector, reader sidebar)
+  // -------------------------------------------------------------------
+
+  /**
+   * Give a profile tag the brand color in a library. Zotero allows 9 colored
+   * tags; if they are used up, the tag stays without color (one notice).
+   * The color is added at the end, so the user's shortcuts 1–9 keep their tags.
+   */
+  async ensureTagColor(libraryID, tag) {
+    if (!tag || this.SB.setting("profileTagColor") === false) {
+      return;
+    }
+    this._colored = this._colored || new Set();
+    const key = libraryID + "/" + tag;
+    if (this._colored.has(key)) {
+      return;
+    }
+    this._colored.add(key);
+    try {
+      const lib = Zotero.Libraries.get(libraryID);
+      if (!lib || lib.editable === false) {
+        return;
+      }
+      const colors = Zotero.Tags.getColors(libraryID);
+      if (colors.has(tag)) {
+        return;
+      }
+      if (colors.size >= (Zotero.Tags.MAX_COLORED_TAGS || 9)) {
+        if (!this._colorNotice) {
+          this._colorNotice = true;
+          this.SB.notify(this.SB.S("tagColorFull"));
+        }
+        return;
+      }
+      await Zotero.Tags.setColor(libraryID, tag, this.TAG_COLOR);
+    }
+    catch (e) {
+      this._colored.delete(key);
+      this.SB.logError(e);
+    }
+  },
+
+  /** Libraries and names of all profile tags in use: [{ l, name }]. */
+  async tagsInUse() {
+    try {
+      return (await Zotero.DB.queryAsync(
+        "SELECT DISTINCT I.libraryID AS l, T.name AS name FROM itemAnnotations IA JOIN items I ON I.itemID = IA.itemID "
+        + "JOIN itemTags IT ON IT.itemID = IA.itemID JOIN tags T ON T.tagID = IT.tagID WHERE T.name LIKE ? ESCAPE '\\'",
+        [this.likePattern()])) || [];
+    }
+    catch (e) {
+      this.SB.logError(e);
+      return [];
+    }
+  },
+
+  /**
+   * Bring the colors in line with the tags in use: profile tags in use get
+   * the color, colors of profile tags no longer in use are removed (after
+   * renaming, deleting, undoing). Only tags in the brand color are removed.
+   */
+  async syncTagColors() {
+    const inUse = await this.tagsInUse();
+    const used = new Set(inUse.map(r => r.l + "/" + r.name));
+    let libraries = [];
+    try {
+      libraries = Zotero.Libraries.getAll();
+    }
+    catch (e) {}
+    for (const lib of libraries) {
+      try {
+        if (lib.editable === false) {
+          continue;
+        }
+        for (const [name, c] of [...Zotero.Tags.getColors(lib.libraryID)]) {
+          const stale = this.isProfileTag(name) && String(c.color).toUpperCase() === this.TAG_COLOR
+            && (!used.has(lib.libraryID + "/" + name) || !this.idForTag(name) || this.SB.setting("profileTagColor") === false);
+          if (stale) {
+            await Zotero.Tags.setColor(lib.libraryID, name, false);
+          }
+        }
+      }
+      catch (e) {
+        this.SB.logError(e);
+      }
+    }
+    this._colored = new Set();
+    if (this.SB.setting("profileTagColor") !== false) {
+      for (const r of inUse) {
+        if (this.idForTag(r.name)) {
+          await this.ensureTagColor(r.l, r.name);
+        }
+      }
+    }
+  },
+
+  // -------------------------------------------------------------------
+  // “Only this profile”: Zotero's tag filter of the reader. It hides the
+  // other annotations in the sidebar and in the document.
+  // -------------------------------------------------------------------
+
+  filterTags(reader) {
+    try {
+      const filter = this.SB.readerState(reader)?.filter;
+      return Array.from(filter?.tags || []).map(String);
+    }
+    catch (e) {
+      return [];
+    }
+  },
+
+  /** Is the reader filtered to the profile of its document? */
+  filterActive(reader) {
+    if (!this.enabled() || !reader) {
+      return false;
+    }
+    const tags = this.filterTags(reader);
+    return tags.length === 1 && this.isProfileTag(tags[0]);
+  },
+
+  setReaderFilter(reader, tags) {
+    const internal = reader._internalReader;
+    if (!internal || typeof internal.setFilter !== "function") {
+      throw new Error("setFilter not available");
+    }
+    internal.setFilter(Components.utils.cloneInto({ tags }, reader._iframeWindow));
+  },
+
+  /** Turn “only this profile” on or off; the user's own tag filter comes back afterwards. */
+  setFilter(reader, on) {
+    try {
+      this._filterBefore = this._filterBefore || new WeakMap();
+      if (on) {
+        const tag = this.tagFor(this.forReader(reader));
+        if (!tag) {
+          return;
+        }
+        if (!this.filterActive(reader)) {
+          this._filterBefore.set(reader, this.filterTags(reader));
+        }
+        this.setReaderFilter(reader, [tag]);
+      }
+      else if (this.filterActive(reader) || this._filterBefore.has(reader)) {
+        this.setReaderFilter(reader, this._filterBefore.get(reader) || []);
+        this._filterBefore.delete(reader);
+      }
+      this.Store.emit("doc");
+    }
+    catch (e) {
+      this.SB.logError(e);
+    }
+  },
+
+  toggleFilter(reader) {
+    this.setFilter(reader, !this.filterActive(reader));
+  },
+
+  /** After a change of profile: the filter follows the new profile. */
+  updateFilter(reader) {
+    if (this.filterActive(reader)) {
+      try {
+        this.setReaderFilter(reader, [this.tagFor(this.forReader(reader))]);
+      }
+      catch (e) {
+        this.SB.logError(e);
+      }
+    }
+  },
+
+  /** Option “show only the document's profile when opening”: once per reader, after its annotations are loaded. */
+  initFilter(reader, entry) {
+    if (entry.filterInit || this.SB.setting("profileFilterDefault") !== true) {
+      return;
+    }
+    const state = this.SB.readerState(reader);
+    if (!state || !state.annotations || entry.source === "pending") {
+      return;
+    }
+    entry.filterInit = true;
+    this.setFilter(reader, true);
+  },
+
+  /** Annotations of a reader without a profile tag. */
+  untaggedCount(reader) {
+    if (!this.enabled()) {
+      return 0;
+    }
+    let n = 0;
+    for (const a of this.readerAnnotations(reader)) {
+      let tags = [];
+      try {
+        tags = Array.from(a.tags || []);
+      }
+      catch (e) {}
+      if (!this.idForTags(tags)) {
+        n++;
+      }
+    }
+    return n;
   },
 
   /**
@@ -882,7 +1169,7 @@ BetterAnnotations.Profiles = {
     return {
       tagged,
       fileProfile,
-      of: r => tagged.get(r.id) || fileProfile(r.att, r.top),
+      of: this.enabled() ? (r => tagged.get(r.id) || fileProfile(r.att, r.top)) : (() => fallback),
     };
   },
 };

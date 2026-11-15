@@ -173,7 +173,7 @@ BetterAnnotations.PREFS_CSS = `
   box-shadow: 0 8px 24px rgba(0,0,0,.22); font: 12px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; font-style: normal; font-weight: normal;
   cursor: default; white-space: normal; text-align: left; }
 #bac-root .bac-info:hover .bac-info-pop, #bac-root .bac-info:focus .bac-info-pop { display: block; }
-#bac-root .bac-info-par { display: block; }
+#bac-root .bac-info-par { display: block; white-space: pre-line; }
 #bac-root .bac-info-par + .bac-info-par { margin-top: 7px; }
 #bac-root .bac-sub { margin-top: 8px; padding-inline: 7px; }
 #bac-root .bac-about-text { margin: 0 0 6px; line-height: 1.5; }
@@ -225,4 +225,11 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-icon-btn:hover:not(:disabled) { background: var(--bac-border); color: inherit; }
 #bac-root .bac-icon-btn:disabled { opacity: .3; }
 #bac-root .bac-icon-btn:focus-visible { outline: 2px solid var(--bac-accent); outline-offset: -1px; }
+#bac-root .bac-profile-row { justify-content: space-between; }
+#bac-root .bac-profile-row > .bac-profile-menu { flex: 1 1 240px; max-width: 360px; }
+#bac-root .bac-group { display: inline-flex; flex: none; flex-wrap: nowrap; align-items: center; gap: 6px; }
+#bac-root .bac-group > button { margin: 0; }
+#bac-root .bac-tab-intro { margin: 0 4px 10px; }
+#bac-root .bac-switch-body { margin-top: 4px; }
+#bac-root .bac-switch-body[hidden] { display: none; }
 `;

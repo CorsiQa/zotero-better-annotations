@@ -236,13 +236,13 @@ BetterAnnotations.Reader = {
     const ids = Array.from(params.ids || []);
     let annotations = [];
     try {
-      annotations = Array.from(reader._state?.annotations || []).filter(a => ids.includes(a.id));
+      annotations = Array.from(BetterAnnotations.readerState(reader)?.annotations || []).filter(a => ids.includes(a.id));
     }
     catch (e) {}
     const current = annotations.length === 1 ? this.SB.normalize(annotations[0].color) : null;
     let readOnly = false;
     try {
-      readOnly = !!reader._state?.readOnly || annotations.some(a => a.readOnly);
+      readOnly = !!BetterAnnotations.readerState(reader)?.readOnly || annotations.some(a => a.readOnly);
     }
     catch (e) {}
     this.buildColorMenu(reader, append, {
@@ -258,7 +258,7 @@ BetterAnnotations.Reader = {
     }
     let current = null;
     try {
-      current = this.SB.normalize(reader._state?.tool?.color);
+      current = this.SB.normalize(BetterAnnotations.readerState(reader)?.tool?.color);
     }
     catch (e) {}
     this.buildColorMenu(reader, append, {
@@ -728,7 +728,7 @@ BetterAnnotations.Reader = {
   /** Tool color of a reader if an annotation tool is active, else null. */
   activeToolColor(reader) {
     try {
-      const tool = reader._state?.tool;
+      const tool = BetterAnnotations.readerState(reader)?.tool;
       return tool && this.COLOR_TOOLS.includes(tool.type) ? this.SB.normalize(tool.color) : null;
     }
     catch (e) {
@@ -758,10 +758,10 @@ BetterAnnotations.Reader = {
         set({ type: "pointer" });
         return;
       }
-      const current = reader._state?.tool?.type;
+      const current = BetterAnnotations.readerState(reader)?.tool?.type;
       let type = current;
       if (!this.COLOR_TOOLS.includes(current)) {
-        type = reader._state?.textSelectionAnnotationMode === "underline" ? "underline" : "highlight";
+        type = BetterAnnotations.readerState(reader)?.textSelectionAnnotationMode === "underline" ? "underline" : "highlight";
       }
       set({ type, color });
     }
@@ -798,14 +798,14 @@ BetterAnnotations.Reader = {
   createAnnotation(reader, annotation, color) {
     const SB = this.SB;
     try {
-      if (reader._state?.readOnly) {
+      if (BetterAnnotations.readerState(reader)?.readOnly) {
         return;
       }
       const internal = reader._internalReader;
       if (!internal || !internal._annotationManager) {
         throw new Error("_internalReader._annotationManager missing");
       }
-      const type = reader._state?.textSelectionAnnotationMode === "underline" ? "underline" : "highlight";
+      const type = BetterAnnotations.readerState(reader)?.textSelectionAnnotationMode === "underline" ? "underline" : "highlight";
       const payload = Object.assign(JSON.parse(JSON.stringify(annotation)), { type, color });
       const result = internal._annotationManager.addAnnotation(this.cloneIntoFrame(reader, payload));
       if (!result) {
@@ -1363,7 +1363,7 @@ BetterAnnotations.Reader = {
   /** Number next to the statistics icon: annotations of the active profile (or of all profiles). */
   annotationCount(reader) {
     try {
-      if (!reader._state || !reader._state.annotations) {
+      if (!BetterAnnotations.readerState(reader) || !BetterAnnotations.readerState(reader).annotations) {
         return null;
       }
       const list = this.SB.Profiles.readerList(reader);
@@ -1400,6 +1400,8 @@ BetterAnnotations.Reader = {
   updateToolbar(rec) {
     const SB = this.SB;
     rec.name.textContent = SB.Profiles.profileForReader(rec.reader).name;
+    const source = this.sourceText(rec.reader);
+    rec.profileBtn.setAttribute("title", SB.S("tbProfileTip") + (source ? "\n" + source : ""));
     rec.profileBtn.style.display = SB.setting("showToolbarProfile") ? "" : "none";
     rec.statsBtn.style.display = SB.setting("showToolbarStats") ? "" : "none";
     const n = this.annotationCount(rec.reader);
@@ -1481,9 +1483,12 @@ BetterAnnotations.Reader = {
     return { panel, place };
   },
 
-  /** Why the document uses its profile (shown at the bottom of the profile menu). */
+  /** Why the document uses its profile (tooltip of the profile buttons), "" without “Profile per Document”. */
   sourceText(reader) {
     const SB = this.SB;
+    if (!SB.Profiles.enabled()) {
+      return "";
+    }
     const key = {
       explicit: "srcExplicit",
       annotations: "srcAnnotations",
@@ -1549,7 +1554,6 @@ BetterAnnotations.Reader = {
     if (hint) {
       panel.append(el("bac-menu-hint bac-menu-warn", hint));
     }
-    panel.append(el("bac-menu-hint", this.sourceText(reader)));
     const custom = el("bac-item");
     custom.setAttribute("role", "menuitem");
     const icon = el("bac-check");
@@ -1582,7 +1586,7 @@ BetterAnnotations.Reader = {
     if (!total) {
       sub.textContent = SB.S("statsEmpty");
     }
-    else if (all) {
+    else if (all || !P.enabled()) {
       sub.textContent = SB.S("statsTotal", { n: total });
     }
     else {
@@ -1643,7 +1647,7 @@ BetterAnnotations.Reader = {
   /** Rows of the statistics for one profile: color, name, number, bar. */
   appendStatRows(doc, panel, profile, counts, max) {
     const SB = this.SB;
-    const showDesc = SB.setting("statsDescriptions") !== false;
+    const showDesc = SB.descriptionsOn() && SB.setting("statsDescriptions") !== false;
     const order = profile.colors.map(c => c.color);
     const rows = [...counts.entries()].sort((a, b) => {
       const ia = order.indexOf(a[0]);
@@ -1679,7 +1683,7 @@ BetterAnnotations.Reader = {
       bar.style.background = color;
       bar.style.width = Math.max(4, Math.round(n / max * 100)) + "%";
       row.append(dot, name, count, bar);
-      const desc = entry && SB.isVisible(entry) ? SB.shortDescription(entry.description) : "";
+      const desc = entry && SB.isVisible(entry) && SB.descriptionsOn() ? SB.shortDescription(entry.description) : "";
       if (desc && showDesc) {
         const d = doc.createElement("span");
         d.className = "bac-stat-desc";
