@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS["zh-TW"] = {
   "panelRowTip": "{label}：{n} 則註解",
   "secItemPane": "項目窗格",
   "infoItemPane": "在 Zotero 的項目窗格（文獻庫中以及閱讀器旁）加入「註解名稱」區塊。它顯示目前設定檔的名稱，以及每個名稱下的註解數量。在閱讀器中點選某個名稱，即可為下一則註解選擇其顏色。\n\n帶箭頭的按鈕會在獨立視窗中開啟同一清單。此視窗會跟隨目前的閱讀器分頁，因此你可以把它放在第二個螢幕上。",
-  "optItemPaneSection": "在項目窗格中顯示「註解名稱」區塊"
+  "optItemPaneSection": "在項目窗格中顯示「註解名稱」區塊",
+  "btnAddDescription": "新增說明",
+  "phDescription": "這個名稱代表什麼？什麼時候使用？",
+  "ariaDescription": "「{label}」的說明",
+  "panelDescriptions": "顯示說明",
+  "panelEditDescription": "編輯說明",
+  "panelEditDescriptionFor": "編輯「{label}」的說明",
+  "panelAddDescriptionFor": "為「{label}」新增說明",
+  "panelPresetDescHint": "內建設定檔無法變更。如需新增說明，請在設定中建立自己的設定檔。",
+  "colDescription": "說明",
+  "optExportDescriptions": "將名稱的說明加入為一欄",
+  "infoDescriptions": "你可以在每個名稱下方新增說明，例如該名稱代表什麼、何時使用。說明會顯示在工具提示、「註解名稱」區塊以及匯出檔案中。"
 };

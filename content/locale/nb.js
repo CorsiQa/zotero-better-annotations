@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS.nb = {
   "panelRowTip": "{label}: {n} annotering(er)",
   "secItemPane": "Elementpanel",
   "infoItemPane": "Legger til seksjonen «Annoteringsetiketter» i Zoteros elementpanel, i biblioteket og ved siden av leseren. Den viser etikettene i den aktive profilen og hvor mange annoteringer hver etikett har. I leseren velger et klikk på en etikett fargen til neste annotering.\n\nKnappen med pilen åpner den samme listen i et eget vindu. Vinduet følger den aktive leserfanen, så du kan legge det på en annen skjerm.",
-  "optItemPaneSection": "Vis seksjonen «Annoteringsetiketter» i elementpanelet"
+  "optItemPaneSection": "Vis seksjonen «Annoteringsetiketter» i elementpanelet",
+  "btnAddDescription": "Legg til beskrivelse",
+  "phDescription": "Hva står denne etiketten for? Når bruker du den?",
+  "ariaDescription": "Beskrivelse av «{label}»",
+  "panelDescriptions": "Vis beskrivelser",
+  "panelEditDescription": "Rediger beskrivelse",
+  "panelEditDescriptionFor": "Rediger beskrivelsen av «{label}»",
+  "panelAddDescriptionFor": "Legg til en beskrivelse for «{label}»",
+  "panelPresetDescHint": "Innebygde profiler kan ikke endres. For å legge til beskrivelser, opprett din egen profil i innstillingene.",
+  "colDescription": "Beskrivelse",
+  "optExportDescriptions": "Legg til beskrivelsene av etikettene som en kolonne",
+  "infoDescriptions": "Under hver etikett kan du legge til en beskrivelse, for eksempel hva etiketten står for og når du bruker den. Beskrivelser vises i verktøytips, i seksjonen «Annoteringsetiketter» og i eksporter."
 };

@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS.es = {
   "panelRowTip": "{label}: {n} anotación(es)",
   "secItemPane": "Panel del elemento",
   "infoItemPane": "Añade la sección «Etiquetas de anotación» al panel del elemento de Zotero, en la biblioteca y junto al lector. Muestra las etiquetas del perfil activo y cuántas anotaciones lleva cada etiqueta. En el lector, un clic en una etiqueta selecciona su color para la próxima anotación.\n\nEl botón con la flecha abre la misma lista en una ventana aparte. La ventana sigue a la pestaña activa del lector, así que puedes colocarla en una segunda pantalla.",
-  "optItemPaneSection": "Mostrar la sección «Etiquetas de anotación» en el panel del elemento"
+  "optItemPaneSection": "Mostrar la sección «Etiquetas de anotación» en el panel del elemento",
+  "btnAddDescription": "Añadir descripción",
+  "phDescription": "¿Qué significa esta etiqueta? ¿Cuándo la usas?",
+  "ariaDescription": "Descripción de «{label}»",
+  "panelDescriptions": "Mostrar descripciones",
+  "panelEditDescription": "Editar descripción",
+  "panelEditDescriptionFor": "Editar la descripción de «{label}»",
+  "panelAddDescriptionFor": "Añadir una descripción a «{label}»",
+  "panelPresetDescHint": "Los perfiles integrados no se pueden modificar. Para añadir descripciones, crea tu propio perfil en la configuración.",
+  "colDescription": "Descripción",
+  "optExportDescriptions": "Añadir las descripciones de las etiquetas como columna",
+  "infoDescriptions": "Debajo de cada etiqueta puedes añadir una descripción, por ejemplo qué significa la etiqueta y cuándo la usas. Las descripciones aparecen en las ayudas emergentes, en la sección «Etiquetas de anotación» y en las exportaciones."
 };

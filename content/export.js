@@ -35,7 +35,7 @@ BetterAnnotations.Export = {
 
   /**
    * Annotations of an area as rows.
-   * options: { labeledOnly, images, sort: "doc" | "label", profile }
+   * options: { labeledOnly, images, sort: "doc" | "label", profile, descriptions }
    */
   async collect(scope, options = {}) {
     const SB = this.SB;
@@ -48,6 +48,10 @@ BetterAnnotations.Export = {
     const labelOf = (color) => {
       const entry = profile.colors.find(c => c.color === color);
       return entry && SB.isVisible(entry) && entry.label.trim() ? entry.label.trim() : "";
+    };
+    const descriptionOf = (color) => {
+      const entry = profile.colors.find(c => c.color === color);
+      return entry && SB.isVisible(entry) ? SB.cleanDescription(entry.description) : "";
     };
     const docs = new Map();
     const rendered = new Set();
@@ -66,6 +70,7 @@ BetterAnnotations.Export = {
       const row = {
         color,
         label,
+        description: label ? descriptionOf(color) : "",
         labelOrder: order.has(color) && label ? order.get(color) : 9999,
         type,
         text: item.annotationText || "",
@@ -241,12 +246,13 @@ BetterAnnotations.Export = {
     const out = profile.colors.map(c => ({
       color: c.color,
       label: c.label.trim(),
+      description: this.SB.cleanDescription(c.description),
       shown: this.SB.isVisible(c),
       n: counts.get(c.color) || 0,
     }));
     for (const [color, n] of counts) {
       if (!out.some(o => o.color === color)) {
-        out.push({ color, label: "", shown: false, n });
+        out.push({ color, label: "", description: "", shown: false, n });
       }
     }
     return out;
@@ -284,12 +290,17 @@ BetterAnnotations.Export = {
    * characters; within these limits the width follows the heading and the
    * content (see fitWidths).
    */
-  columns(rows) {
+  columns(rows, options = {}) {
     const S = k => this.SB.S(k);
     const cols = [
       { key: "no", head: S("colNo"), min: 4, max: 8, get: r => r.no, num: true },
       { key: "color", head: S("colColor"), min: 9, max: 10, get: r => r.color, colorCell: true },
       { key: "label", head: S("colLabel"), min: 10, max: 30, get: r => r.label, labelCell: true, wrap: true },
+    ];
+    if (options.descriptions) {
+      cols.push({ key: "description", head: S("colDescription"), min: 16, max: 50, get: r => r.description, wrap: true });
+    }
+    cols.push(
       { key: "type", head: S("colType"), min: 8, max: 16, get: r => this.typeName(r.type) },
       { key: "extract", head: S("colExtract"), min: 30, max: 70, get: r => this.extractText(r), wrap: true, extract: true },
       { key: "comment", head: S("colComment"), min: 16, max: 50, get: r => r.comment, wrap: true },
@@ -304,7 +315,7 @@ BetterAnnotations.Export = {
       { key: "link", head: S("colLink"), min: 10, max: 18, get: r => r.link, link: true },
       { key: "created", head: S("colCreated"), min: 16, max: 18, get: r => r.created },
       { key: "modified", head: S("colModified"), min: 16, max: 18, get: r => r.modified },
-    ];
+    );
     if (rows.some(r => r.author)) {
       cols.push({ key: "author", head: S("colAuthor"), min: 10, max: 25, get: r => r.author });
     }
@@ -353,8 +364,8 @@ BetterAnnotations.Export = {
   // CSV
   // -------------------------------------------------------------------
 
-  toCSV(rows) {
-    const cols = this.columns(rows);
+  toCSV(rows, meta = {}) {
+    const cols = this.columns(rows, { descriptions: meta.descriptions });
     const esc = (v) => {
       const s = String(v ?? "");
       return /[",\r\n]/.test(s) ? "\"" + s.replace(/"/g, "\"\"") + "\"" : s;
@@ -429,6 +440,22 @@ BetterAnnotations.Export = {
       }
       return "<article style=\"border-left-color:" + e(r.color) + "\">" + parts.join("") + "</article>";
     }).join("") + "</section>").join("");
+    // Legend: labels that occur in the export, with count and description
+    const used = new Map();
+    for (const r of rows) {
+      if (r.label) {
+        const u = used.get(r.color) || { r, n: 0 };
+        u.n++;
+        used.set(r.color, u);
+      }
+    }
+    const legendRows = [...used.values()].sort((a, b) => a.r.labelOrder - b.r.labelOrder);
+    const legend = legendRows.length
+      ? "<details class=\"legend\" open><summary>" + e(S("sheetLabels")) + "</summary><dl>"
+        + legendRows.map(u => "<dt>" + chip(u.r) + " <span class=\"n\">" + u.n + "</span></dt>"
+          + (u.r.description ? "<dd>" + e(u.r.description).replace(/\n/g, "<br>") + "</dd>" : "")).join("")
+        + "</dl></details>"
+      : "";
     return "<!DOCTYPE html>\n<html lang=\"" + e(SB.lang) + "\"><head><meta charset=\"utf-8\">"
       + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
       + "<title>" + e(S("exportTitle")) + "</title><style>"
@@ -443,11 +470,13 @@ BetterAnnotations.Export = {
       + "img{max-width:100%;border:1px solid #ddd;margin:6px 0}.comment{margin:6px 0;padding:6px 8px;background:#fff;border:1px solid #e4e4e4;border-radius:5px}"
       + ".tags{margin:6px 0 0;display:flex;flex-wrap:wrap;gap:4px}.tags span{font-size:12px;background:#eee;border-radius:9px;padding:0 8px}"
       + ".missing{color:#999;font-style:italic}a{color:#2563c1}"
-      + "@media (prefers-color-scheme:dark){body{background:#1d1d1f;color:#e6e6e6}article{background:#262628}.chip{color:#eee}.meta,.src,.info,.n{color:#aaa}.comment{background:#1d1d1f;border-color:#3a3a3c}.tags span{background:#3a3a3c}a{color:#7aa7ff}}"
+      + ".legend{margin:0 0 20px;padding:8px 12px;border:1px solid #e4e4e4;border-radius:6px}.legend summary{font-weight:600;cursor:pointer}"
+      + ".legend dl{margin:6px 0 0}.legend dt{display:flex;align-items:center;gap:8px;margin-top:6px}.legend dd{margin:2px 0 0 18px;color:#555}"
+      + "@media (prefers-color-scheme:dark){body{background:#1d1d1f;color:#e6e6e6}.legend{border-color:#3a3a3c}.legend dd{color:#bbb}article{background:#262628}.chip{color:#eee}.meta,.src,.info,.n{color:#aaa}.comment{background:#1d1d1f;border-color:#3a3a3c}.tags span{background:#3a3a3c}a{color:#7aa7ff}}"
       + "@media print{body{max-width:none}a{color:inherit}}"
       + "</style></head><body><h1>" + e(S("exportTitle")) + "</h1><p class=\"info\">"
       + e(S("exportMeta", { n: rows.length, profile: meta.profile, scope: meta.scope, date: meta.date })) + "</p>"
-      + body + "</body></html>\n";
+      + legend + body + "</body></html>\n";
   },
 
   base64(bytes) {
@@ -504,7 +533,7 @@ BetterAnnotations.Export = {
     const S = (k, a) => this.SB.S(k, a);
     const x = s => this.xml(s);
     const withImages = meta.images !== false;
-    const cols = this.fitWidths(this.columns(rows), rows, (c, r) => {
+    const cols = this.fitWidths(this.columns(rows, { descriptions: meta.descriptions }), rows, (c, r) => {
       if (c.link) {
         return r.link ? S("linkOpen") : "";
       }
@@ -668,20 +697,22 @@ BetterAnnotations.Export = {
     });
 
     // --- Sheet 2: labels ---
-    const cbCols = [
-      { head: S("colColor"), width: 9 },
-      { head: S("colLabel"), width: 32 },
-      { head: S("colCount"), width: 13 },
-      { head: S("colShown"), width: 16 },
-    ];
+    const cbCols = this.fitWidths([
+      { head: S("colColor"), min: 9, max: 10, get: c => c.color },
+      { head: S("colLabel"), min: 12, max: 32, get: c => c.label },
+      { head: S("colDescription"), min: 16, max: 70, get: c => c.description },
+      { head: S("colCount"), min: 8, max: 14, get: c => String(c.n) },
+      { head: S("colShown"), min: 8, max: 18, get: c => (c.shown ? S("yes") : S("no")) },
+    ], codebook, (c, row) => c.get(row));
     const cbRows = codebook.map((c, idx) => {
       const rowNo = idx + 2;
       const st = colorStyle.get(c.color);
       return "<row r=\"" + rowNo + "\">"
         + cell("A" + rowNo, c.color, st ? st.full : ST.plain)
         + cell("B" + rowNo, c.label, st ? st.light : ST.wrap)
-        + cell("C" + rowNo, c.n, ST.plain, true)
-        + cell("D" + rowNo, c.shown ? S("yes") : S("no"), ST.plain)
+        + cell("C" + rowNo, c.description, ST.wrap)
+        + cell("D" + rowNo, c.n, ST.plain, true)
+        + cell("E" + rowNo, c.shown ? S("yes") : S("no"), ST.plain)
         + "</row>";
     });
     const sheet2 = sheet(cbCols, headRow(cbCols), cbRows);
@@ -887,7 +918,7 @@ BetterAnnotations.Export = {
   /** Writes the export file; returns the number of annotations. */
   async write(path, format, rows, meta) {
     if (format === "csv") {
-      await Zotero.File.putContentsAsync(path, this.toCSV(rows));
+      await Zotero.File.putContentsAsync(path, this.toCSV(rows, meta));
     }
     else if (format === "html") {
       await Zotero.File.putContentsAsync(path, this.toHTML(rows, meta));

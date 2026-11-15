@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS.fr = {
   "panelRowTip": "{label} : {n} annotation(s)",
   "secItemPane": "Panneau du document",
   "infoItemPane": "Ajoute la section « Libellés des annotations » au panneau du document de Zotero, dans la bibliothèque et à côté du lecteur. Elle affiche les libellés du profil actif et le nombre d’annotations de chaque libellé. Dans le lecteur, un clic sur un libellé sélectionne sa couleur pour la prochaine annotation.\n\nLe bouton avec la flèche ouvre la même liste dans une fenêtre séparée. La fenêtre suit l’onglet actif du lecteur, vous pouvez donc la placer sur un second écran.",
-  "optItemPaneSection": "Afficher la section « Libellés des annotations » dans le panneau du document"
+  "optItemPaneSection": "Afficher la section « Libellés des annotations » dans le panneau du document",
+  "btnAddDescription": "Ajouter une description",
+  "phDescription": "Que représente ce libellé ? Quand l’utilisez-vous ?",
+  "ariaDescription": "Description de « {label} »",
+  "panelDescriptions": "Afficher les descriptions",
+  "panelEditDescription": "Modifier la description",
+  "panelEditDescriptionFor": "Modifier la description de « {label} »",
+  "panelAddDescriptionFor": "Ajouter une description à « {label} »",
+  "panelPresetDescHint": "Les profils intégrés ne peuvent pas être modifiés. Pour ajouter des descriptions, créez votre propre profil dans les paramètres.",
+  "colDescription": "Description",
+  "optExportDescriptions": "Ajouter les descriptions des libellés dans une colonne",
+  "infoDescriptions": "Sous chaque libellé, vous pouvez ajouter une description, par exemple ce que représente le libellé et quand vous l’utilisez. Les descriptions apparaissent dans les info-bulles, dans la section « Libellés des annotations » et dans les exports."
 };

@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS.ja = {
   "panelRowTip": "{label}: 注釈 {n} 件",
   "secItemPane": "アイテムペイン",
   "infoItemPane": "Zotero のアイテムペイン（ライブラリとリーダーの横）に「注釈のラベル」セクションを追加します。有効なプロファイルのラベルと、各ラベルの注釈の数を表示します。リーダーでラベルをクリックすると、その色が次の注釈に使われます。\n\n矢印のボタンで同じ一覧を別ウィンドウで開きます。このウィンドウはアクティブなリーダーのタブに追従するので、2 台目の画面に置くことができます。",
-  "optItemPaneSection": "アイテムペインに「注釈のラベル」セクションを表示"
+  "optItemPaneSection": "アイテムペインに「注釈のラベル」セクションを表示",
+  "btnAddDescription": "説明を追加",
+  "phDescription": "このラベルは何を表し、いつ使いますか？",
+  "ariaDescription": "「{label}」の説明",
+  "panelDescriptions": "説明を表示",
+  "panelEditDescription": "説明を編集",
+  "panelEditDescriptionFor": "「{label}」の説明を編集",
+  "panelAddDescriptionFor": "「{label}」に説明を追加",
+  "panelPresetDescHint": "組み込みのプロファイルは変更できません。説明を追加するには、設定で自分のプロファイルを作成してください。",
+  "colDescription": "説明",
+  "optExportDescriptions": "ラベルの説明を列として追加",
+  "infoDescriptions": "各ラベルの下に、ラベルが何を表し、いつ使うかなどの説明を追加できます。説明はツールチップ、「注釈のラベル」セクション、エクスポートに表示されます。"
 };

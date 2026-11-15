@@ -358,5 +358,16 @@ BetterAnnotations.STRINGS.sv = {
   "panelRowTip": "{label}: {n} annotering(ar)",
   "secItemPane": "Postpanel",
   "infoItemPane": "Lägger till avsnittet ”Annoteringsetiketter” i Zoteros postpanel, i biblioteket och bredvid läsaren. Det visar etiketterna i den aktiva profilen och hur många annoteringar varje etikett har. I läsaren väljer ett klick på en etikett dess färg för nästa annotering.\n\nKnappen med pilen öppnar samma lista i ett eget fönster. Fönstret följer den aktiva läsarfliken, så du kan placera det på en andra skärm.",
-  "optItemPaneSection": "Visa avsnittet ”Annoteringsetiketter” i postpanelen"
+  "optItemPaneSection": "Visa avsnittet ”Annoteringsetiketter” i postpanelen",
+  "btnAddDescription": "Lägg till beskrivning",
+  "phDescription": "Vad står den här etiketten för? När använder du den?",
+  "ariaDescription": "Beskrivning av ”{label}”",
+  "panelDescriptions": "Visa beskrivningar",
+  "panelEditDescription": "Redigera beskrivning",
+  "panelEditDescriptionFor": "Redigera beskrivningen av ”{label}”",
+  "panelAddDescriptionFor": "Lägg till en beskrivning för ”{label}”",
+  "panelPresetDescHint": "Inbyggda profiler kan inte ändras. Skapa en egen profil i inställningarna för att lägga till beskrivningar.",
+  "colDescription": "Beskrivning",
+  "optExportDescriptions": "Lägg till etiketternas beskrivningar som en kolumn",
+  "infoDescriptions": "Under varje etikett kan du lägga till en beskrivning, till exempel vad etiketten står för och när du använder den. Beskrivningar visas i verktygstips, i avsnittet ”Annoteringsetiketter” och i exporter."
 };
