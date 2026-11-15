@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS.sv = {
   "upAutoOffHint": "Version {v} finns. Automatiska uppdateringar är avstängda för det här pluginet, därför installerar Zotero den inte själv. Du kan installera den nu och slå på automatiska uppdateringar, så att kommande versioner kommer av sig själva.",
   "btnEnableAutoUpdates": "Slå på automatiska uppdateringar",
   "upAutoEnabled": "Automatiska uppdateringar är nu påslagna för det här pluginet.",
-  "aboutAuthor": "Utvecklat av {author}"
+  "aboutAuthor": "Utvecklat av {author}",
+  "sectionTitle": "Annoteringsetiketter",
+  "sectionSummary": "{n} annotering(ar) · {profile}",
+  "panelProfile": "Aktiv profil",
+  "panelPopout": "Öppna i eget fönster",
+  "panelSettings": "Inställningar…",
+  "panelClickHint": "Klicka för att använda den här färgen för nästa annotering.",
+  "panelNoDoc": "Öppna ett dokument för att se dess annoteringar.",
+  "panelLibraryHint": "Räknar annoteringarna i alla {n} filer för denna post.",
+  "panelRowTip": "{label}: {n} annotering(ar)",
+  "secItemPane": "Postpanel",
+  "infoItemPane": "Lägger till avsnittet ”Annoteringsetiketter” i Zoteros postpanel, i biblioteket och bredvid läsaren. Det visar etiketterna i den aktiva profilen och hur många annoteringar varje etikett har. I läsaren väljer ett klick på en etikett dess färg för nästa annotering.\n\nKnappen med pilen öppnar samma lista i ett eget fönster. Fönstret följer den aktiva läsarfliken, så du kan placera det på en andra skärm.",
+  "optItemPaneSection": "Visa avsnittet ”Annoteringsetiketter” i postpanelen"
 };

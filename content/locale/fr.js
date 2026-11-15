@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS.fr = {
   "upAutoOffHint": "La version {v} est disponible. Les mises à jour automatiques sont désactivées pour cette extension ; Zotero ne l’installe donc pas de lui-même. Vous pouvez l’installer maintenant et activer les mises à jour automatiques pour recevoir les prochaines versions sans rien faire.",
   "btnEnableAutoUpdates": "Activer les mises à jour automatiques",
   "upAutoEnabled": "Les mises à jour automatiques sont activées pour cette extension.",
-  "aboutAuthor": "Développé par {author}"
+  "aboutAuthor": "Développé par {author}",
+  "sectionTitle": "Libellés des annotations",
+  "sectionSummary": "{n} annotation(s) · {profile}",
+  "panelProfile": "Profil actif",
+  "panelPopout": "Ouvrir dans une fenêtre séparée",
+  "panelSettings": "Paramètres…",
+  "panelClickHint": "Cliquez pour utiliser cette couleur pour la prochaine annotation.",
+  "panelNoDoc": "Ouvrez un document pour voir ses annotations.",
+  "panelLibraryHint": "Compte les annotations des {n} fichiers de ce document.",
+  "panelRowTip": "{label} : {n} annotation(s)",
+  "secItemPane": "Panneau du document",
+  "infoItemPane": "Ajoute la section « Libellés des annotations » au panneau du document de Zotero, dans la bibliothèque et à côté du lecteur. Elle affiche les libellés du profil actif et le nombre d’annotations de chaque libellé. Dans le lecteur, un clic sur un libellé sélectionne sa couleur pour la prochaine annotation.\n\nLe bouton avec la flèche ouvre la même liste dans une fenêtre séparée. La fenêtre suit l’onglet actif du lecteur, vous pouvez donc la placer sur un second écran.",
+  "optItemPaneSection": "Afficher la section « Libellés des annotations » dans le panneau du document"
 };

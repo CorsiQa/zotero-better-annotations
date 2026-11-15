@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS.es = {
   "upAutoOffHint": "La versión {v} está disponible. Las actualizaciones automáticas están desactivadas para este complemento, así que Zotero no la instala por sí solo. Puedes instalarla ahora y activar las actualizaciones automáticas para que las próximas versiones lleguen solas.",
   "btnEnableAutoUpdates": "Activar actualizaciones automáticas",
   "upAutoEnabled": "Las actualizaciones automáticas están activadas para este complemento.",
-  "aboutAuthor": "Desarrollado por {author}"
+  "aboutAuthor": "Desarrollado por {author}",
+  "sectionTitle": "Etiquetas de anotación",
+  "sectionSummary": "{n} anotación(es) · {profile}",
+  "panelProfile": "Perfil activo",
+  "panelPopout": "Abrir en una ventana aparte",
+  "panelSettings": "Configuración…",
+  "panelClickHint": "Haz clic para usar este color en la próxima anotación.",
+  "panelNoDoc": "Abre un documento para ver sus anotaciones.",
+  "panelLibraryHint": "Cuenta las anotaciones de los {n} archivos de este elemento.",
+  "panelRowTip": "{label}: {n} anotación(es)",
+  "secItemPane": "Panel del elemento",
+  "infoItemPane": "Añade la sección «Etiquetas de anotación» al panel del elemento de Zotero, en la biblioteca y junto al lector. Muestra las etiquetas del perfil activo y cuántas anotaciones lleva cada etiqueta. En el lector, un clic en una etiqueta selecciona su color para la próxima anotación.\n\nEl botón con la flecha abre la misma lista en una ventana aparte. La ventana sigue a la pestaña activa del lector, así que puedes colocarla en una segunda pantalla.",
+  "optItemPaneSection": "Mostrar la sección «Etiquetas de anotación» en el panel del elemento"
 };

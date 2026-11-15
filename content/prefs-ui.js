@@ -400,6 +400,9 @@ BetterAnnotations.PaneController = class {
         this.checkbox(S("optToolbarProfile"), settings.showToolbarProfile !== false, v => set("showToolbarProfile", v)),
         this.checkbox(S("optToolbarStats"), settings.showToolbarStats !== false, v => set("showToolbarStats", v)),
       ),
+      this.card(S("secItemPane"), S("infoItemPane"), null,
+        this.checkbox(S("optItemPaneSection"), settings.showItemPaneSection !== false, v => set("showItemPaneSection", v)),
+      ),
     );
 
     // --- Tab “Tags & Library” --------------------------------------------

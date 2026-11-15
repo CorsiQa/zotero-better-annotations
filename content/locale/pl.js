@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS.pl = {
   "upAutoOffHint": "Dostępna jest wersja {v}. Automatyczne aktualizacje tej wtyczki są wyłączone, więc Zotero nie zainstaluje jej samodzielnie. Możesz zainstalować ją teraz i włączyć automatyczne aktualizacje, aby kolejne wersje docierały same.",
   "btnEnableAutoUpdates": "Włącz automatyczne aktualizacje",
   "upAutoEnabled": "Automatyczne aktualizacje tej wtyczki są teraz włączone.",
-  "aboutAuthor": "Autor: {author}"
+  "aboutAuthor": "Autor: {author}",
+  "sectionTitle": "Etykiety adnotacji",
+  "sectionSummary": "Adnotacje: {n} · {profile}",
+  "panelProfile": "Aktywny profil",
+  "panelPopout": "Otwórz w osobnym oknie",
+  "panelSettings": "Ustawienia…",
+  "panelClickHint": "Kliknij, aby użyć tego koloru dla następnej adnotacji.",
+  "panelNoDoc": "Otwórz dokument, aby zobaczyć jego adnotacje.",
+  "panelLibraryHint": "Liczy adnotacje we wszystkich plikach tej pozycji (plików: {n}).",
+  "panelRowTip": "{label}: adnotacje: {n}",
+  "secItemPane": "Panel pozycji",
+  "infoItemPane": "Dodaje sekcję „Etykiety adnotacji” do panelu pozycji w Zotero, w bibliotece i obok czytnika. Pokazuje etykiety aktywnego profilu i liczbę adnotacji z każdą etykietą. W czytniku kliknięcie etykiety wybiera jej kolor dla następnej adnotacji.\n\nPrzycisk ze strzałką otwiera tę samą listę w osobnym oknie. Okno podąża za aktywną kartą czytnika, więc możesz umieścić je na drugim ekranie.",
+  "optItemPaneSection": "Pokazuj sekcję „Etykiety adnotacji” w panelu pozycji"
 };

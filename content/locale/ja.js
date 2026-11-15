@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS.ja = {
   "upAutoOffHint": "バージョン {v} があります。このプラグインは自動更新がオフのため、Zotero は自動ではインストールしません。今すぐインストールし、自動更新をオンにすると、今後のバージョンは自動で届きます。",
   "btnEnableAutoUpdates": "自動更新をオンにする",
   "upAutoEnabled": "このプラグインの自動更新をオンにしました。",
-  "aboutAuthor": "開発：{author}"
+  "aboutAuthor": "開発：{author}",
+  "sectionTitle": "注釈のラベル",
+  "sectionSummary": "注釈 {n} 件 · {profile}",
+  "panelProfile": "有効なプロファイル",
+  "panelPopout": "別ウィンドウで開く",
+  "panelSettings": "設定…",
+  "panelClickHint": "クリックすると、次の注釈にこの色を使います。",
+  "panelNoDoc": "文書を開くと、その注釈が表示されます。",
+  "panelLibraryHint": "このアイテムの {n} 個のファイルすべての注釈を数えます。",
+  "panelRowTip": "{label}: 注釈 {n} 件",
+  "secItemPane": "アイテムペイン",
+  "infoItemPane": "Zotero のアイテムペイン（ライブラリとリーダーの横）に「注釈のラベル」セクションを追加します。有効なプロファイルのラベルと、各ラベルの注釈の数を表示します。リーダーでラベルをクリックすると、その色が次の注釈に使われます。\n\n矢印のボタンで同じ一覧を別ウィンドウで開きます。このウィンドウはアクティブなリーダーのタブに追従するので、2 台目の画面に置くことができます。",
+  "optItemPaneSection": "アイテムペインに「注釈のラベル」セクションを表示"
 };

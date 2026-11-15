@@ -49,6 +49,7 @@ var BetterAnnotations = {
     showUsage: true,
     showToolbarProfile: true,
     showToolbarStats: true,
+    showItemPaneSection: true,
     tagsEnabled: false,
     tagPrefix: "",
     paletteOrder: "rainbow",
@@ -193,6 +194,12 @@ var BetterAnnotations = {
     catch (e) {
       this.logError(e);
     }
+    try {
+      this.Panel.init();
+    }
+    catch (e) {
+      this.logError(e);
+    }
 
     try {
       await Zotero.PreferencePanes.register({
@@ -235,7 +242,7 @@ var BetterAnnotations = {
   },
 
   shutdown() {
-    for (const part of [this.Reader, this.Library]) {
+    for (const part of [this.Panel, this.Reader, this.Library]) {
       try {
         part.shutdown();
       }
@@ -535,7 +542,7 @@ BetterAnnotations.Store = {
     out.settings.recentColors = (Array.isArray(s.recentColors) ? s.recentColors : [])
       .map(c => SB.normalize(c)).filter(Boolean).filter((c, i, a) => a.indexOf(c) === i).slice(0, 12);
     for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "showUsage",
-      "showToolbarProfile", "showToolbarStats", "tagsEnabled"]) {
+      "showToolbarProfile", "showToolbarStats", "showItemPaneSection", "tagsEnabled"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
       }
