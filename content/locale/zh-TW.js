@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS["zh-TW"] = {
   "upAutoOffHint": "有可用的版本 {v}。此外掛已關閉自動更新，因此 Zotero 不會自行安裝。你可以現在安裝，並開啟自動更新，之後的版本就會自動送達。",
   "btnEnableAutoUpdates": "開啟自動更新",
   "upAutoEnabled": "已為此外掛開啟自動更新。",
-  "aboutAuthor": "開發者：{author}"
+  "aboutAuthor": "開發者：{author}",
+  "sectionTitle": "註解名稱",
+  "sectionSummary": "{n} 則註解 · {profile}",
+  "panelProfile": "目前的設定檔",
+  "panelPopout": "在獨立視窗中開啟",
+  "panelSettings": "設定…",
+  "panelClickHint": "點選後，下一則註解將使用此顏色。",
+  "panelNoDoc": "開啟文件以檢視其註解。",
+  "panelLibraryHint": "統計此項目全部 {n} 個檔案的註解。",
+  "panelRowTip": "{label}：{n} 則註解",
+  "secItemPane": "項目窗格",
+  "infoItemPane": "在 Zotero 的項目窗格（文獻庫中以及閱讀器旁）加入「註解名稱」區塊。它顯示目前設定檔的名稱，以及每個名稱下的註解數量。在閱讀器中點選某個名稱，即可為下一則註解選擇其顏色。\n\n帶箭頭的按鈕會在獨立視窗中開啟同一清單。此視窗會跟隨目前的閱讀器分頁，因此你可以把它放在第二個螢幕上。",
+  "optItemPaneSection": "在項目窗格中顯示「註解名稱」區塊"
 };

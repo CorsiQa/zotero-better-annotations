@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS.zh = {
   "upAutoOffHint": "版本 {v} 可用。此插件已关闭自动更新，因此 Zotero 不会自行安装。你可以现在安装，并开启自动更新，以后的版本就会自动送达。",
   "btnEnableAutoUpdates": "开启自动更新",
   "upAutoEnabled": "已为此插件开启自动更新。",
-  "aboutAuthor": "开发者：{author}"
+  "aboutAuthor": "开发者：{author}",
+  "sectionTitle": "注释名称",
+  "sectionSummary": "{n} 条注释 · {profile}",
+  "panelProfile": "当前配置方案",
+  "panelPopout": "在独立窗口中打开",
+  "panelSettings": "设置…",
+  "panelClickHint": "点击后，下一条注释将使用此颜色。",
+  "panelNoDoc": "打开文档以查看其注释。",
+  "panelLibraryHint": "统计此条目全部 {n} 个文件的注释。",
+  "panelRowTip": "{label}：{n} 条注释",
+  "secItemPane": "条目窗格",
+  "infoItemPane": "在 Zotero 的条目窗格（文库中以及阅读器旁）添加“注释名称”部分。它显示当前配置方案的名称以及每个名称下的注释数量。在阅读器中点击某个名称，即可为下一条注释选择其颜色。\n\n带箭头的按钮会在独立窗口中打开同一列表。该窗口跟随当前阅读器标签页，因此你可以把它放在第二块屏幕上。",
+  "optItemPaneSection": "在条目窗格中显示“注释名称”部分"
 };

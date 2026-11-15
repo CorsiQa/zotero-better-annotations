@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS.nb = {
   "upAutoOffHint": "Versjon {v} er tilgjengelig. Automatiske oppdateringer er slått av for dette tillegget, så Zotero installerer den ikke selv. Du kan installere den nå og slå på automatiske oppdateringer, slik at senere versjoner kommer av seg selv.",
   "btnEnableAutoUpdates": "Slå på automatiske oppdateringer",
   "upAutoEnabled": "Automatiske oppdateringer er nå slått på for dette tillegget.",
-  "aboutAuthor": "Utviklet av {author}"
+  "aboutAuthor": "Utviklet av {author}",
+  "sectionTitle": "Annoteringsetiketter",
+  "sectionSummary": "{n} annotering(er) · {profile}",
+  "panelProfile": "Aktiv profil",
+  "panelPopout": "Åpne i eget vindu",
+  "panelSettings": "Innstillinger…",
+  "panelClickHint": "Klikk for å bruke denne fargen til neste annotering.",
+  "panelNoDoc": "Åpne et dokument for å se annoteringene.",
+  "panelLibraryHint": "Teller annoteringene i alle {n} filene til dette elementet.",
+  "panelRowTip": "{label}: {n} annotering(er)",
+  "secItemPane": "Elementpanel",
+  "infoItemPane": "Legger til seksjonen «Annoteringsetiketter» i Zoteros elementpanel, i biblioteket og ved siden av leseren. Den viser etikettene i den aktive profilen og hvor mange annoteringer hver etikett har. I leseren velger et klikk på en etikett fargen til neste annotering.\n\nKnappen med pilen åpner den samme listen i et eget vindu. Vinduet følger den aktive leserfanen, så du kan legge det på en annen skjerm.",
+  "optItemPaneSection": "Vis seksjonen «Annoteringsetiketter» i elementpanelet"
 };

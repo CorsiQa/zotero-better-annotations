@@ -9,6 +9,8 @@ Changes for the next release are collected here. The section is renamed to the v
 
 - Export: text and images now share one column “Extract”. Image and drawing annotations show their image there (Excel, HTML) or a placeholder such as “[Image]” (CSV, or when images are turned off)
 - Excel export: column widths follow the heading and the typical content, within sensible limits; images are scaled to the width of the column
+- New section “Annotation Labels” in the item pane, in the library and next to the reader: labels of the active profile with the number of annotations, profile selection and a link to the settings. In the reader, a click on a label selects its color for the next annotation. Can be turned off under “Menus & Reader”
+- The same list in a separate window that follows the active reader tab, for example on a second screen
 
 ## 1.0.0-beta.1 – 2026-11-13
 

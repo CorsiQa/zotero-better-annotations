@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS.en = {
   "upAutoOffHint": "Version {v} is available. Automatic updates are turned off for this plugin, so Zotero does not install it on its own. You can install it now and turn on automatic updates so that future versions arrive by themselves.",
   "btnEnableAutoUpdates": "Turn On Automatic Updates",
   "upAutoEnabled": "Automatic updates are now on for this plugin.",
-  "aboutAuthor": "Developed by {author}"
+  "aboutAuthor": "Developed by {author}",
+  "sectionTitle": "Annotation Labels",
+  "sectionSummary": "{n} annotation(s) · {profile}",
+  "panelProfile": "Active profile",
+  "panelPopout": "Open in Separate Window",
+  "panelSettings": "Settings…",
+  "panelClickHint": "Click to use this color for the next annotation.",
+  "panelNoDoc": "Open a document to see its annotations.",
+  "panelLibraryHint": "Counts the annotations of all {n} files of this item.",
+  "panelRowTip": "{label}: {n} annotation(s)",
+  "secItemPane": "Item Pane",
+  "infoItemPane": "Adds the section “Annotation Labels” to Zotero’s item pane, in the library and next to the reader. It shows the labels of the active profile and how many annotations carry each label. In the reader, a click on a label selects its color for the next annotation.\n\nThe button with the arrow opens the same list in a separate window. The window follows the active reader tab, so you can place it on a second screen.",
+  "optItemPaneSection": "Show the section “Annotation Labels” in the item pane"
 };

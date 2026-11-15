@@ -346,5 +346,17 @@ BetterAnnotations.STRINGS.pt = {
   "upAutoOffHint": "A versão {v} está disponível. As atualizações automáticas estão desativadas para este plugin, por isso o Zotero não a instala sozinho. Você pode instalá-la agora e ativar as atualizações automáticas para que as próximas versões cheguem sozinhas.",
   "btnEnableAutoUpdates": "Ativar atualizações automáticas",
   "upAutoEnabled": "As atualizações automáticas agora estão ativadas para este plugin.",
-  "aboutAuthor": "Desenvolvido por {author}"
+  "aboutAuthor": "Desenvolvido por {author}",
+  "sectionTitle": "Rótulos de anotação",
+  "sectionSummary": "{n} anotação(ões) · {profile}",
+  "panelProfile": "Perfil ativo",
+  "panelPopout": "Abrir em janela separada",
+  "panelSettings": "Configurações…",
+  "panelClickHint": "Clique para usar esta cor na próxima anotação.",
+  "panelNoDoc": "Abra um documento para ver suas anotações.",
+  "panelLibraryHint": "Conta as anotações de todos os {n} arquivos deste item.",
+  "panelRowTip": "{label}: {n} anotação(ões)",
+  "secItemPane": "Painel do item",
+  "infoItemPane": "Adiciona a seção “Rótulos de anotação” ao painel do item do Zotero, na biblioteca e ao lado do leitor. Mostra os rótulos do perfil ativo e quantas anotações cada rótulo tem. No leitor, um clique em um rótulo seleciona sua cor para a próxima anotação.\n\nO botão com a seta abre a mesma lista em uma janela separada. A janela acompanha a aba ativa do leitor, então você pode colocá-la em uma segunda tela.",
+  "optItemPaneSection": "Mostrar a seção “Rótulos de anotação” no painel do item"
 };
