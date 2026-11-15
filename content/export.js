@@ -256,40 +256,97 @@ BetterAnnotations.Export = {
   // Columns
   // -------------------------------------------------------------------
 
-  columns(rows, withImages) {
-    const S = k => this.SB.S(k);
-    const typeName = t => S({
+  typeName(type) {
+    return this.SB.S({
       highlight: "typeHighlight", underline: "typeUnderline", note: "typeNote",
       text: "typeText", image: "typeImage", ink: "typeInk",
-    }[t] || "typeHighlight");
-    const cols = [
-      { key: "no", head: S("colNo"), width: 6, get: r => r.no, num: true },
-      { key: "color", head: S("colColor"), width: 9, get: r => r.color, colorCell: true },
-      { key: "label", head: S("colLabel"), width: 24, get: r => r.label, labelCell: true },
-      { key: "type", head: S("colType"), width: 16, get: r => typeName(r.type) },
-      { key: "text", head: S("colText"), width: 60, get: r => r.text, wrap: true },
-    ];
-    if (withImages && rows.some(r => r.image)) {
-      cols.push({ key: "image", head: S("colImage"), width: 42, get: () => "", image: true });
+    }[type] || "typeHighlight");
+  },
+
+  /** Image and ink annotations have no text: the extract is an image. */
+  isImageType(type) {
+    return type === "image" || type === "ink";
+  },
+
+  /**
+   * Text of the “Extract” column. For image and ink annotations without an
+   * embedded image (CSV, or images turned off) a placeholder such as “[Image]”.
+   */
+  extractText(r) {
+    if (this.isImageType(r.type)) {
+      return r.text || "[" + this.typeName(r.type) + "]";
     }
-    cols.push(
-      { key: "comment", head: S("colComment"), width: 40, get: r => r.comment, wrap: true },
-      { key: "tags", head: S("colTags"), width: 24, get: r => r.tags.join("; "), wrap: true },
-      { key: "page", head: S("colPage"), width: 7, get: r => r.page, num: r => /^\d{1,6}$/.test(r.page) },
-      { key: "citation", head: S("colCitation"), width: 22, get: r => r.doc.citation, wrap: true },
-      { key: "title", head: S("colTitle"), width: 40, get: r => r.doc.title, wrap: true },
-      { key: "authors", head: S("colAuthors"), width: 28, get: r => r.doc.authors, wrap: true },
-      { key: "year", head: S("colYear"), width: 7, get: r => r.doc.year },
-      { key: "collections", head: S("colCollections"), width: 24, get: r => r.doc.collections, wrap: true },
-      { key: "file", head: S("colFile"), width: 24, get: r => r.doc.file, wrap: true },
-      { key: "link", head: S("colLink"), width: 16, get: r => r.link, link: true },
-      { key: "created", head: S("colCreated"), width: 17, get: r => r.created },
-      { key: "modified", head: S("colModified"), width: 17, get: r => r.modified },
-    );
+    return r.text;
+  },
+
+  /**
+   * Columns of the annotation table. min and max limit the width in
+   * characters; within these limits the width follows the heading and the
+   * content (see fitWidths).
+   */
+  columns(rows) {
+    const S = k => this.SB.S(k);
+    const cols = [
+      { key: "no", head: S("colNo"), min: 4, max: 8, get: r => r.no, num: true },
+      { key: "color", head: S("colColor"), min: 9, max: 10, get: r => r.color, colorCell: true },
+      { key: "label", head: S("colLabel"), min: 10, max: 30, get: r => r.label, labelCell: true, wrap: true },
+      { key: "type", head: S("colType"), min: 8, max: 16, get: r => this.typeName(r.type) },
+      { key: "extract", head: S("colExtract"), min: 30, max: 70, get: r => this.extractText(r), wrap: true, extract: true },
+      { key: "comment", head: S("colComment"), min: 16, max: 50, get: r => r.comment, wrap: true },
+      { key: "tags", head: S("colTags"), min: 8, max: 30, get: r => r.tags.join("; "), wrap: true },
+      { key: "page", head: S("colPage"), min: 5, max: 10, get: r => r.page, num: r => /^\d{1,6}$/.test(r.page) },
+      { key: "citation", head: S("colCitation"), min: 12, max: 30, get: r => r.doc.citation, wrap: true },
+      { key: "title", head: S("colTitle"), min: 16, max: 50, get: r => r.doc.title, wrap: true },
+      { key: "authors", head: S("colAuthors"), min: 12, max: 40, get: r => r.doc.authors, wrap: true },
+      { key: "year", head: S("colYear"), min: 5, max: 8, get: r => r.doc.year },
+      { key: "collections", head: S("colCollections"), min: 12, max: 30, get: r => r.doc.collections, wrap: true },
+      { key: "file", head: S("colFile"), min: 12, max: 40, get: r => r.doc.file, wrap: true },
+      { key: "link", head: S("colLink"), min: 10, max: 18, get: r => r.link, link: true },
+      { key: "created", head: S("colCreated"), min: 16, max: 18, get: r => r.created },
+      { key: "modified", head: S("colModified"), min: 16, max: 18, get: r => r.modified },
+    ];
     if (rows.some(r => r.author)) {
-      cols.push({ key: "author", head: S("colAuthor"), width: 18, get: r => r.author });
+      cols.push({ key: "author", head: S("colAuthor"), min: 10, max: 25, get: r => r.author });
     }
     return cols;
+  },
+
+  /** Display width of a text in characters (East Asian characters count double). */
+  textWidth(text) {
+    let longest = 0;
+    for (const line of String(text ?? "").split("\n")) {
+      let w = 0;
+      for (const ch of line) {
+        const c = ch.codePointAt(0);
+        w += (c >= 0x1100 && (c <= 0x115f || (c >= 0x2e80 && c <= 0xa4cf) || (c >= 0xac00 && c <= 0xd7a3)
+          || (c >= 0xf900 && c <= 0xfaff) || (c >= 0xfe30 && c <= 0xfe4f) || (c >= 0xff00 && c <= 0xff60)
+          || (c >= 0xffe0 && c <= 0xffe6) || c >= 0x20000)) ? 2 : 1;
+      }
+      longest = Math.max(longest, w);
+    }
+    return longest;
+  },
+
+  /**
+   * Width of each column in characters: the heading (plus room for the
+   * filter button) or the typical content, whichever is wider, within min
+   * and max. “Typical” is the 90th percentile, so single long values
+   * do not widen the column.
+   */
+  fitWidths(cols, rows, valueOf) {
+    for (const c of cols) {
+      const widths = rows.map(r => this.textWidth(valueOf(c, r))).sort((a, b) => a - b);
+      const typical = widths.length ? widths[Math.min(widths.length - 1, Math.floor(widths.length * 0.9))] : 0;
+      const head = this.textWidth(c.head) + 3;
+      c.width = Math.max(c.min, Math.min(c.max, Math.max(head, typical + 1)));
+    }
+    return cols;
+  },
+
+  /** Estimated number of lines of a wrapped text in a column of `width` characters. */
+  lineCount(text, width) {
+    const usable = Math.max(1, width - 1);
+    return String(text ?? "").split("\n").reduce((n, line) => n + Math.max(1, Math.ceil(this.textWidth(line) / usable)), 0);
   },
 
   // -------------------------------------------------------------------
@@ -297,7 +354,7 @@ BetterAnnotations.Export = {
   // -------------------------------------------------------------------
 
   toCSV(rows) {
-    const cols = this.columns(rows, false);
+    const cols = this.columns(rows);
     const esc = (v) => {
       const s = String(v ?? "");
       return /[",\r\n]/.test(s) ? "\"" + s.replace(/"/g, "\"\"") + "\"" : s;
@@ -321,8 +378,7 @@ BetterAnnotations.Export = {
     const SB = this.SB;
     const S = (k, a) => SB.S(k, a);
     const e = s => this.esc(s);
-    const cols = this.columns(rows, true);
-    const typeCol = cols.find(c => c.key === "type");
+    const typeCol = this.columns(rows).find(c => c.key === "type");
     const groups = [];
     for (const r of rows) {
       const key = meta.sort === "label" ? r.color : r.doc.sortKey;
@@ -362,8 +418,8 @@ BetterAnnotations.Export = {
       if (r.image) {
         parts.push("<img alt=\"\" src=\"data:image/png;base64," + this.base64(r.image.bytes) + "\">");
       }
-      else if (r.type === "image" || r.type === "ink") {
-        parts.push("<p class=\"missing\">" + e(S("imageMissing")) + "</p>");
+      else if (this.isImageType(r.type)) {
+        parts.push("<p class=\"missing\">" + e(meta.images === false ? this.extractText(r) : S("imageMissing")) + "</p>");
       }
       if (r.comment) {
         parts.push("<p class=\"comment\">" + e(r.comment).replace(/\n/g, "<br>") + "</p>");
@@ -447,7 +503,24 @@ BetterAnnotations.Export = {
   toXLSX(rows, codebook, meta) {
     const S = (k, a) => this.SB.S(k, a);
     const x = s => this.xml(s);
-    const cols = this.columns(rows, meta.images);
+    const withImages = meta.images !== false;
+    const cols = this.fitWidths(this.columns(rows), rows, (c, r) => {
+      if (c.link) {
+        return r.link ? S("linkOpen") : "";
+      }
+      if (c.extract && r.image) {
+        return ""; // images are scaled to the column, not the other way round
+      }
+      if (c.extract && withImages && this.isImageType(r.type)) {
+        return S("imageMissing");
+      }
+      return c.get(r);
+    });
+    // With images, the extract column gets a little more room so that images stay legible
+    const extractCol = cols.find(c => c.extract);
+    if (extractCol && rows.some(r => r.image)) {
+      extractCol.width = Math.max(extractCol.width, 45);
+    }
     const colors = [...new Set([...rows.map(r => r.color), ...codebook.map(c => c.color)].filter(Boolean))];
 
     // --- Styles ---
@@ -525,22 +598,26 @@ BetterAnnotations.Export = {
     const headRow = defs => "<row r=\"1\" ht=\"20\" customHeight=\"1\">" + defs.map((c, i) => cell(this.colName(i) + "1", c.head, ST.header)).join("") + "</row>";
 
     // --- Sheet 1: annotations ---
-    const imageCol = cols.findIndex(c => c.image);
+    // Excel measures column widths in characters of the default font
+    // (Calibri 11: about 7 px each plus 5 px padding) and row heights in points.
+    const PX_PER_CHAR = 7;
+    const LINE_PT = 15;
+    const MAX_IMG_H = 360;
     const sheetRels = [];
     const links = [];
     const anchors = [];
     const media = [];
-    const MAX_W = 300;
-    const MAX_H = 240;
     const body = rows.map((r, idx) => {
       const rowNo = idx + 2;
-      let height = null;
+      let imageHeight = 0;
+      let lines = 1;
       const cells = cols.map((c, i) => {
         const ref = this.colName(i) + rowNo;
         if (c.colorCell) {
           return cell(ref, r.color, r.color ? colorStyle.get(r.color).full : ST.plain);
         }
         if (c.labelCell) {
+          lines = Math.max(lines, this.lineCount(r.label, c.width));
           return cell(ref, r.label, r.color ? colorStyle.get(r.color).light : ST.wrap);
         }
         if (c.link) {
@@ -552,26 +629,34 @@ BetterAnnotations.Export = {
           sheetRels.push("<Relationship Id=\"" + id + "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"" + x(r.link) + "\" TargetMode=\"External\"/>");
           return cell(ref, S("linkOpen"), ST.link);
         }
-        if (c.image) {
-          if (!r.image) {
-            return cell(ref, r.type === "image" || r.type === "ink" ? S("imageMissing") : "", ST.wrap);
+        if (c.extract && this.isImageType(r.type)) {
+          if (r.image) {
+            // Scale the image to the column width (keeps the aspect ratio)
+            const maxW = c.width * PX_PER_CHAR - 1;
+            const scale = Math.min(1, maxW / r.image.width, MAX_IMG_H / r.image.height);
+            const w = Math.max(1, Math.round(r.image.width * scale));
+            const h = Math.max(1, Math.round(r.image.height * scale));
+            media.push(r.image.bytes);
+            anchors.push({ col: i, row: rowNo - 1, w, h, n: media.length });
+            imageHeight = Math.ceil(h * 0.75) + 6;
+            return cell(ref, "", ST.plain);
           }
-          const scale = Math.min(1, MAX_W / r.image.width, MAX_H / r.image.height);
-          const w = Math.max(1, Math.round(r.image.width * scale));
-          const h = Math.max(1, Math.round(r.image.height * scale));
-          media.push(r.image.bytes);
-          anchors.push({ col: i, row: rowNo - 1, w, h, n: media.length });
-          height = Math.max(height || 0, Math.ceil(h * 0.75) + 6);
-          return cell(ref, "", ST.plain);
+          const text = withImages ? S("imageMissing") : this.extractText(r);
+          lines = Math.max(lines, this.lineCount(text, c.width));
+          return cell(ref, text, ST.wrap);
         }
+        const value = c.get(r);
         const num = typeof c.num === "function" ? c.num(r) : !!c.num;
-        return cell(ref, c.get(r), num ? ST.plain : (c.wrap ? ST.wrap : ST.plain), num);
+        if (c.wrap && !num) {
+          lines = Math.max(lines, this.lineCount(value, c.width));
+        }
+        return cell(ref, value, num ? ST.plain : (c.wrap ? ST.wrap : ST.plain), num);
       });
+      // Rows with an image need a fixed height. Other rows keep the automatic height,
+      // so Excel and LibreOffice fit them to the wrapped text themselves.
+      const height = imageHeight ? Math.max(imageHeight, lines * LINE_PT) : 0;
       return "<row r=\"" + rowNo + "\"" + (height ? " ht=\"" + height + "\" customHeight=\"1\"" : "") + ">" + cells.join("") + "</row>";
     });
-    if (imageCol >= 0 && anchors.length) {
-      cols[imageCol].width = Math.max(cols[imageCol].width, Math.ceil(MAX_W / 7) + 2);
-    }
     const drawing = anchors.length > 0;
     if (drawing) {
       sheetRels.push("<Relationship Id=\"rIdDrawing\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing\" Target=\"../drawings/drawing1.xml\"/>");
