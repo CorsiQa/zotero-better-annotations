@@ -4,7 +4,7 @@
 
 BetterAnnotations.STRINGS.pt = {
   "pluginName": "Better Annotations",
-  "presetZotero": "Padrão do Zotero",
+  "presetZotero": "Padrão",
   "presetPlus": "Zotero+",
   "stockNames": [
     "Amarelo",
@@ -207,7 +207,7 @@ BetterAnnotations.STRINGS.pt = {
   "secCredits": "Créditos",
   "langAuto": "Idioma do Zotero",
   "infoTitle": "Mais informações",
-  "infoProfile": "Um perfil guarda uma paleta completa: cores, rótulos, ordem e visibilidade. O perfil ativo determina o que você vê no leitor.\n\n“Zotero+” (12 cores, 8 delas com rótulos para trabalho com literatura) e “Padrão do Zotero” (o Zotero sem alterações) são predefinições integradas. Você pode editá-las, mas as alterações são salvas como um novo perfil.\n\nSe você trocar de perfil com alterações não salvas, o plugin pergunta se deseja salvá-las. Trocar de perfil nunca altera anotações existentes, apenas os rótulos mostrados para elas.",
+  "infoProfile": "Um perfil guarda uma paleta completa: cores, rótulos, ordem e visibilidade. O perfil ativo determina o que você vê no leitor.\n\n“Padrão” (o Zotero sem alterações) é integrado e não pode ser alterado nem excluído. As alterações são salvas como um novo perfil. “Zotero+” é um perfil de exemplo com 12 cores, 8 delas com rótulos para trabalho com literatura. Você pode editá-lo ou excluí-lo.\n\nSe você trocar de perfil com alterações não salvas, o plugin pergunta se deseja salvá-las. Trocar de perfil nunca altera anotações existentes, apenas os rótulos mostrados para elas.",
   "infoColors": "Cada linha é uma cor. Clique na amostra para mudar a cor, digite um rótulo e arraste a alça ⠿ para mudar a ordem.\n\nO número mostra a posição nos menus. Cores com rótulo vazio ou com a caixa desmarcada ficam ocultas nos menus. Um rótulo só com espaços conta como rótulo. A linha marca onde começa o submenu “Mais cores”.\n\nO contador à direita mostra quantas anotações nas suas bibliotecas usam a cor. As alterações valem depois de salvar.\n\nO ícone com dois quadrados mostra quantos dos seus outros perfis usam a cor; a dica indica os nomes.",
   "infoGeneral": "“Idioma do Zotero” usa o idioma da sua instalação do Zotero, se disponível, e inglês caso contrário.",
   "infoContextMenu": "Vale para o menu que abre ao clicar com o botão direito numa anotação e para o menu de cores da barra de ferramentas do leitor.\n\nAs cores além deste número aparecem no submenu “Mais cores”. O submenu é organizado em colunas, para não ultrapassar a janela.",

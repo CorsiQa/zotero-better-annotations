@@ -280,6 +280,59 @@ BetterAnnotations.Panel = {
   },
 
   /** Reader of a target (only in reader tabs). */
+  /**
+   * Profile menu as a native Zotero menu, the same in the item pane, the
+   * separate window and the reader's statistics: all profiles with their
+   * number in the document, the chosen one marked like Zotero's radio items,
+   * then “Manage Profiles…”. Opens at an element of `doc` (anchor) or at a
+   * screen position (screen: { x, y }). Returns false without XUL.
+   */
+  openProfilePopup({ doc, anchor, screen, entries, active, choose, onHidden }) {
+    const SB = BetterAnnotations;
+    let popup = null;
+    try {
+      popup = doc.createXULElement ? doc.createXULElement("menupopup") : null;
+    }
+    catch (e) {}
+    if (!popup || typeof popup.openPopup !== "function") {
+      return false;
+    }
+    for (const p of entries) {
+      const mi = doc.createXULElement("menuitem");
+      mi.setAttribute("type", "radio");
+      mi.setAttribute("label", p.name);
+      if (p.n) {
+        mi.setAttribute("acceltext", String(p.n));
+      }
+      if (p.id === active) {
+        mi.setAttribute("checked", "true");
+      }
+      mi.addEventListener("command", () => choose(p.id));
+      popup.append(mi);
+    }
+    popup.append(doc.createXULElement("menuseparator"));
+    const manage = doc.createXULElement("menuitem");
+    manage.setAttribute("label", SB.S("menuManageProfiles"));
+    manage.addEventListener("command", () => SB.openPrefs());
+    popup.append(manage);
+    popup.addEventListener("popuphidden", (e) => {
+      if (e.target === popup) {
+        popup.remove();
+        if (onHidden) {
+          onHidden();
+        }
+      }
+    });
+    (doc.getElementById("mainPopupSet") || doc.documentElement).append(popup);
+    if (screen) {
+      popup.openPopupAtScreen(Math.round(screen.x), Math.round(screen.y), false);
+    }
+    else {
+      popup.openPopup(anchor, "after_start", 0, 2, false, false);
+    }
+    return true;
+  },
+
   readerOf(target) {
     if (!target || target.mode !== "reader") {
       return null;
@@ -848,9 +901,11 @@ BetterAnnotations.PanelView = class {
       "aria-label": S("panelProfile") + ": " + profile.name,
     },
     // As in the reader toolbar: number · profile
-    n === null ? null : this.h("span", { class: "bac-p-menu-n", text: String(n) }),
+    // As in the reader toolbar: profile · number
+    this.h("span", { class: "bac-p-menu-name", text: profile.name }),
     n === null ? null : this.h("span", { class: "bac-p-menu-dot", "aria-hidden": "true", text: "·" }),
-    this.h("span", { class: "bac-p-menu-name", text: profile.name }), this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
+    n === null ? null : this.h("span", { class: "bac-p-menu-n", text: String(n) }),
+    this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
     b.addEventListener("click", (e) => {
       e.preventDefault();
       this.openProfileMenu(b, profile.id, summary);
@@ -884,34 +939,7 @@ BetterAnnotations.PanelView = class {
       const task = reader ? P.setForReader(reader, id) : P.setForFiles(target ? target.attachmentIDs : [], id);
       Promise.resolve(task).catch(err => SB.logError(err));
     };
-    let popup = null;
-    try {
-      popup = doc.createXULElement ? doc.createXULElement("menupopup") : null;
-    }
-    catch (e) {}
-    if (popup && typeof popup.openPopup === "function") {
-      const add = (p) => {
-        const mi = doc.createXULElement("menuitem");
-        mi.setAttribute("type", "radio");
-        mi.setAttribute("label", p.name);
-        if (p.n) {
-          mi.setAttribute("acceltext", String(p.n));
-        }
-        if (p.id === active) {
-          mi.setAttribute("checked", "true");
-        }
-        mi.addEventListener("command", () => choose(p.id));
-        popup.append(mi);
-      };
-      entries.forEach(add);
-      popup.append(doc.createXULElement("menuseparator"));
-      const manage = doc.createXULElement("menuitem");
-      manage.setAttribute("label", SB.S("menuManageProfiles"));
-      manage.addEventListener("command", () => SB.openPrefs());
-      popup.append(manage);
-      popup.addEventListener("popuphidden", () => popup.remove(), { once: true });
-      (doc.getElementById("mainPopupSet") || doc.documentElement).append(popup);
-      popup.openPopup(anchor, "after_start", 0, 2, false, false);
+    if (this.Panel.openProfilePopup({ doc, anchor, entries, active, choose })) {
       return;
     }
     // Fallback without XUL (e.g. tests in a browser): a simple list below the button
@@ -1251,8 +1279,8 @@ BetterAnnotations.PanelView = class {
 .bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; }
 .bac-p-menu { appearance: none; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px 0 0;
   padding: 0 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
-.bac-p-menu-n { font-variant-numeric: tabular-nums; }
-.bac-p-menu-dot { color: var(--fill-secondary, GrayText); }
+.bac-p-menu-n { font-variant-numeric: tabular-nums; flex: none; }
+.bac-p-menu-dot { color: var(--fill-secondary, GrayText); flex: none; }
 .bac-p-menu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bac-p-caret { display: flex; align-items: center; color: var(--fill-secondary, GrayText); }
 .bac-p-menu:hover, .bac-p-icon:hover, .bac-p-edit-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }

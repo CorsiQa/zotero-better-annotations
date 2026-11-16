@@ -256,7 +256,7 @@ BetterAnnotations.PaneController = class {
   }
 
   loadDraft(id) {
-    const p = this.Store.getProfile(id) || this.Store.plusPreset();
+    const p = this.Store.getProfile(id) || this.Store.zoteroPreset();
     this.baseId = p.id;
     this.draft = this.clone(p);
     for (const c of this.draft.colors) {
@@ -332,7 +332,6 @@ BetterAnnotations.PaneController = class {
     // --- Tab “Colors & Profiles” -----------------------------------------
     const colors = this.panels.get("colors");
     const profileItems = [
-      { value: "zoteroplus", label: S("presetPlus") },
       { value: "standard", label: S("presetZotero") },
     ];
     if (this.Store.getProfiles().length) {

@@ -89,7 +89,8 @@ BetterAnnotations.Export = {
         type,
         text: item.annotationText || "",
         comment: item.annotationComment || "",
-        tags: this.safe(() => item.getTags().map(t => t.tag).sort((a, b) => a.localeCompare(b)), []),
+        // Profile tags are in the column “Profile”
+        tags: this.safe(() => item.getTags().map(t => t.tag).filter(t => !SB.Profiles.isProfileTag(t)).sort((a, b) => a.localeCompare(b)), []),
         page: item.annotationPageLabel || "",
         sortIndex: item.annotationSortIndex || "",
         created: this.localDate(item.dateAdded),
@@ -121,7 +122,7 @@ BetterAnnotations.Export = {
     const map = new Map();
     SB.Store.listForMenu().forEach((p, i) => map.set(p.id, { profile: SB.Profiles.profile(p.id), order: i }));
     return {
-      get: id => map.get(id) || map.get(SB.Profiles.defaultId()) || { profile: SB.Store.plusPreset(), order: 0 },
+      get: id => map.get(id) || map.get(SB.Profiles.defaultId()) || { profile: SB.Store.zoteroPreset(), order: 0 },
     };
   },
 

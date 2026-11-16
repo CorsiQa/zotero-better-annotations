@@ -13,7 +13,9 @@ var BetterAnnotations = {
   PANE_ID: "better-annotations-prefpane",
   DATA_DIR: "better-annotations",
   MAX_COLORS: 40,
-  PRESET_IDS: ["zoteroplus", "standard"],
+  // Built-in, read-only profile. “Zotero+” is an ordinary profile since 1.0.0-beta.2
+  // (created at the first start as an example; its ID stays “zoteroplus”).
+  PRESET_IDS: ["standard"],
 
   /** Zotero's eight default colors (in reader order). */
   STOCK_COLORS: ["#ffd400", "#ff6666", "#5fb236", "#2ea8e5", "#a28ae5", "#e56eee", "#f19837", "#aaaaaa"],
@@ -668,14 +670,17 @@ BetterAnnotations.Store = {
   sanitize(input) {
     const SB = this.SB;
     const out = {
-      version: 3,
-      activeProfileId: "zoteroplus",
+      version: 4,
+      activeProfileId: "standard",
       settings: Object.assign({}, SB.DEFAULT_SETTINGS),
       profiles: [],
       collectionRules: [],
       backups: [],
     };
     if (!input || typeof input !== "object") {
+      // First start: “Zotero+” as an example profile, in use
+      out.profiles.push(this.plusProfile());
+      out.activeProfileId = "zoteroplus";
       return out;
     }
     const s = input.settings && typeof input.settings === "object" ? input.settings : {};
@@ -746,6 +751,19 @@ BetterAnnotations.Store = {
       profile.name = name;
       names.add(name.toLowerCase());
       out.profiles.push(profile);
+    }
+    // Data from 1.0.0-beta.1: “Zotero+” was built in; it becomes an ordinary profile
+    // with the same ID, so document choices, rules and tags keep working
+    if (!(input.version >= 4) && !out.profiles.some(p => p.id === "zoteroplus")) {
+      const plus = this.plusProfile();
+      let name = plus.name;
+      let n = 2;
+      while (names.has(name.toLowerCase())) {
+        name = plus.name + " (" + n++ + ")";
+      }
+      plus.name = name;
+      names.add(name.toLowerCase());
+      out.profiles.unshift(plus);
     }
     const active = input.activeProfileId;
     if (SB.PRESET_IDS.includes(active) || out.profiles.some(p => p.id === active)) {
@@ -919,12 +937,17 @@ BetterAnnotations.Store = {
     return this.data.profiles;
   },
 
+  /** “Zotero+” as an ordinary profile (first start, migration). */
+  plusProfile() {
+    const p = this.plusPreset();
+    delete p.preset;
+    p.modified = new Date().toISOString();
+    return p;
+  },
+
   getProfile(id) {
     if (id === "standard") {
       return this.zoteroPreset();
-    }
-    if (id === "zoteroplus") {
-      return this.plusPreset();
     }
     return this.data.profiles.find(p => p.id === id) || null;
   },
@@ -943,14 +966,13 @@ BetterAnnotations.Store = {
 
   /** Default profile (copy): for documents without choice, profile annotations or matching rule. */
   getDefault() {
-    const p = this.getProfile(this.data.activeProfileId) || this.plusPreset();
+    const p = this.getProfile(this.data.activeProfileId) || this.zoteroPreset();
     return JSON.parse(JSON.stringify(p));
   },
 
   /** All profiles for menus: presets first. */
   listForMenu() {
     return [
-      { id: "zoteroplus", name: this.SB.S("presetPlus") },
       { id: "standard", name: this.SB.S("presetZotero") },
       ...this.data.profiles.map(p => ({ id: p.id, name: p.name })),
     ];
@@ -959,7 +981,7 @@ BetterAnnotations.Store = {
   isNameTaken(name, exceptId) {
     const SB = this.SB;
     const n = String(name).trim().toLowerCase();
-    if ([SB.S("presetZotero"), SB.S("presetPlus")].some(x => x.toLowerCase() === n)) {
+    if (SB.S("presetZotero").toLowerCase() === n) {
       return true;
     }
     return this.data.profiles.some(p => p.id !== exceptId && p.name.toLowerCase() === n);
@@ -968,7 +990,7 @@ BetterAnnotations.Store = {
   /** Set the default profile (the stored key keeps its old name “activeProfileId”). */
   async setDefault(id) {
     if (!this.getProfile(id)) {
-      id = "zoteroplus";
+      id = "standard";
     }
     this.data.activeProfileId = id;
     await this.persist();
@@ -1000,7 +1022,7 @@ BetterAnnotations.Store = {
   async deleteProfile(id) {
     this.data.profiles = this.data.profiles.filter(p => p.id !== id);
     if (this.data.activeProfileId === id) {
-      this.data.activeProfileId = "zoteroplus";
+      this.data.activeProfileId = "standard";
     }
     this.data.collectionRules = (this.data.collectionRules || []).filter(r => r.profileId !== id);
     try {

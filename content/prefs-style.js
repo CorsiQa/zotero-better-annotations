@@ -67,17 +67,17 @@ BetterAnnotations.PREFS_CSS = `
   border: 1px solid rgba(0,0,0,.2) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); min-width: 0; min-height: 0; }
 #bac-root .bac-swatch { width: 30px; height: 22px; border-radius: 5px; }
 #bac-root .bac-swatch:hover, #bac-root .bac-preset:hover { transform: scale(1.1); }
-#bac-root .bac-label { flex: 1; min-width: 0; font: inherit; padding: 4px 7px; border-radius: 5px; margin: 0;
+#bac-root .bac-label { flex: 1; min-width: 0; font: inherit; height: 24px; min-height: 0; box-sizing: border-box; padding: 0 7px; line-height: 22px; border-radius: 5px; margin: 0;
   border: 1px solid var(--bac-border); background: var(--bac-bg); color: inherit; }
 #bac-root .bac-label.bac-empty:not(:focus) { background: transparent; }
 #bac-root .bac-label::placeholder { color: var(--bac-muted); opacity: .6; font-style: italic; }
 #bac-root .bac-label:focus::placeholder { color: transparent; }
 #bac-root .bac-label:focus { outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
-#bac-root .bac-handle, #bac-root .bac-pos, #bac-root .bac-usage { height: 26px; box-sizing: border-box; display: inline-flex; align-items: center; }
+#bac-root .bac-handle, #bac-root .bac-pos, #bac-root .bac-usage { height: 24px; box-sizing: border-box; display: inline-flex; align-items: center; }
 #bac-root .bac-pos, #bac-root .bac-usage { justify-content: flex-end; }
-#bac-root .bac-visible { margin-top: 6px !important; }
-#bac-root .bac-swatch { margin-top: 2px !important; }
-#bac-root .bac-del { margin-top: 1px !important; }
+#bac-root .bac-visible { margin-top: 5px !important; }
+#bac-root .bac-swatch { margin-top: 1px !important; }
+#bac-root .bac-del { margin-top: 0 !important; }
 #bac-root .bac-labelcol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #bac-root .bac-labelcol .bac-label { flex: none; }
 #bac-root .bac-desc { display: block; box-sizing: border-box; width: 100%; min-height: 0; margin: 2px 0 0; padding: 3px 7px;
@@ -90,10 +90,10 @@ BetterAnnotations.PREFS_CSS = `
   outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
 #bac-root .bac-indent { padding-inline-start: 22px; }
 /* Other profiles with this color; fixed width, so all label fields are equally wide */
-#bac-root .bac-shared { height: 26px; width: 2.6em; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px;
+#bac-root .bac-shared { height: 24px; width: 2.4em; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px;
   font-size: 11px; color: var(--bac-muted); font-variant-numeric: tabular-nums; }
 #bac-root .bac-shared[hidden] { display: inline-flex; visibility: hidden; }
-#bac-root .bac-usage { gap: 3px; font-size: 11px; color: var(--bac-muted); width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; }
+#bac-root .bac-usage { gap: 3px; font-size: 11px; color: var(--bac-muted); width: 2.6em; margin-inline-start: -4px; text-align: right; font-variant-numeric: tabular-nums; }
 #bac-root .bac-del { -moz-appearance: none; appearance: none; border: none; background: transparent; color: var(--bac-muted);
   cursor: pointer; font-size: 12px; width: 24px; height: 24px; border-radius: 50%; padding: 0; margin: 0; min-width: 0; }
 #bac-root .bac-del:hover:not(:disabled) { background: rgba(220,40,60,.12); color: #d14; }

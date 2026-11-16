@@ -4,7 +4,7 @@
 
 BetterAnnotations.STRINGS.fr = {
   "pluginName": "Better Annotations",
-  "presetZotero": "Zotero par défaut",
+  "presetZotero": "Standard",
   "presetPlus": "Zotero+",
   "stockNames": [
     "Jaune",
@@ -207,7 +207,7 @@ BetterAnnotations.STRINGS.fr = {
   "secCredits": "Remerciements",
   "langAuto": "Langue de Zotero",
   "infoTitle": "Plus d’informations",
-  "infoProfile": "Un profil enregistre une palette complète : couleurs, libellés, ordre et visibilité. Le profil actif détermine ce que vous voyez dans le lecteur.\n\n« Zotero+ » (12 couleurs, dont 8 avec des libellés pour le travail bibliographique) et « Zotero par défaut » (Zotero sans modification) sont des modèles intégrés. Vous pouvez les modifier, mais vos modifications sont enregistrées comme nouveau profil.\n\nSi vous changez de profil avec des modifications non enregistrées, il vous est demandé si vous souhaitez les enregistrer. Changer de profil ne modifie jamais les annotations existantes, seulement les libellés affichés.",
+  "infoProfile": "Un profil enregistre une palette complète : couleurs, libellés, ordre et visibilité. Le profil actif détermine ce que vous voyez dans le lecteur.\n\n« Standard » (Zotero sans modification) est intégré et ne peut être ni modifié ni supprimé. Les modifications sont enregistrées comme nouveau profil. « Zotero+ » est un profil d’exemple de 12 couleurs, dont 8 avec des libellés pour le travail bibliographique. Vous pouvez le modifier ou le supprimer.\n\nSi vous changez de profil avec des modifications non enregistrées, il vous est demandé si vous souhaitez les enregistrer. Changer de profil ne modifie jamais les annotations existantes, seulement les libellés affichés.",
   "infoColors": "Chaque ligne correspond à une couleur. Cliquez sur l’échantillon pour changer la couleur, saisissez un libellé et faites glisser la poignée ⠿ pour changer l’ordre.\n\nLe numéro indique la position dans les menus. Les couleurs dont le libellé est vide ou la case décochée sont masquées dans les menus. Un libellé composé uniquement d’espaces compte comme un libellé. La ligne indique où commence le sous-menu « Autres couleurs ».\n\nLe compteur à droite indique combien d’annotations de vos bibliothèques utilisent la couleur. Les modifications s’appliquent à l’enregistrement.\n\nL’icône à deux carrés indique combien de vos autres profils utilisent la couleur ; l’info-bulle les nomme.",
   "infoGeneral": "« Langue de Zotero » utilise la langue de votre installation de Zotero si elle est disponible, et l’anglais sinon.",
   "infoContextMenu": "S’applique au menu qui s’ouvre d’un clic droit sur une annotation et au menu des couleurs de la barre d’outils du lecteur.\n\nLes couleurs au-delà de ce nombre apparaissent dans le sous-menu « Autres couleurs ». Le sous-menu est organisé en colonnes et ne déborde donc pas de la fenêtre.",

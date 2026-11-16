@@ -4,7 +4,7 @@
 
 BetterAnnotations.STRINGS.pl = {
   "pluginName": "Better Annotations",
-  "presetZotero": "Domyślne Zotero",
+  "presetZotero": "Standardowy",
   "presetPlus": "Zotero+",
   "stockNames": [
     "Żółty",
@@ -207,7 +207,7 @@ BetterAnnotations.STRINGS.pl = {
   "secCredits": "Podziękowania",
   "langAuto": "Język Zotero",
   "infoTitle": "Więcej informacji",
-  "infoProfile": "Profil przechowuje całą paletę: kolory, etykiety, kolejność i widoczność. Aktywny profil określa, co widzisz w czytniku.\n\n„Zotero+” (12 kolorów, 8 z nich z etykietami do pracy z literaturą) i „Domyślne Zotero” (Zotero bez zmian) to wbudowane szablony. Możesz je edytować, ale zmiany zostaną zapisane jako nowy profil.\n\nJeśli zmienisz profil przy niezapisanych zmianach, wtyczka zapyta, czy je zapisać. Zmiana profilu nigdy nie zmienia istniejących adnotacji, tylko pokazywane dla nich etykiety.",
+  "infoProfile": "Profil przechowuje całą paletę: kolory, etykiety, kolejność i widoczność. Aktywny profil określa, co widzisz w czytniku.\n\n„Standardowy” (Zotero bez zmian) jest wbudowany i nie można go zmienić ani usunąć. Zmiany zostaną zapisane jako nowy profil. „Zotero+” to przykładowy profil z 12 kolorami, z których 8 ma etykiety do pracy z literaturą. Możesz go edytować lub usunąć.\n\nJeśli zmienisz profil przy niezapisanych zmianach, wtyczka zapyta, czy je zapisać. Zmiana profilu nigdy nie zmienia istniejących adnotacji, tylko pokazywane dla nich etykiety.",
   "infoColors": "Każdy wiersz to jeden kolor. Kliknij próbkę, aby zmienić kolor, wpisz etykietę i przeciągnij uchwyt ⠿, aby zmienić kolejność.\n\nLiczba pokazuje pozycję w menu. Kolory z pustą etykietą lub odznaczonym polem są ukryte w menu. Etykieta złożona tylko ze spacji też jest etykietą. Linia oznacza początek podmenu „Więcej kolorów”.\n\nLicznik po prawej pokazuje, ile adnotacji w Twoich bibliotekach używa danego koloru. Zmiany obowiązują po zapisaniu.\n\nIkona z dwoma kwadratami pokazuje, ile innych Twoich profili używa tego koloru; podpowiedź podaje ich nazwy.",
   "infoGeneral": "„Język Zotero” używa języka Twojej instalacji Zotero, jeśli jest dostępny, a w przeciwnym razie angielskiego.",
   "infoContextMenu": "Dotyczy menu otwieranego prawym kliknięciem na adnotacji oraz menu kolorów na pasku narzędzi czytnika.\n\nKolory powyżej tej liczby są w podmenu „Więcej kolorów”. Podmenu jest podzielone na kolumny, więc nie wychodzi poza okno.",

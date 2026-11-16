@@ -4,7 +4,7 @@
 
 BetterAnnotations.STRINGS.es = {
   "pluginName": "Better Annotations",
-  "presetZotero": "Predeterminado de Zotero",
+  "presetZotero": "Estándar",
   "presetPlus": "Zotero+",
   "stockNames": [
     "Amarillo",
@@ -207,7 +207,7 @@ BetterAnnotations.STRINGS.es = {
   "secCredits": "Créditos",
   "langAuto": "Idioma de Zotero",
   "infoTitle": "Más información",
-  "infoProfile": "Un perfil guarda una paleta completa: colores, etiquetas, orden y visibilidad. El perfil activo determina lo que ves en el lector.\n\n«Zotero+» (12 colores, 8 de ellos con etiquetas para el trabajo con literatura) y «Predeterminado de Zotero» (Zotero sin cambios) son plantillas integradas. Puedes editarlas, pero tus cambios se guardan como un perfil nuevo.\n\nSi cambias de perfil con cambios sin guardar, se te pregunta si quieres guardarlos. Cambiar de perfil nunca modifica las anotaciones existentes, solo las etiquetas que se muestran.",
+  "infoProfile": "Un perfil guarda una paleta completa: colores, etiquetas, orden y visibilidad. El perfil activo determina lo que ves en el lector.\n\n«Estándar» (Zotero sin cambios) está integrado y no se puede modificar ni eliminar. Los cambios se guardan como un perfil nuevo. «Zotero+» es un perfil de ejemplo con 12 colores, 8 de ellos con etiquetas para el trabajo con literatura. Puedes editarlo o eliminarlo.\n\nSi cambias de perfil con cambios sin guardar, se te pregunta si quieres guardarlos. Cambiar de perfil nunca modifica las anotaciones existentes, solo las etiquetas que se muestran.",
   "infoColors": "Cada fila es un color. Haz clic en la muestra para cambiar el color, escribe una etiqueta y arrastra el asa ⠿ para cambiar el orden.\n\nEl número indica la posición en los menús. Los colores con etiqueta vacía o con la casilla desmarcada se ocultan en los menús. Una etiqueta formada solo por espacios cuenta como etiqueta. La línea marca dónde empieza el submenú «Más colores».\n\nEl contador de la derecha muestra cuántas anotaciones de tus bibliotecas usan el color. Los cambios se aplican al guardar.\n\nEl icono con dos cuadrados muestra cuántos de tus otros perfiles usan el color; la descripción emergente los nombra.",
   "infoGeneral": "«Idioma de Zotero» usa el idioma de tu instalación de Zotero si está disponible y, si no, el inglés.",
   "infoContextMenu": "Se aplica al menú que se abre al hacer clic derecho en una anotación y al menú de colores de la barra de herramientas del lector.\n\nLos colores que superen este número aparecen en el submenú «Más colores». El submenú se organiza en columnas, así que no se sale de la ventana.",

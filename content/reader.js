@@ -84,8 +84,8 @@ BetterAnnotations.Reader = {
           }
           this._tagWatch.get(doc)?.observer?.disconnect();
           this._tagWatch.delete(doc);
-          for (const el of doc.querySelectorAll("[data-bac-hidden], [data-bac-last], [data-bac-empty], [data-bac-gone]")) {
-            for (const a of ["data-bac-hidden", "data-bac-last", "data-bac-empty", "data-bac-gone"]) {
+          for (const el of doc.querySelectorAll("[data-bac-hidden], [data-bac-last], [data-bac-only], [data-bac-chip]")) {
+            for (const a of ["data-bac-hidden", "data-bac-last", "data-bac-only", "data-bac-chip"]) {
               el.removeAttribute(a);
             }
           }
@@ -1193,25 +1193,28 @@ BetterAnnotations.Reader = {
     const style = doc.createElement("style");
     style.id = "bac-reader-style";
     style.textContent = `
-.bac-chip { display: inline-block; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
-  box-sizing: border-box; font-size: 10.5px; line-height: 16px; padding: 0 6px; border-radius: 8px;
-  color: #4a3bc2; background: rgba(107, 91, 214, .14); }
+/* Profile label in the card head: page left, label and icons right */
+header[data-bac-chip] > .start { flex: 0 1 auto; }
+header[data-bac-chip] > .end { flex: 1 1 0; min-width: 0; }
+header[data-bac-chip] .custom-sections { flex: 0 1 auto; min-width: 0; }
+header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
+.bac-chip { display: inline-flex; flex: 0 1 auto; min-width: 2.5em; max-width: 100%; overflow: hidden; white-space: pre; box-sizing: border-box;
+  font-size: 10.5px; line-height: 16px; padding: 0 6px; border-radius: 8px; color: #4a3bc2; background: rgba(107, 91, 214, .14); }
+.bac-chip-h { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bac-chip-t { flex: none; }
 @media (prefers-color-scheme: dark) { .bac-chip { color: #cfc8f8; background: rgba(179, 168, 242, .2); } }
 .tags .tag[data-bac-hidden] { display: none; }
 .tags .tag[data-bac-last]::after { content: none; }
-.tags[data-bac-empty]::before { content: attr(data-bac-placeholder); color: var(--fill-secondary, GrayText); }
-.tags[data-bac-gone] { display: none !important; }
+.tags[data-bac-only]::before { content: attr(data-bac-placeholder); }
+.preview.expanded0 .tags[data-bac-only], .preview.read-only .tags[data-bac-only], .preview:not([class*="expanded"]) .tags[data-bac-only] { display: none !important; }
 [data-bac-drop] { outline: 2px solid var(--bac-drop-color, #6B5BD6) !important; outline-offset: -2px; }
 .selection-popup[data-bac-fixed] > :not(.bac-colors) { max-width: 100%; min-width: 0; box-sizing: border-box; overflow-wrap: anywhere; }
 .selection-popup[data-bac-fixed] textarea, .selection-popup[data-bac-fixed] input[type="text"] { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
 .selection-popup[data-bac-fixed] pre, .selection-popup[data-bac-fixed] table, .selection-popup[data-bac-fixed] img { max-width: 100%; overflow: auto; }
-/* Split button: statistics and profile | arrow for the profile menu */
+/* One button: statistics icon, profile · number, arrow */
 .bac-tb-split { display: flex; align-items: center; gap: 0; }
-.bac-tb-main { display: flex; align-items: center; gap: 5px; width: auto !important; max-width: 240px; padding-inline: 6px 5px !important;
-  border-start-end-radius: 0 !important; border-end-end-radius: 0 !important; }
-.bac-tb-drop { display: flex; align-items: center; justify-content: center; width: 18px !important; min-width: 18px; padding: 0 !important;
-  border-start-start-radius: 0 !important; border-end-start-radius: 0 !important; }
-.bac-tb-split:hover .bac-tb-main:not(:hover), .bac-tb-split:hover .bac-tb-drop:not(:hover) { background: var(--fill-quinary, rgba(127,127,127,.1)); }
+.bac-tb-main { display: flex; align-items: center; gap: 5px; width: auto !important; max-width: 260px; padding-inline: 6px 4px !important; }
+.bac-tb-caret { display: flex; align-items: center; margin-inline-start: -1px; }
 .bac-tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; min-width: 0; }
 .bac-tb-count { font-size: 12px; font-variant-numeric: tabular-nums; }
 .bac-tb-dot { font-size: 12px; color: var(--fill-secondary, GrayText); }
@@ -1225,7 +1228,13 @@ BetterAnnotations.Reader = {
 [data-bac-panel] .bac-item:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 [data-bac-panel] .bac-check { width: 12px; text-align: center; }
 [data-bac-panel] .bac-sep { height: 1px; margin: 4px 0; background: var(--fill-quinary, rgba(127,127,127,.3)); }
-[data-bac-panel] .bac-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px 6px 12px; font-weight: 600; min-height: 24px; }
+[data-bac-panel] .bac-head { display: flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 4px 8px 6px 12px; font-weight: 600; min-height: 24px; }
+[data-bac-panel] .bac-head-title { flex: none; }
+[data-bac-panel] .bac-head-profile { appearance: none; display: inline-flex; align-items: center; gap: 3px; min-width: 0; max-width: 65%;
+  margin: 0 0 0 auto; padding: 2px 4px 2px 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; font-weight: normal; cursor: default; }
+[data-bac-panel] .bac-head-profile:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
+[data-bac-panel] .bac-head-profile:focus-visible { outline: 2px solid var(--color-focus-border, #2e7bd1); outline-offset: -1px; }
+[data-bac-panel] .bac-head-profile-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-bac-panel] .bac-head-btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px;
   margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; opacity: .75; cursor: default; }
 [data-bac-panel] .bac-head-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); opacity: 1; }
@@ -1390,11 +1399,13 @@ BetterAnnotations.Reader = {
     const wrap = doc.createElement("div");
     wrap.setAttribute("data-bac-toolbar", "1");
 
-    // One split button: the main part shows the statistics (hover or click),
-    // the arrow opens the profile menu, like a split button in Zotero.
+    // One button, like Zotero's toolbar buttons that open a panel (icon,
+    // text, arrow): profile and number of annotations. Hovering shows the
+    // statistics, a click keeps them open; the profile is chosen in them.
     const statsBtn = doc.createElement("button");
     statsBtn.className = "toolbar-button bac-tb-main";
     statsBtn.setAttribute("tabindex", "-1");
+    statsBtn.setAttribute("aria-haspopup", "dialog");
     const name = doc.createElement("span");
     name.className = "bac-tb-name";
     const count = doc.createElement("span");
@@ -1403,21 +1414,11 @@ BetterAnnotations.Reader = {
     dot.className = "bac-tb-dot";
     dot.setAttribute("aria-hidden", "true");
     dot.textContent = "·";
-    statsBtn.append(this.makeIcon(doc, "stats"), count, dot, name);
-
-    const profileBtn = doc.createElement("button");
-    profileBtn.className = "toolbar-button bac-tb-drop";
-    profileBtn.setAttribute("tabindex", "-1");
-    profileBtn.setAttribute("aria-haspopup", "menu");
-    profileBtn.setAttribute("title", SB.S("tbProfileMenu"));
-    profileBtn.setAttribute("aria-label", SB.S("tbProfileMenu"));
-    profileBtn.append(this.makeIcon(doc, "chevron"));
-    profileBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.closePanel(doc, "stats");
-      this.toggleProfileMenu(reader, doc, wrap);
-    });
+    const caret = doc.createElement("span");
+    caret.className = "bac-tb-caret";
+    caret.append(this.makeIcon(doc, "chevron"));
+    statsBtn.append(this.makeIcon(doc, "stats"), name, dot, count, caret);
+    const profileBtn = null;
 
     // Hover shows the statistics; the pointer can move onto them. A click
     // (on the button or inside) keeps them open until a click outside or Esc.
@@ -1475,7 +1476,7 @@ BetterAnnotations.Reader = {
     });
 
     wrap.className = "bac-tb-split";
-    wrap.append(statsBtn, profileBtn);
+    wrap.append(statsBtn);
     const record = { wrap, name, profileBtn, statsBtn, count, reader };
     this._toolbars.add(record);
     this.updateToolbar(record);
@@ -1612,7 +1613,9 @@ BetterAnnotations.Reader = {
       panel.style.top = top + "px";
     };
     const onDown = (e) => {
-      if (!panel.contains(e.target) && !anchor.contains(e.target)) {
+      // Menus opened from the panel (profile menu) are part of it
+      const inMenu = e.target && e.target.closest && e.target.closest("menupopup");
+      if (!inMenu && !panel.contains(e.target) && !anchor.contains(e.target)) {
         this.closePanel(doc, kind);
       }
     };
@@ -1662,70 +1665,34 @@ BetterAnnotations.Reader = {
     return SB.S(key);
   },
 
-  toggleProfileMenu(reader, doc, anchor) {
-    if (doc.querySelector("[data-bac-panel=\"profile\"]")) {
-      this.closePanel(doc, "profile");
-      return;
-    }
+  /**
+   * Profile menu of a reader (statistics): the native menu of the item pane,
+   * opened in the main window below `anchor`. `after` runs once the profile
+   * changed.
+   */
+  openReaderProfileMenu(reader, anchor, after) {
     const SB = this.SB;
     const P = SB.Profiles;
-    const { panel, place } = this.openPanel(doc, anchor, "profile");
-    panel.setAttribute("role", "menu");
-    const active = P.forReader(reader);
-    const summary = P.summarize(P.readerList(reader));
-    const entries = P.menuEntries(summary);
-    const el = (cls, text) => {
-      const d = doc.createElement("div");
-      d.className = cls;
-      if (text) {
-        d.textContent = text;
-      }
-      return d;
-    };
-    const addItem = (p) => {
-      const item = el("bac-item");
-      item.setAttribute("role", "menuitemradio");
-      item.setAttribute("aria-checked", p.id === active ? "true" : "false");
-      const check = el("bac-check", p.id === active ? "✓" : "");
-      const label = doc.createElement("span");
-      label.className = "bac-item-name";
-      label.textContent = p.name;
-      item.append(check, label);
-      if (p.n) {
-        item.append(el("bac-item-n", String(p.n)));
-      }
-      item.addEventListener("click", async () => {
-        this.closePanel(doc, "profile");
-        try {
-          if (p.id !== active || P.sourceForReader(reader) !== "explicit") {
-            await P.setForReader(reader, p.id);
-          }
-        }
-        catch (e) {
-          SB.logError(e);
-        }
-      });
-      panel.append(item);
-    };
-    entries.forEach(addItem);
-    const hint = P.sharedColorsText(summary);
-    if (hint) {
-      panel.append(el("bac-menu-hint bac-menu-warn", hint));
+    const main = Zotero.getMainWindow && Zotero.getMainWindow();
+    if (!main) {
+      return;
     }
-    const custom = el("bac-item");
-    custom.setAttribute("role", "menuitem");
-    const icon = el("bac-check");
-    icon.append(this.makeTuneIcon(doc, 12));
-    const label = doc.createElement("span");
-    label.textContent = SB.S("menuManageProfiles");
-    custom.append(icon, label);
-    custom.addEventListener("click", () => {
-      this.closePanel(doc, "profile");
-      SB.openPrefs();
+    const win = anchor.ownerDocument.defaultView;
+    const r = anchor.getBoundingClientRect();
+    const summary = P.summarize(P.readerList(reader));
+    SB.Panel.openProfilePopup({
+      doc: main.document,
+      screen: { x: win.mozInnerScreenX + r.left, y: win.mozInnerScreenY + r.bottom + 2 },
+      entries: P.menuEntries(summary),
+      active: P.forReader(reader),
+      choose: (id) => {
+        Promise.resolve(P.setForReader(reader, id))
+          .then(() => after && after())
+          .catch(e => SB.logError(e));
+      },
     });
-    panel.append(el("bac-sep"), custom);
-    place();
   },
+
 
   showStats(reader, doc, anchor, onClose) {
     const { panel, place } = this.openPanel(doc, anchor, "stats", onClose);
@@ -1751,8 +1718,31 @@ BetterAnnotations.Reader = {
     const head = doc.createElement("div");
     head.className = "bac-head";
     const title = doc.createElement("span");
+    title.className = "bac-head-title";
     title.textContent = SB.S("statsTitle");
     head.append(title);
+    // Profile of the document: the same menu as in the item pane
+    const profBtn = doc.createElement("button");
+    profBtn.className = "bac-head-profile";
+    profBtn.setAttribute("aria-haspopup", "menu");
+    const profName = P.profileForReader(reader).name;
+    const source = this.sourceText(reader);
+    profBtn.setAttribute("title", SB.S("tbProfileMenu") + (source ? "\n" + source : ""));
+    profBtn.setAttribute("aria-label", SB.S("tbProfileMenu") + ": " + profName);
+    const profLabel = doc.createElement("span");
+    profLabel.className = "bac-head-profile-name";
+    profLabel.textContent = profName;
+    profBtn.append(profLabel, this.makeIcon(doc, "chevron"));
+    profBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.openReaderProfileMenu(reader, profBtn, () => {
+        if (panel.isConnected) {
+          this.fillStats(reader, doc, panel);
+        }
+      });
+    });
+    head.append(profBtn);
     if (P.enabled() && (others.length || filtered)) {
       const label = SB.S(filtered ? "panelFilterOff" : "panelFilterOn");
       const btn = doc.createElement("button");
@@ -1777,8 +1767,12 @@ BetterAnnotations.Reader = {
       ? [activeId]
       : [activeId, ...others].filter(id => id === activeId || summary.byProfile.get(id));
     const max = Math.max(1, ...ids.map(id => Math.max(0, ...(summary.colors.get(id) || new Map()).values())));
-    const source = this.sourceText(reader);
     for (const id of ids) {
+      // One profile: the head names it already
+      if (ids.length === 1) {
+        this.appendStatRows(doc, panel, P.profile(id), summary.colors.get(id) || new Map(), max);
+        continue;
+      }
       const g = doc.createElement("div");
       g.className = "bac-group";
       g.textContent = (P.name(id) || P.profileForReader(reader).name) + " · " + (summary.byProfile.get(id) || 0);
@@ -1900,12 +1894,31 @@ BetterAnnotations.Reader = {
     return (id && P.name(id)) || tag.slice(P.prefix().length).trim();
   },
 
+  /**
+   * Label with the profile name. Full length while there is room; when the
+   * sidebar is narrow it is shortened in the middle (“Literature Re…TCCM”):
+   * the head shrinks with an ellipsis, the tail keeps its width.
+   */
   makeChip(doc, name) {
     const chip = doc.createElement("span");
     chip.className = "bac-chip";
-    chip.textContent = name;
-    chip.setAttribute("title", this.SB.S("chipTip", { profile: name }));
+    this.setChipName(chip, name);
     return chip;
+  },
+
+  setChipName(chip, name) {
+    const doc = chip.ownerDocument;
+    const cut = name.length > 8 ? name.length - Math.min(6, Math.ceil(name.length / 3)) : name.length;
+    const head = doc.createElement("span");
+    head.className = "bac-chip-h";
+    head.textContent = name.slice(0, cut);
+    const tail = doc.createElement("span");
+    tail.className = "bac-chip-t";
+    tail.textContent = name.slice(cut);
+    chip.replaceChildren(head, tail);
+    chip.setAttribute("data-name", name);
+    chip.setAttribute("title", this.SB.S("chipTip", { profile: name }));
+    chip.setAttribute("aria-label", this.SB.S("chipTip", { profile: name }));
   },
 
   /**
@@ -1913,16 +1926,9 @@ BetterAnnotations.Reader = {
    * the official interface. The sidebar cards also get it from markTags(),
    * in case the interface does not reach the plugin.
    */
-  appendProfileChip(doc, params, append) {
-    if (!this.SB.Profiles.enabled() || !params || !params.annotation || typeof append !== "function") {
-      return;
-    }
-    const name = this.profileNameOfTags(params.annotation.tags);
-    if (!name) {
-      return;
-    }
-    this.ensureReaderStyle(doc);
-    append(this.makeChip(doc, name));
+  appendProfileChip() {
+    // The sidebar cards get their label from markTags(), placed before the
+    // icons of other plugins; the official event would put it after them.
   },
 
   /**
@@ -1979,18 +1985,27 @@ BetterAnnotations.Reader = {
       }
       const name = names.get(card.getAttribute("data-sidebar-annotation-id")) || "";
       const chips = Array.from(box.querySelectorAll(".bac-chip"));
+      const header = box.closest("header");
       if (!name) {
         chips.forEach(c => c.remove());
+        header?.removeAttribute("data-bac-chip");
         continue;
       }
-      if (!chips.length) {
-        box.append(this.makeChip(doc, name));
-        continue;
+      // The head of the card gives the space between page and icons to the label
+      if (header && !header.hasAttribute("data-bac-chip")) {
+        header.setAttribute("data-bac-chip", "");
       }
+      let chip = chips[0];
       chips.slice(1).forEach(c => c.remove());
-      if (chips[0].textContent !== name) {
-        chips[0].textContent = name;
-        chips[0].setAttribute("title", this.SB.S("chipTip", { profile: name }));
+      if (!chip) {
+        chip = this.makeChip(doc, name);
+      }
+      else if (chip.getAttribute("data-name") !== name) {
+        this.setChipName(chip, name);
+      }
+      // Left of the icons of other plugins
+      if (box.firstChild !== chip) {
+        box.prepend(chip);
       }
     }
     // Profile tags in the tag lines
@@ -2017,11 +2032,9 @@ BetterAnnotations.Reader = {
       if (lastVisible && hidden) {
         lastVisible.setAttribute("data-bac-last", "");
       }
-      // Only profile tags: show Zotero's prompt instead of an empty line
-      // (read-only annotations: no line, as without tags)
-      const readOnly = !!box.closest(".preview.read-only");
-      box.toggleAttribute("data-bac-empty", !!hidden && !lastVisible && !readOnly);
-      box.toggleAttribute("data-bac-gone", !!hidden && !lastVisible && readOnly);
+      // Only profile tags: like an annotation without tags. The line appears
+      // with Zotero's prompt only while the annotation is selected (CSS).
+      box.toggleAttribute("data-bac-only", !!hidden && !lastVisible);
       if (hidden && !lastVisible) {
         box.setAttribute("data-bac-placeholder", placeholder);
       }

@@ -4,7 +4,7 @@
 
 BetterAnnotations.STRINGS.en = {
   "pluginName": "Better Annotations",
-  "presetZotero": "Zotero Default",
+  "presetZotero": "Standard",
   "presetPlus": "Zotero+",
   "stockNames": [
     "Yellow",
@@ -207,7 +207,7 @@ BetterAnnotations.STRINGS.en = {
   "secCredits": "Credits",
   "langAuto": "Zotero language",
   "infoTitle": "More information",
-  "infoProfile": "A profile stores a complete palette: colors, labels, order and visibility. The active profile determines what you see in the reader.\n\n“Zotero+” (12 colors, 8 of them labeled for literature work) and “Zotero Default” (Zotero without changes) are built-in presets. You can edit them, but your changes are saved as a new profile.\n\nIf you switch profiles with unsaved changes, you are asked whether to save them. Switching profiles never changes existing annotations, only the labels shown for them.",
+  "infoProfile": "A profile stores a complete palette: colors, labels, order and visibility. The active profile determines what you see in the reader.\n\n“Standard” (Zotero without changes) is built in and cannot be changed or deleted. Changes to it are saved as a new profile. “Zotero+” is an example profile with 12 colors, 8 of them labeled for literature work. You can edit or delete it.\n\nIf you switch profiles with unsaved changes, you are asked whether to save them. Switching profiles never changes existing annotations, only the labels shown for them.",
   "infoColors": "Each row is one color. Click the swatch to change the color, type a label and drag the handle ⠿ to change the order.\n\nThe number shows the position in the menus. Colors with an empty label or a cleared checkbox are hidden in the menus. A label that consists only of spaces counts as a label. The line marks where the “More Colors” submenu begins.\n\nThe counter on the right shows how many annotations in your libraries use the color. Changes take effect when you save.\n\nThe icon with two squares shows how many of your other profiles use the color; the tooltip names them.",
   "infoGeneral": "“Zotero language” uses the language of your Zotero installation if it is available and English otherwise.",
   "infoContextMenu": "Applies to the menu that opens when you right-click an annotation and to the color menu in the reader toolbar.\n\nColors beyond this number appear in the “More Colors” submenu. The submenu is arranged in columns, so it does not grow out of the window.",

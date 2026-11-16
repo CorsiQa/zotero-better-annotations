@@ -4,7 +4,7 @@
 
 BetterAnnotations.STRINGS.it = {
   "pluginName": "Better Annotations",
-  "presetZotero": "Predefinito di Zotero",
+  "presetZotero": "Standard",
   "presetPlus": "Zotero+",
   "stockNames": [
     "Giallo",
@@ -207,7 +207,7 @@ BetterAnnotations.STRINGS.it = {
   "secCredits": "Riconoscimenti",
   "langAuto": "Lingua di Zotero",
   "infoTitle": "Ulteriori informazioni",
-  "infoProfile": "Un profilo memorizza una tavolozza completa: colori, etichette, ordine e visibilità. Il profilo attivo determina ciò che vedi nel lettore.\n\n«Zotero+» (12 colori, 8 dei quali con etichette per il lavoro sulla letteratura) e «Predefinito di Zotero» (Zotero senza modifiche) sono modelli integrati. Puoi modificarli, ma le modifiche vengono salvate come nuovo profilo.\n\nSe cambi profilo con modifiche non salvate, ti viene chiesto se salvarle. Cambiare profilo non modifica mai le annotazioni esistenti, solo le etichette mostrate.",
+  "infoProfile": "Un profilo memorizza una tavolozza completa: colori, etichette, ordine e visibilità. Il profilo attivo determina ciò che vedi nel lettore.\n\n«Standard» (Zotero senza modifiche) è integrato e non si può modificare né eliminare. Le modifiche vengono salvate come nuovo profilo. «Zotero+» è un profilo di esempio con 12 colori, 8 dei quali con etichette per il lavoro sulla letteratura. Puoi modificarlo o eliminarlo.\n\nSe cambi profilo con modifiche non salvate, ti viene chiesto se salvarle. Cambiare profilo non modifica mai le annotazioni esistenti, solo le etichette mostrate.",
   "infoColors": "Ogni riga è un colore. Fai clic sul campione per cambiare il colore, scrivi un’etichetta e trascina la maniglia ⠿ per cambiare l’ordine.\n\nIl numero indica la posizione nei menu. I colori con etichetta vuota o con la casella deselezionata sono nascosti nei menu. Un’etichetta di soli spazi conta come etichetta. La linea indica dove inizia il sottomenu «Altri colori».\n\nIl contatore a destra mostra quante annotazioni delle tue biblioteche usano il colore. Le modifiche hanno effetto al salvataggio.\n\nL’icona con due quadrati mostra quanti dei tuoi altri profili usano il colore; il suggerimento li elenca.",
   "infoGeneral": "«Lingua di Zotero» usa la lingua della tua installazione di Zotero, se disponibile, altrimenti l’inglese.",
   "infoContextMenu": "Vale per il menu che si apre con il clic destro su un’annotazione e per il menu dei colori nella barra degli strumenti del lettore.\n\nI colori oltre questo numero compaiono nel sottomenu «Altri colori». Il sottomenu è disposto in colonne, quindi non esce dalla finestra.",

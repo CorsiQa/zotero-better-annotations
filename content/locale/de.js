@@ -4,7 +4,7 @@
 
 BetterAnnotations.STRINGS.de = {
   "pluginName": "Better Annotations",
-  "presetZotero": "Zotero-Standard",
+  "presetZotero": "Standard",
   "presetPlus": "Zotero+",
   "stockNames": [
     "Gelb",
@@ -207,7 +207,7 @@ BetterAnnotations.STRINGS.de = {
   "secCredits": "Danksagung",
   "langAuto": "Sprache von Zotero",
   "infoTitle": "Weitere Informationen",
-  "infoProfile": "Ein Profil speichert eine vollständige Palette: Farben, Labels, Reihenfolge und Sichtbarkeit. Das aktive Profil bestimmt, was du im Reader siehst.\n\n„Zotero+“ (12 Farben, davon 8 mit Labels für die Literaturarbeit) und „Zotero-Standard“ (Zotero ohne Änderungen) sind eingebaute Vorlagen. Du kannst sie bearbeiten, deine Änderungen werden aber als neues Profil gespeichert.\n\nWechselst du das Profil mit ungespeicherten Änderungen, fragt das Plugin, ob sie gespeichert werden sollen. Ein Profilwechsel ändert nie vorhandene Annotationen, nur die angezeigten Labels.",
+  "infoProfile": "Ein Profil speichert eine vollständige Palette: Farben, Labels, Reihenfolge und Sichtbarkeit. Das aktive Profil bestimmt, was du im Reader siehst.\n\n„Standard“ (Zotero ohne Änderungen) ist eingebaut und lässt sich weder ändern noch löschen. Änderungen daran werden als neues Profil gespeichert. „Zotero+“ ist ein Beispielprofil mit 12 Farben, davon 8 mit Labels für die Literaturarbeit. Du kannst es bearbeiten oder löschen.\n\nWechselst du das Profil mit ungespeicherten Änderungen, fragt das Plugin, ob sie gespeichert werden sollen. Ein Profilwechsel ändert nie vorhandene Annotationen, nur die angezeigten Labels.",
   "infoColors": "Jede Zeile ist eine Farbe. Klick auf das Farbfeld, um die Farbe zu ändern, gib ein Label ein und zieh am Griff ⠿, um die Reihenfolge zu ändern.\n\nDie Zahl zeigt die Position in den Menüs. Farben mit leerem Label oder deaktiviertem Kontrollkästchen werden in den Menüs ausgeblendet. Ein Label aus Leerzeichen zählt als Label. Die Linie markiert, wo das Untermenü „Weitere Farben“ beginnt.\n\nDer Zähler rechts zeigt, wie viele Annotationen in deinen Bibliotheken die Farbe verwenden. Änderungen gelten erst nach dem Speichern.\n\nDas Symbol mit zwei Quadraten zeigt, wie viele deiner anderen Profile die Farbe verwenden; der Tooltip nennt sie.",
   "infoGeneral": "„Sprache von Zotero“ verwendet die Sprache deiner Zotero-Installation, falls sie verfügbar ist, und sonst Englisch.",
   "infoContextMenu": "Gilt für das Menü, das sich per Rechtsklick auf eine Annotation öffnet, und für das Farbmenü in der Werkzeugleiste des Readers.\n\nFarben über diese Anzahl hinaus erscheinen im Untermenü „Weitere Farben“. Das Untermenü ist in Spalten angeordnet und wächst deshalb nicht aus dem Fenster.",

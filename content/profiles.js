@@ -141,11 +141,11 @@ BetterAnnotations.Profiles = {
 
   defaultId() {
     const id = this.Store.data.activeProfileId;
-    return this.Store.getProfile(id) ? id : "zoteroplus";
+    return this.Store.getProfile(id) ? id : "standard";
   },
 
   profile(id) {
-    const p = this.Store.getProfile(this.valid(id)) || this.Store.plusPreset();
+    const p = this.Store.getProfile(this.valid(id)) || this.Store.zoteroPreset();
     return JSON.parse(JSON.stringify(p));
   },
 
@@ -168,11 +168,17 @@ BetterAnnotations.Profiles = {
   },
 
   /** Names of a built-in profile in all languages (the tag may come from another language). */
+  /** Names of the built-in profile in all languages, also its names before 1.0.0-beta.2. */
+  LEGACY_STANDARD_NAMES: ["Zotero-Standard", "Zotero Default", "Predeterminado de Zotero", "Zotero par défaut",
+    "Predefinito di Zotero", "Zotero 標準", "Domyślne Zotero", "Padrão do Zotero", "Стандарт Zotero", "Zotero 預設", "Zotero 默认"],
+
   presetNames(id) {
     this._presetNames = this._presetNames || {};
     if (!this._presetNames[id]) {
-      const key = id === "standard" ? "presetZotero" : "presetPlus";
-      this._presetNames[id] = new Set(Object.values(this.SB.STRINGS).map(t => t && t[key]).filter(Boolean));
+      this._presetNames[id] = new Set([
+        ...Object.values(this.SB.STRINGS).map(t => t && t.presetZotero).filter(Boolean),
+        ...this.LEGACY_STANDARD_NAMES,
+      ]);
     }
     return this._presetNames[id];
   },
