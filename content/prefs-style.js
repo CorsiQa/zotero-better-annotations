@@ -18,7 +18,6 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
 #bac-root .bac-bar > button, #bac-root .bac-bar > menulist, #bac-root .bac-logrow > button, #bac-root .bac-opt > menulist { margin: 0; }
 #bac-root .bac-end { justify-content: flex-end; }
-#bac-root .bac-no-usage .bac-usage { display: none; }
 #bac-root .bac-text { width: 12em; font: inherit; padding: 2px 5px; }
 #bac-root.bac-busy, #bac-root.bac-busy * { cursor: progress !important; }
 #bac-root .bac-logrow { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--bac-border); }
@@ -90,6 +89,10 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-desc:focus { color: inherit; background: var(--bac-bg); border-color: var(--bac-border);
   outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
 #bac-root .bac-indent { padding-inline-start: 22px; }
+/* Other profiles with this color; fixed width, so all label fields are equally wide */
+#bac-root .bac-shared { height: 26px; width: 2.6em; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px;
+  font-size: 11px; color: var(--bac-muted); font-variant-numeric: tabular-nums; }
+#bac-root .bac-shared[hidden] { display: inline-flex; visibility: hidden; }
 #bac-root .bac-usage { font-size: 11px; color: var(--bac-muted); width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; }
 #bac-root .bac-del { -moz-appearance: none; appearance: none; border: none; background: transparent; color: var(--bac-muted);
   cursor: pointer; font-size: 12px; width: 24px; height: 24px; border-radius: 50%; padding: 0; margin: 0; min-width: 0; }

@@ -67,7 +67,7 @@ var BetterAnnotations = {
     popupFixedColumns: 9,
     showMenuEntry: true,
     showPopupButton: true,
-    showUsage: true,
+    hideProfileTags: true,
     showToolbarProfile: true,
     showToolbarStats: true,
     statsDescriptions: false,
@@ -677,7 +677,7 @@ BetterAnnotations.Store = {
     }
     out.settings.recentColors = (Array.isArray(s.recentColors) ? s.recentColors : [])
       .map(c => SB.normalize(c)).filter(Boolean).filter((c, i, a) => a.indexOf(c) === i).slice(0, 12);
-    for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "showUsage",
+    for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "hideProfileTags",
       "showToolbarProfile", "showToolbarStats", "showItemPaneSection",
       "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled",
       "descriptionsEnabled", "profilesPerDocument", "profileTagColor", "profileFilterDefault",

@@ -4,7 +4,8 @@
  *   - createAnnotationContextMenu   right-click on an existing annotation
  *   - createColorContextMenu        color menu in the toolbar
  *   - renderTextSelectionPopup      popup after selecting text
- *   - renderSidebarAnnotationHeader tooltips for the color filter in the sidebar
+ *   - renderSidebarAnnotationHeader tooltips for the color filter in the sidebar;
+ *                                   profile of the annotation in its head
  *
  * Approach for the menus: the plugin appends its entries via `append`
  * (Zotero renders them and handles click and close). It then places
@@ -24,6 +25,8 @@ BetterAnnotations.Reader = {
   _tip: null,
   _popupState: new WeakMap(),
   _lastPopup: new WeakMap(), // reader -> selection popup shown last
+  _tagWatch: new WeakMap(), // reader document -> MutationObserver (profile tags)
+  _drag: null, // color drag from the item pane
   _menuSeq: 0,
 
   get SB() {
@@ -38,7 +41,10 @@ BetterAnnotations.Reader = {
       renderSidebarAnnotationHeader: e => this._safe(() => this.onSidebarHeader(e)),
       renderToolbar: e => this._safe(() => this.onToolbar(e)),
     };
-    this._unlisten = this.SB.Store.onChange(() => this._safe(() => this.refreshToolbars()));
+    this._unlisten = this.SB.Store.onChange(() => this._safe(() => {
+      this.refreshToolbars();
+      this.refreshTagMarks();
+    }));
     this.startScan();
     for (const [type, fn] of Object.entries(this._handlers)) {
       try {
@@ -61,6 +67,7 @@ BetterAnnotations.Reader = {
       catch (e) {}
     }
     this._handlers = null;
+    this.endColorDrag();
     this.hideTip();
     this.stopScan();
     if (this._unlisten) {
@@ -72,8 +79,15 @@ BetterAnnotations.Reader = {
       for (const r of Zotero.Reader._readers || []) {
         const doc = r._iframeWindow && r._iframeWindow.document;
         if (doc) {
-          for (const el of doc.querySelectorAll("[data-bac-toolbar], [data-bac-panel], #bac-reader-style")) {
+          for (const el of doc.querySelectorAll("[data-bac-toolbar], [data-bac-panel], #bac-reader-style, .bac-chip")) {
             el.remove();
+          }
+          this._tagWatch.get(doc)?.disconnect();
+          this._tagWatch.delete(doc);
+          for (const el of doc.querySelectorAll("[data-bac-hidden], [data-bac-last], [data-bac-empty], [data-bac-gone]")) {
+            for (const a of ["data-bac-hidden", "data-bac-last", "data-bac-empty", "data-bac-gone"]) {
+              el.removeAttribute(a);
+            }
           }
         }
       }
@@ -1179,6 +1193,15 @@ BetterAnnotations.Reader = {
     const style = doc.createElement("style");
     style.id = "bac-reader-style";
     style.textContent = `
+.bac-chip { display: inline-block; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
+  box-sizing: border-box; font-size: 10.5px; line-height: 16px; padding: 0 6px; border-radius: 8px;
+  color: #4a3bc2; background: rgba(107, 91, 214, .14); }
+@media (prefers-color-scheme: dark) { .bac-chip { color: #cfc8f8; background: rgba(179, 168, 242, .2); } }
+.tags .tag[data-bac-hidden] { display: none; }
+.tags .tag[data-bac-last]::after { content: none; }
+.tags[data-bac-empty]::before { content: attr(data-bac-placeholder); color: var(--fill-secondary, GrayText); }
+.tags[data-bac-gone] { display: none !important; }
+[data-bac-drop] { outline: 2px solid var(--bac-drop-color, #6B5BD6) !important; outline-offset: -2px; }
 .selection-popup[data-bac-fixed] > :not(.bac-colors) { max-width: 100%; min-width: 0; box-sizing: border-box; overflow-wrap: anywhere; }
 .selection-popup[data-bac-fixed] textarea, .selection-popup[data-bac-fixed] input[type="text"] { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
 .selection-popup[data-bac-fixed] pre, .selection-popup[data-bac-fixed] table, .selection-popup[data-bac-fixed] img { max-width: 100%; overflow: auto; }
@@ -1827,8 +1850,12 @@ BetterAnnotations.Reader = {
   // Sidebar: tooltips for the color filter
   // -------------------------------------------------------------------
 
-  onSidebarHeader({ doc }) {
-    if (!doc || this._sidebarPending) {
+  onSidebarHeader({ doc, params, append }) {
+    if (!doc) {
+      return;
+    }
+    this._safe(() => this.appendProfileChip(doc, params, append));
+    if (this._sidebarPending) {
       return;
     }
     this._sidebarPending = true;
@@ -1836,6 +1863,358 @@ BetterAnnotations.Reader = {
       this._sidebarPending = false;
       this._safe(() => this.labelSidebar(doc));
     }, 60);
+  },
+
+  // -------------------------------------------------------------------
+  // Profile in the head of an annotation; profile tags hidden in its tags
+  // -------------------------------------------------------------------
+
+  /** Small label with the profile name in the head of an annotation (official interface). */
+  appendProfileChip(doc, params, append) {
+    const P = this.SB.Profiles;
+    if (!P.enabled() || !params || !params.annotation || typeof append !== "function") {
+      return;
+    }
+    const tags = Array.from(params.annotation.tags || []).map(t => String(t && t.name));
+    const tag = tags.find(t => P.isProfileTag(t));
+    if (!tag) {
+      return;
+    }
+    const id = P.idForTag(tag);
+    const name = id ? P.name(id) || tag.slice(P.prefix().length) : tag.slice(P.prefix().length);
+    this.ensureReaderStyle(doc);
+    this.watchTags(doc);
+    const chip = doc.createElement("span");
+    chip.className = "bac-chip";
+    chip.textContent = name;
+    chip.setAttribute("title", this.SB.S("chipTip", { profile: name }));
+    append(chip);
+  },
+
+  /**
+   * Hide profile tags in the tag lines of the reader (sidebar and annotation
+   * popups). Only the display changes: the tags stay on the annotations, in
+   * the tag filter and in the export. Zotero renders each tag as
+   * <span class="tag">; the plugin marks these spans and never changes
+   * Zotero's elements otherwise.
+   */
+  watchTags(doc) {
+    if (this._tagWatch.has(doc)) {
+      return;
+    }
+    const win = doc.defaultView;
+    if (!win || !doc.body) {
+      return;
+    }
+    let pending = false;
+    const observer = new win.MutationObserver(() => {
+      if (pending) {
+        return;
+      }
+      pending = true;
+      win.requestAnimationFrame(() => {
+        pending = false;
+        this._safe(() => this.markTags(doc));
+      });
+    });
+    observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
+    this._tagWatch.set(doc, observer);
+    this.markTags(doc);
+  },
+
+  markTags(doc) {
+    const P = this.SB.Profiles;
+    const hide = P.enabled() && this.SB.setting("hideProfileTags") !== false;
+    const placeholder = this.SB.S("readerAddTags");
+    for (const box of doc.querySelectorAll(".tags")) {
+      if (box.closest(".selector")) {
+        continue; // the tag filter at the bottom of the sidebar stays as it is
+      }
+      const spans = Array.from(box.querySelectorAll(":scope > span.tag"));
+      let lastVisible = null;
+      let hidden = 0;
+      for (const span of spans) {
+        const off = hide && P.isProfileTag((span.textContent || "").trim());
+        span.toggleAttribute("data-bac-hidden", off);
+        span.removeAttribute("data-bac-last");
+        if (off) {
+          hidden++;
+        }
+        else {
+          lastVisible = span;
+        }
+      }
+      // No comma after the last visible tag
+      if (lastVisible && hidden) {
+        lastVisible.setAttribute("data-bac-last", "");
+      }
+      // Only profile tags: show Zotero's prompt instead of an empty line
+      // (read-only annotations: no line, as without tags)
+      const readOnly = !!box.closest(".preview.read-only");
+      box.toggleAttribute("data-bac-empty", !!hidden && !lastVisible && !readOnly);
+      box.toggleAttribute("data-bac-gone", !!hidden && !lastVisible && readOnly);
+      if (hidden && !lastVisible) {
+        box.setAttribute("data-bac-placeholder", placeholder);
+      }
+    }
+  },
+
+  /** After a setting changed: mark the tags in all watched readers again. */
+  refreshTagMarks() {
+    for (const reader of this.SB.Profiles.openReaders()) {
+      try {
+        const doc = reader._iframeWindow && reader._iframeWindow.document;
+        if (doc && this._tagWatch.has(doc)) {
+          this.markTags(doc);
+          if (!this.SB.Profiles.enabled()) {
+            doc.querySelectorAll(".bac-chip").forEach(el => el.remove());
+          }
+        }
+      }
+      catch (e) {}
+    }
+  },
+
+  // -------------------------------------------------------------------
+  // Drag a color from the item pane onto annotations
+  // -------------------------------------------------------------------
+
+  DRAG_TYPE: "application/x-better-annotations-color",
+
+  /**
+   * Start of a drag in the item pane or the separate window. While it lasts,
+   * the reader's documents (sidebar and view frames) accept the color:
+   * dropped on an annotation (card in the sidebar or highlight in a PDF) it
+   * recolors the annotation, or all selected annotations if it is one of
+   * them; dropped on selected text it creates an annotation in this color.
+   */
+  startColorDrag(reader, color, event) {
+    this.endColorDrag();
+    const doc = reader._iframeWindow && reader._iframeWindow.document;
+    if (!doc) {
+      return false;
+    }
+    const docs = this.outsideDocs(doc).filter(d => d !== event.target.ownerDocument);
+    const drag = { reader, color, docs, target: null, overlay: null, listeners: [] };
+    const on = (d, type, fn) => {
+      d.addEventListener(type, fn, true);
+      drag.listeners.push(() => d.removeEventListener(type, fn, true));
+    };
+    for (const d of docs) {
+      on(d, "dragover", e => this._safe(() => this.onColorDragOver(drag, e)));
+      on(d, "dragleave", e => this._safe(() => {
+        if (!e.relatedTarget || e.relatedTarget.ownerDocument !== d) {
+          this.setDropTarget(drag, null);
+        }
+      }));
+      on(d, "drop", e => this._safe(() => this.onColorDrop(drag, e)));
+    }
+    this._drag = drag;
+    this.ensureReaderStyle(doc);
+    return true;
+  },
+
+  endColorDrag() {
+    const drag = this._drag;
+    this._drag = null;
+    if (!drag) {
+      return;
+    }
+    this.setDropTarget(drag, null);
+    for (const off of drag.listeners) {
+      try {
+        off();
+      }
+      catch (e) {}
+    }
+  },
+
+  isColorDrag(e) {
+    try {
+      return !!this._drag && Array.from(e.dataTransfer.types || []).includes(this.DRAG_TYPE);
+    }
+    catch (ex) {
+      return false;
+    }
+  },
+
+  onColorDragOver(drag, e) {
+    if (!this.isColorDrag(e)) {
+      return;
+    }
+    const target = this.dropTargetAt(drag.reader, e);
+    this.setDropTarget(drag, target);
+    if (target) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "copy";
+    }
+    else {
+      e.dataTransfer.dropEffect = "none";
+    }
+  },
+
+  onColorDrop(drag, e) {
+    if (!this.isColorDrag(e)) {
+      return;
+    }
+    const target = this.dropTargetAt(drag.reader, e);
+    this.setDropTarget(drag, null);
+    if (!target) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    if (target.annotation) {
+      this.createAnnotation(drag.reader, target.annotation, drag.color);
+    }
+    else if (target.ids) {
+      this.setAnnotationColor(drag.reader, target.ids, drag.color);
+    }
+    this.SB.Panel?.refreshAll?.();
+  },
+
+  /**
+   * What is under the pointer: { ids, el } for annotations (sidebar card or
+   * PDF highlight), { annotation, rects } for selected text, or null.
+   */
+  dropTargetAt(reader, e) {
+    const state = BetterAnnotations.readerState(reader);
+    if (!state || state.readOnly) {
+      return null;
+    }
+    const annotations = Array.from(state.annotations || []);
+    const editable = id => annotations.some(a => String(a.id) === id && !a.readOnly);
+    const withSelection = (id) => {
+      const selected = Array.from(state.selectedAnnotationIDs || []).map(String);
+      return selected.includes(id) ? selected.filter(editable) : [id];
+    };
+    // Card in the sidebar (or an annotation popup)
+    const card = e.target && e.target.closest ? e.target.closest("[data-sidebar-annotation-id]") : null;
+    if (card) {
+      const id = card.getAttribute("data-sidebar-annotation-id");
+      return editable(id) ? { ids: withSelection(id), el: card } : null;
+    }
+    const doc = e.target && e.target.ownerDocument;
+    if (!doc) {
+      return null;
+    }
+    // Highlight in a PDF page
+    const hit = this.pdfAnnotationAt(doc, annotations, e.clientX, e.clientY);
+    if (hit) {
+      const id = String(hit.annotation.id);
+      return editable(id) ? { ids: withSelection(id), rects: hit.rects, doc } : null;
+    }
+    // Selected text (its popup is shown)
+    const sel = doc.defaultView && doc.defaultView.getSelection && doc.defaultView.getSelection();
+    if (sel && !sel.isCollapsed && sel.rangeCount) {
+      const rects = Array.from(sel.getRangeAt(0).getClientRects());
+      const inside = rects.some(r => e.clientX >= r.left - 2 && e.clientX <= r.right + 2 && e.clientY >= r.top - 2 && e.clientY <= r.bottom + 2);
+      const snap = inside ? this.selectionSnapshot(reader) : null;
+      if (snap && snap.annotation) {
+        return { annotation: snap.annotation, rects: rects.map(r => [r.left, r.top, r.right, r.bottom]), doc };
+      }
+    }
+    return null;
+  },
+
+  /** Annotation of a PDF page under a point of the view (pdf.js), with its rectangles on screen. */
+  pdfAnnotationAt(doc, annotations, x, y) {
+    const win = doc.defaultView;
+    const app = win && (win.wrappedJSObject || win).PDFViewerApplication;
+    const pageEl = doc.elementFromPoint(x, y)?.closest?.(".page[data-page-number]");
+    if (!app || !app.pdfViewer || !pageEl) {
+      return null;
+    }
+    const pageIndex = Number(pageEl.getAttribute("data-page-number")) - 1;
+    const pageView = app.pdfViewer.getPageView(pageIndex);
+    const box = (pageEl.querySelector(".canvasWrapper") || pageEl).getBoundingClientRect();
+    if (!pageView || !pageView.viewport) {
+      return null;
+    }
+    const viewport = pageView.viewport;
+    const [px, py] = viewport.convertToPdfPoint(x - box.left, y - box.top);
+    let best = null;
+    for (const a of annotations) {
+      const pos = a.position || {};
+      let rects = null;
+      if (pos.pageIndex === pageIndex) {
+        rects = pos.rects;
+      }
+      else if (pos.pageIndex === pageIndex - 1 && pos.nextPageRects) {
+        rects = pos.nextPageRects;
+      }
+      if (!rects && pos.pageIndex === pageIndex && pos.paths) {
+        // Ink: bounding box of the paths
+        const pts = Array.from(pos.paths).flatMap(p => Array.from(p));
+        const xs = pts.filter((v, i) => i % 2 === 0);
+        const ys = pts.filter((v, i) => i % 2 === 1);
+        if (xs.length) {
+          rects = [[Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]];
+        }
+      }
+      if (!rects) {
+        continue;
+      }
+      rects = Array.from(rects).map(r => Array.from(r));
+      const tol = 2;
+      const inside = rects.some(r => px >= Math.min(r[0], r[2]) - tol && px <= Math.max(r[0], r[2]) + tol
+        && py >= Math.min(r[1], r[3]) - tol && py <= Math.max(r[1], r[3]) + tol);
+      if (!inside) {
+        continue;
+      }
+      // The smallest annotation wins (a note on top of a large image area)
+      const area = rects.reduce((s, r) => s + Math.abs((r[2] - r[0]) * (r[3] - r[1])), 0);
+      if (!best || area < best.area) {
+        best = { annotation: a, area, rects };
+      }
+    }
+    if (!best) {
+      return null;
+    }
+    const screen = best.rects.map((r) => {
+      const v = viewport.convertToViewportRectangle(r);
+      return [box.left + Math.min(v[0], v[2]), box.top + Math.min(v[1], v[3]), box.left + Math.max(v[0], v[2]), box.top + Math.max(v[1], v[3])];
+    });
+    return { annotation: best.annotation, rects: screen };
+  },
+
+  /** Mark the target under the pointer: outline of the card or of the highlight. */
+  setDropTarget(drag, target) {
+    const key = target ? (target.el ? "el" : "") + JSON.stringify(target.ids || target.rects) : null;
+    if (key === drag.key) {
+      return;
+    }
+    drag.key = key;
+    if (drag.target && drag.target.el) {
+      drag.target.el.removeAttribute("data-bac-drop");
+    }
+    if (drag.overlay) {
+      drag.overlay.remove();
+      drag.overlay = null;
+    }
+    drag.target = target;
+    if (!target) {
+      return;
+    }
+    if (target.el) {
+      target.el.setAttribute("data-bac-drop", "");
+      target.el.style.setProperty("--bac-drop-color", drag.color);
+      return;
+    }
+    const doc = target.doc;
+    const layer = doc.createElement("div");
+    layer.setAttribute("data-bac-drop-layer", "");
+    layer.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:2147483647;";
+    for (const r of target.rects || []) {
+      const box = doc.createElement("div");
+      box.style.cssText = "position:fixed;box-sizing:border-box;border-radius:2px;pointer-events:none;"
+        + "left:" + (r[0] - 2) + "px;top:" + (r[1] - 2) + "px;width:" + (r[2] - r[0] + 4) + "px;height:" + (r[3] - r[1] + 4) + "px;"
+        + "outline:2px solid " + drag.color + ";background:" + drag.color + "40;";
+      layer.append(box);
+    }
+    (doc.body || doc.documentElement).append(layer);
+    drag.overlay = layer;
   },
 
   labelSidebar(doc) {

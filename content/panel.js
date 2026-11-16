@@ -853,6 +853,20 @@ BetterAnnotations.PanelView = class {
     return b;
   }
 
+  /** Picture under the pointer while a color is dragged: color and label. */
+  dragGhost(r) {
+    try {
+      const ghost = this.h("div", { class: "bac-p-ghost" },
+        this.h("span", { class: "bac-p-dot", style: "background:" + r.color }),
+        this.h("span", { text: r.name }));
+      this.doc.documentElement.append(ghost);
+      return ghost;
+    }
+    catch (e) {
+      return null;
+    }
+  }
+
   /** Profile menu: like the reader's: all profiles with their number in the document, “Manage Profiles…”. */
   openProfileMenu(anchor, active, summary) {
     const SB = this.SB;
@@ -1005,12 +1019,38 @@ BetterAnnotations.PanelView = class {
       let row;
       if (clickable) {
         const active = toolColor === r.color;
-        row = this.h("button", {
-          class: "bac-p-row" + (active ? " bac-p-active" : ""),
+        // A div, not a button: Firefox does not start drags on buttons
+        row = this.h("div", {
+          class: "bac-p-row bac-p-click" + (active ? " bac-p-active" : ""),
+          role: "button",
+          tabindex: "0",
+          draggable: "true",
           "data-key": "row-" + r.color,
           "aria-pressed": active ? "true" : "false",
           title: tip + "\n" + S(active ? "panelClickHintOff" : "panelClickHint"),
           on: {
+            keydown: (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                row.click();
+              }
+            },
+            // Drag the color onto an annotation in the reader
+            dragstart: (e) => {
+              snapshot = null;
+              if (!SB.Reader.startColorDrag(reader, r.color, e)) {
+                e.preventDefault();
+                return;
+              }
+              e.dataTransfer.setData(SB.Reader.DRAG_TYPE, r.color);
+              e.dataTransfer.effectAllowed = "copy";
+              const ghost = this.dragGhost(r);
+              if (ghost) {
+                e.dataTransfer.setDragImage(ghost, 10, 10);
+                SB.setTimeout(() => ghost.remove(), 0);
+              }
+            },
+            dragend: () => SB.Reader.endColorDrag(),
             // Selected annotations or selected text: take them before the reader loses the focus
             mousedown: () => {
               snapshot = SB.Reader.selectionSnapshot(reader);
@@ -1223,7 +1263,11 @@ BetterAnnotations.PanelView = class {
 .bac-p-row { appearance: none; display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center;
   width: 100%; box-sizing: border-box; margin: 0; padding: 3px 6px; border: 1px solid transparent; border-radius: 5px;
   background: transparent; color: inherit; font: inherit; text-align: start; }
-button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
+.bac-p-click:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
+.bac-p-click { cursor: default; user-select: none; -moz-user-select: none; }
+.bac-p-ghost { position: fixed; top: -100px; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 5px;
+  font: inherit; font-size: 12px; background: var(--material-background, Canvas); color: var(--fill-primary, CanvasText);
+  border: 1px solid var(--fill-quinary, rgba(127,127,127,.35)); }
 .bac-p-row.bac-p-active { background: color-mix(in srgb, var(--accent-blue, #2e7bd1) 14%, transparent); border-color: color-mix(in srgb, var(--accent-blue, #2e7bd1) 45%, transparent); }
 .bac-p-dot { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
 .bac-p-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

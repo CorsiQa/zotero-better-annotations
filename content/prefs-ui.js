@@ -378,7 +378,7 @@ BetterAnnotations.PaneController = class {
       ...notices.map(n => this.h("div", { class: "bac-notice", text: n })),
     ));
 
-    this.listEl = this.h("div", { class: "bac-list" + (SB.setting("showUsage") ? "" : " bac-no-usage"), role: "list" });
+    this.listEl = this.h("div", { class: "bac-list", role: "list" });
     this.renderList();
     this.addBtn = this.button(S("btnAddColor"), () => this.addColor());
     this.statusEl = this.h("span", { class: "bac-status" });
@@ -392,10 +392,6 @@ BetterAnnotations.PaneController = class {
       this.h("div", { class: "bac-bar bac-actions" },
         this.button(S("btnResetPlus"), () => this.resetToPlus()),
         paletteBtn,
-      ),
-      this.h("div", { class: "bac-sub" },
-        this.checkbox(S("optShowUsage"), settings.showUsage !== false, v => set("showUsage", v,
-          () => this.listEl.classList.toggle("bac-no-usage", !v))),
       ),
     ));
 
@@ -1146,6 +1142,8 @@ BetterAnnotations.PaneController = class {
           v => this.own(() => Store.setSetting("profileFilterDefault", v))),
         this.checkbox(S("optProfileTagColor"), this.SB.setting("profileTagColor") !== false,
           v => this.own(() => Store.setSetting("profileTagColor", v)).then(() => P.syncTagColors())),
+        this.checkbox(S("optHideProfileTags"), this.SB.setting("hideProfileTags") !== false,
+          v => this.own(() => Store.setSetting("hideProfileTags", v))),
       ),
       this.subsection(S("rulesTitle"),
         rows.length
@@ -1895,6 +1893,7 @@ BetterAnnotations.PaneController = class {
     });
     const labelCol = this.h("div", { class: "bac-labelcol" }, input, this.SB.descriptionsOn() ? this.descriptionEditor(entry) : null);
     const usage = this.h("span", { class: "bac-usage" });
+    const shared = this.h("span", { class: "bac-shared", role: "img", hidden: true });
     const del = this.h("button", {
       class: "bac-del",
       title: S("tipDelete"),
@@ -1902,7 +1901,7 @@ BetterAnnotations.PaneController = class {
       text: "✕",
       on: { click: () => this.removeColor(entry.id) },
     });
-    row.append(handle, visible, pos, swatch, labelCol, usage, del);
+    row.append(handle, visible, pos, swatch, labelCol, shared, usage, del);
     return row;
   }
 
@@ -2005,7 +2004,42 @@ BetterAnnotations.PaneController = class {
       else {
         span.removeAttribute("title");
       }
+      this.updateShared(row.querySelector(".bac-shared"), entry.color);
     }
+  }
+
+  /** Other own profiles with this color: icon with their number, names in the tooltip. */
+  updateShared(el, color) {
+    if (!el) {
+      return;
+    }
+    const names = this.Store.getProfiles()
+      .filter(p => p.id !== this.baseId && (p.colors || []).some(c => this.SB.normalize(c.color) === color))
+      .map(p => p.name);
+    el.hidden = !names.length;
+    el.replaceChildren();
+    if (!names.length) {
+      el.removeAttribute("title");
+      el.removeAttribute("aria-label");
+      return;
+    }
+    const text = this.S("tipSharedColor", { n: names.length, list: this.SB.listText(names) });
+    el.setAttribute("title", text);
+    el.setAttribute("aria-label", text);
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = this.doc.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("width", "12");
+    svg.setAttribute("height", "12");
+    svg.setAttribute("aria-hidden", "true");
+    for (const [x, y] of [[5.5, 1.5], [1.5, 5.5]]) {
+      const r = this.doc.createElementNS(NS, "rect");
+      for (const [k, v] of Object.entries({ x, y, width: 9, height: 9, rx: 2, fill: "none", stroke: "currentColor", "stroke-width": 1.3 })) {
+        r.setAttribute(k, String(v));
+      }
+      svg.append(r);
+    }
+    el.append(svg, this.h("span", { text: String(names.length) }));
   }
 
   updateDirty() {
