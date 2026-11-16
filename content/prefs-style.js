@@ -93,7 +93,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-shared { height: 26px; width: 2.6em; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px;
   font-size: 11px; color: var(--bac-muted); font-variant-numeric: tabular-nums; }
 #bac-root .bac-shared[hidden] { display: inline-flex; visibility: hidden; }
-#bac-root .bac-usage { font-size: 11px; color: var(--bac-muted); width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; }
+#bac-root .bac-usage { gap: 3px; font-size: 11px; color: var(--bac-muted); width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; }
 #bac-root .bac-del { -moz-appearance: none; appearance: none; border: none; background: transparent; color: var(--bac-muted);
   cursor: pointer; font-size: 12px; width: 24px; height: 24px; border-radius: 50%; padding: 0; margin: 0; min-width: 0; }
 #bac-root .bac-del:hover:not(:disabled) { background: rgba(220,40,60,.12); color: #d14; }

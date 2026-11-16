@@ -90,6 +90,10 @@ var BetterAnnotations = {
     profileTagColor: true,
     profileFilterDefault: false,
     tipProfilesShown: false,
+    // Request for feedback (see Feedback): first start, next date, done
+    firstUse: "",
+    feedbackDue: "",
+    feedbackDone: false,
   },
 
   // ---------------------------------------------------------------------
@@ -275,6 +279,13 @@ var BetterAnnotations = {
       this.logError(e);
     }
 
+    try {
+      this.Feedback.init();
+    }
+    catch (e) {
+      this.logError(e);
+    }
+
     this.log("started, version " + version);
   },
 
@@ -303,7 +314,7 @@ var BetterAnnotations = {
   },
 
   shutdown() {
-    for (const part of [this.Panel, this.Reader, this.Library, this.Profiles]) {
+    for (const part of [this.Panel, this.Reader, this.Library, this.Profiles, this.Feedback]) {
       try {
         part.shutdown();
       }
@@ -680,9 +691,14 @@ BetterAnnotations.Store = {
       "showToolbarButton", "showItemPaneSection",
       "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled",
       "descriptionsEnabled", "profilesPerDocument", "profileTagColor", "profileFilterDefault",
-      "tipProfilesShown"]) {
+      "tipProfilesShown", "feedbackDone"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
+      }
+    }
+    for (const key of ["firstUse", "feedbackDue"]) {
+      if (typeof s[key] === "string" && /^\d{4}-\d{2}-\d{2}/.test(s[key])) {
+        out.settings[key] = s[key].slice(0, 10);
       }
     }
     // 1.0.0-beta.2: one toolbar button instead of two; hidden only if both were hidden

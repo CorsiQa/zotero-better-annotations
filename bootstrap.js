@@ -35,6 +35,7 @@ async function startup({ id, version, rootURI }, reason) {
     Services.scriptloader.loadSubScript(rootURI + "content/templates.js");
     Services.scriptloader.loadSubScript(rootURI + "content/library.js");
     Services.scriptloader.loadSubScript(rootURI + "content/profiles.js");
+    Services.scriptloader.loadSubScript(rootURI + "content/feedback.js");
     Services.scriptloader.loadSubScript(rootURI + "content/export.js");
     Services.scriptloader.loadSubScript(rootURI + "content/reader.js");
     Services.scriptloader.loadSubScript(rootURI + "content/panel.js");

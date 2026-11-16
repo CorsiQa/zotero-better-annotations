@@ -14,7 +14,9 @@ Changes for the next release are collected here. The section is renamed to the v
 - Export: text and images share one column “Extract”. Image and drawing annotations show their image there (Excel, HTML) or a placeholder such as “[Image]”
 - Excel export: the number column carries the annotation color instead of a separate column with the hex code; columns are grouped into “Details” and “Source” and can be folded; column widths follow the content; images are scaled to the column width; the “Labels” sheet lists the descriptions
 - HTML export starts with a legend of the labels; Excel and CSV can add a column “Description”
-- After an export, the folder with the file opens
+- After an export, the folder with the file opens. Large exports show their progress and no longer block Zotero; missing images are rendered for at most 25 files per export
+- Areas (export, recolor, assign) are listed from the narrowest to the widest: selected items, document, collection, parent collection, library, all libraries
+- A week after the first start, the plugin asks once whether you want to share your experience and wishes on GitHub (“Remind me later” asks again after 30 days)
 - New palettes “Pastel Bold” and “Neon”; the palette “Light” was removed (profiles keep their colors); sorted palettes always show gray last
 - Settings: unsaved changes to a profile show a bar with “Save” at the bottom of the window in every tab, and closing the settings asks what to do with them. Empty labels no longer have a red dashed border
 - Tooltips of the plugin follow Zotero’s light and dark appearance
@@ -22,7 +24,7 @@ Changes for the next release are collected here. The section is renamed to the v
 - Profile files and full backups include the descriptions; older files remain valid
 - New tab “Advanced” in the settings: descriptions, labels as tags and profile per document are off by default and turned on with a switch in the top right corner of their card. A card that is off is shown muted; its options appear when it is turned on. The tab “Tags & Library” is now called “Library”
 - Settings: text, options, menus and buttons in the cards share one left edge; parts of a card are separated by a thin line. Collections in menus are indented in the list only. Rules for collections keep their buttons in one line
-- The color list shows how many of your other profiles use a color; the tooltip names them. The number of annotations per color is always shown; its option was removed
+- The color list shows how many of your other profiles use a color; the tooltip names them. The number of annotations per color is always shown, with a marker icon instead of “×”; its option was removed
 - Profile per document (turn on under “Advanced”): every document keeps its own profile. When a document opens, the plugin uses the profile last chosen in it, the profile of most of its annotations, the first rule for the collection it was opened from, or the default profile. New annotations get a profile tag such as “ZBA: Reading” (the same in every language), colored in the plugin’s color if Zotero has a free slot for colored tags, also right away in the reader’s sidebar. The default profile can be chosen in the profile card and under “Advanced”. Turning the function on offers to assign existing annotations; turning it off asks whether the tags stay. Without the function, one profile applies to all documents, as before
 - With profile per document, the profile menu in the reader toolbar, in the item pane section and in the separate window lists all profiles in the same order, each with its number of annotations in the document, and “Manage Profiles…”; the tooltip of the profile button says why the document uses its profile. A filter button in the section shows only the annotations of the document’s profile, in the document and in the sidebar (Zotero’s tag filter); annotations without a profile tag can be assigned there
 - Renaming a profile renames its tags, deleting a profile asks what happens to them, and annotations without a profile tag can be assigned to a profile for any area
@@ -31,7 +33,7 @@ Changes for the next release are collected here. The section is renamed to the v
 - Recoloring and export can be limited to one profile; exports take the labels from the profile of each annotation and have a column “Profile”. When colors of a profile change, only its own annotations are recolored
 - Full backups include the rules for collections and the profile chosen per document
 - The buttons of the profile card wrap in groups when the settings window is narrow
-- Reader toolbar: one split button instead of two. Its main part shows the statistics icon, the profile of the document and the number of annotations; hovering or clicking opens the statistics, which also name the profile and why it was chosen. The arrow opens the profile menu. In the settings, toolbar and item pane share one card
+- Reader toolbar: one split button instead of two. Its main part shows the statistics icon, the number of annotations and the profile of the document (“12 · Reading”); hovering or clicking opens the statistics, with one heading per profile (“Reading · 12”; its tooltip says why the profile was chosen). The arrow opens the profile menu. The profile button in the item pane shows the same. In the settings, toolbar and item pane share one card
 - The statistics and the profile menu in the reader toolbar close on a click anywhere outside, also in the document, and with Esc. Statistics opened by hovering stay open while the pointer is on them; the bars have the same height with display scaling
 - Norwegian Bokmål and Swedish are no longer available; the plugin then follows Zotero’s language or uses English
 

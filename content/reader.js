@@ -82,7 +82,7 @@ BetterAnnotations.Reader = {
           for (const el of doc.querySelectorAll("[data-bac-toolbar], [data-bac-panel], #bac-reader-style, .bac-chip")) {
             el.remove();
           }
-          this._tagWatch.get(doc)?.disconnect();
+          this._tagWatch.get(doc)?.observer?.disconnect();
           this._tagWatch.delete(doc);
           for (const el of doc.querySelectorAll("[data-bac-hidden], [data-bac-last], [data-bac-empty], [data-bac-gone]")) {
             for (const a of ["data-bac-hidden", "data-bac-last", "data-bac-empty", "data-bac-gone"]) {
@@ -1213,8 +1213,9 @@ BetterAnnotations.Reader = {
   border-start-start-radius: 0 !important; border-end-start-radius: 0 !important; }
 .bac-tb-split:hover .bac-tb-main:not(:hover), .bac-tb-split:hover .bac-tb-drop:not(:hover) { background: var(--fill-quinary, rgba(127,127,127,.1)); }
 .bac-tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; min-width: 0; }
-.bac-tb-count { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
-.bac-tb-count:empty { display: none; }
+.bac-tb-count { font-size: 12px; font-variant-numeric: tabular-nums; }
+.bac-tb-dot { font-size: 12px; color: var(--fill-secondary, GrayText); }
+.bac-tb-nocount .bac-tb-count, .bac-tb-nocount .bac-tb-dot { display: none; }
 [data-bac-panel] { position: fixed; z-index: 2147483646; min-width: 200px; max-width: 360px; max-height: calc(100vh - 16px); overflow: auto;
   padding: 4px 0; border-radius: 6px; box-sizing: border-box;
   font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -1234,7 +1235,7 @@ BetterAnnotations.Reader = {
 [data-bac-panel] .bac-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 [data-bac-panel] .bac-item-n { margin-inline-start: 12px; font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
 [data-bac-panel] .bac-menu-hint { padding: 4px 12px; max-width: 300px; white-space: normal; font-size: 12px; color: var(--fill-secondary, GrayText); }
-[data-bac-panel] .bac-menu-warn { color: var(--fill-primary, CanvasText); }
+[data-bac-panel] .bac-menu-warn { color: var(--fill-primary, CanvasText); margin-top: 6px; }
 [data-bac-panel] .bac-menu-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
 [data-bac-panel] .bac-others { padding-top: 6px; white-space: normal; }
 [data-bac-panel] .bac-sub { padding: 0 12px 6px; opacity: .7; font-size: 12px; }
@@ -1357,6 +1358,15 @@ BetterAnnotations.Reader = {
       this._scanTimer = win.setInterval(() => {
         // Choose the profile of new readers and prepare their profile tag
         this._safe(() => this.SB.Profiles.openReaders().forEach(r => this.SB.Profiles.forReader(r)));
+        // Profile labels and hidden profile tags in new readers
+        if (this.SB.Profiles.enabled()) {
+          this._safe(() => this.SB.Profiles.openReaders().forEach((r) => {
+            const d = r._iframeWindow && r._iframeWindow.document;
+            if (d && d.body) {
+              this.watchTags(d, r);
+            }
+          }));
+        }
         this._safe(() => this.scanReaders());
         this._safe(() => this.refreshCounts());
       }, 1000);
@@ -1389,7 +1399,11 @@ BetterAnnotations.Reader = {
     name.className = "bac-tb-name";
     const count = doc.createElement("span");
     count.className = "bac-tb-count";
-    statsBtn.append(this.makeIcon(doc, "stats"), name, count);
+    const dot = doc.createElement("span");
+    dot.className = "bac-tb-dot";
+    dot.setAttribute("aria-hidden", "true");
+    dot.textContent = "·";
+    statsBtn.append(this.makeIcon(doc, "stats"), count, dot, name);
 
     const profileBtn = doc.createElement("button");
     profileBtn.className = "toolbar-button bac-tb-drop";
@@ -1513,6 +1527,7 @@ BetterAnnotations.Reader = {
     const source = this.sourceText(rec.reader);
     const n = this.annotationCount(rec.reader);
     rec.count.textContent = n === null ? "" : String(n);
+    rec.wrap.classList.toggle("bac-tb-nocount", n === null);
     const tip = SB.S("tbStatsTip") + (n === null ? "" : ": " + n) + "\n" + SB.S("chipTip", { profile: profileName }) + (source ? "\n" + source : "");
     // No tooltip: hovering shows the statistics, which name the profile
     rec.statsBtn.setAttribute("aria-label", tip.replace(/\n/g, ". "));
@@ -1732,7 +1747,6 @@ BetterAnnotations.Reader = {
     const summary = P.summarize(P.readerList(reader));
     const filtered = P.enabled() && P.filterActive(reader);
     const total = [...summary.byProfile.values()].reduce((a, b) => a + b, 0);
-    const own = summary.byProfile.get(activeId) || 0;
     const others = [...summary.byProfile.keys()].filter(id => id !== activeId);
     const head = doc.createElement("div");
     head.className = "bac-head";
@@ -1755,38 +1769,30 @@ BetterAnnotations.Reader = {
       });
       head.append(btn);
     }
-    // Profile of the document and why
-    const prof = doc.createElement("div");
-    prof.className = "bac-sub bac-profile-line";
-    const source = this.sourceText(reader);
-    prof.textContent = SB.S("chipTip", { profile: P.name(activeId) || P.profileForReader(reader).name }) + (source ? " · " + source : "");
-    const sub = doc.createElement("div");
-    sub.className = "bac-sub";
-    if (!total) {
-      sub.textContent = SB.S("statsEmpty");
-    }
-    else if (filtered) {
-      sub.textContent = SB.S("statsTotalProfile", { n: own, profile: P.name(activeId) });
-    }
-    else {
-      sub.textContent = SB.S("statsTotal", { n: total });
-    }
-    panel.append(head, prof, sub);
+    panel.append(head);
+    // One heading per profile: name · number; the document's profile first,
+    // with the reason for it in the tooltip. No line with the total: the
+    // toolbar shows it.
     const ids = filtered
       ? [activeId]
       : [activeId, ...others].filter(id => id === activeId || summary.byProfile.get(id));
     const max = Math.max(1, ...ids.map(id => Math.max(0, ...(summary.colors.get(id) || new Map()).values())));
+    const source = this.sourceText(reader);
     for (const id of ids) {
-      if (ids.length > 1) {
-        if (!summary.byProfile.get(id)) {
-          continue;
-        }
-        const g = doc.createElement("div");
-        g.className = "bac-group";
-        g.textContent = SB.S("statsProfileGroup", { profile: P.name(id), n: summary.byProfile.get(id) || 0 });
-        panel.append(g);
+      const g = doc.createElement("div");
+      g.className = "bac-group";
+      g.textContent = (P.name(id) || P.profileForReader(reader).name) + " · " + (summary.byProfile.get(id) || 0);
+      if (id === activeId && source) {
+        g.setAttribute("title", source);
       }
+      panel.append(g);
       this.appendStatRows(doc, panel, P.profile(id), summary.colors.get(id) || new Map(), max);
+    }
+    if (!total) {
+      const empty = doc.createElement("div");
+      empty.className = "bac-sub";
+      empty.textContent = SB.S("statsEmpty");
+      panel.append(empty);
     }
     // Hidden profiles: a line with their numbers
     if (filtered && others.length) {
@@ -1883,62 +1889,111 @@ BetterAnnotations.Reader = {
   // Profile in the head of an annotation; profile tags hidden in its tags
   // -------------------------------------------------------------------
 
-  /** Small label with the profile name in the head of an annotation (official interface). */
-  appendProfileChip(doc, params, append) {
+  /** Profile name for a list of tags ({ name } objects), or "" without a profile tag. */
+  profileNameOfTags(tags) {
     const P = this.SB.Profiles;
-    if (!P.enabled() || !params || !params.annotation || typeof append !== "function") {
-      return;
-    }
-    const tags = Array.from(params.annotation.tags || []).map(t => String(t && t.name));
-    const tag = tags.find(t => P.isProfileTag(t));
+    const tag = Array.from(tags || []).map(t => String(t && (t.name ?? t))).find(t => P.isProfileTag(t));
     if (!tag) {
-      return;
+      return "";
     }
     const id = P.idForTag(tag);
-    const name = id ? P.name(id) || tag.slice(P.prefix().length) : tag.slice(P.prefix().length);
-    this.ensureReaderStyle(doc);
-    this.watchTags(doc);
+    return (id && P.name(id)) || tag.slice(P.prefix().length).trim();
+  },
+
+  makeChip(doc, name) {
     const chip = doc.createElement("span");
     chip.className = "bac-chip";
     chip.textContent = name;
     chip.setAttribute("title", this.SB.S("chipTip", { profile: name }));
-    append(chip);
+    return chip;
   },
 
   /**
-   * Hide profile tags in the tag lines of the reader (sidebar and annotation
+   * Small label with the profile name in the head of an annotation, through
+   * the official interface. The sidebar cards also get it from markTags(),
+   * in case the interface does not reach the plugin.
+   */
+  appendProfileChip(doc, params, append) {
+    if (!this.SB.Profiles.enabled() || !params || !params.annotation || typeof append !== "function") {
+      return;
+    }
+    const name = this.profileNameOfTags(params.annotation.tags);
+    if (!name) {
+      return;
+    }
+    this.ensureReaderStyle(doc);
+    append(this.makeChip(doc, name));
+  },
+
+  /**
+   * Watch the reader's document: profile label in the head of each sidebar
+   * card and profile tags hidden in the tag lines (sidebar and annotation
    * popups). Only the display changes: the tags stay on the annotations, in
    * the tag filter and in the export. Zotero renders each tag as
-   * <span class="tag">; the plugin marks these spans and never changes
-   * Zotero's elements otherwise.
+   * <span class="tag">; the plugin marks these spans and puts its label into
+   * the container for plugin content in the card head (.custom-sections).
    */
-  watchTags(doc) {
-    if (this._tagWatch.has(doc)) {
+  watchTags(doc, reader) {
+    const known = this._tagWatch.get(doc);
+    if (known) {
+      known.reader = reader || known.reader;
       return;
     }
-    const win = doc.defaultView;
-    if (!win || !doc.body) {
+    const main = Zotero.getMainWindow && Zotero.getMainWindow();
+    if (!main || !doc.body) {
       return;
     }
-    let pending = false;
-    const observer = new win.MutationObserver(() => {
-      if (pending) {
+    const rec = { reader, pending: false, observer: null };
+    rec.observer = new main.MutationObserver(() => {
+      if (rec.pending) {
         return;
       }
-      pending = true;
-      win.requestAnimationFrame(() => {
-        pending = false;
+      rec.pending = true;
+      this.SB.setTimeout(() => {
+        rec.pending = false;
         this._safe(() => this.markTags(doc));
-      });
+      }, 40);
     });
-    observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
-    this._tagWatch.set(doc, observer);
+    rec.observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
+    this._tagWatch.set(doc, rec);
+    this.ensureReaderStyle(doc);
     this.markTags(doc);
   },
 
   markTags(doc) {
     const P = this.SB.Profiles;
-    const hide = P.enabled() && this.SB.setting("hideProfileTags") !== false;
+    const rec = this._tagWatch.get(doc);
+    const enabled = P.enabled();
+    const hide = enabled && this.SB.setting("hideProfileTags") !== false;
+    // Profile labels in the card heads
+    const names = new Map();
+    if (enabled && rec && rec.reader) {
+      for (const a of Array.from(BetterAnnotations.readerState(rec.reader)?.annotations || [])) {
+        names.set(String(a.id), this.profileNameOfTags(a.tags));
+      }
+    }
+    for (const card of doc.querySelectorAll("[data-sidebar-annotation-id]")) {
+      const box = card.querySelector("header .custom-sections");
+      if (!box) {
+        continue;
+      }
+      const name = names.get(card.getAttribute("data-sidebar-annotation-id")) || "";
+      const chips = Array.from(box.querySelectorAll(".bac-chip"));
+      if (!name) {
+        chips.forEach(c => c.remove());
+        continue;
+      }
+      if (!chips.length) {
+        box.append(this.makeChip(doc, name));
+        continue;
+      }
+      chips.slice(1).forEach(c => c.remove());
+      if (chips[0].textContent !== name) {
+        chips[0].textContent = name;
+        chips[0].setAttribute("title", this.SB.S("chipTip", { profile: name }));
+      }
+    }
+    // Profile tags in the tag lines
     const placeholder = this.SB.S("readerAddTags");
     for (const box of doc.querySelectorAll(".tags")) {
       if (box.closest(".selector")) {
@@ -1978,14 +2033,22 @@ BetterAnnotations.Reader = {
     for (const reader of this.SB.Profiles.openReaders()) {
       try {
         const doc = reader._iframeWindow && reader._iframeWindow.document;
-        if (doc && this._tagWatch.has(doc)) {
+        if (!doc || !doc.body) {
+          continue;
+        }
+        if (this.SB.Profiles.enabled()) {
+          this.watchTags(doc, reader);
+        }
+        if (this._tagWatch.has(doc)) {
           this.markTags(doc);
           if (!this.SB.Profiles.enabled()) {
             doc.querySelectorAll(".bac-chip").forEach(el => el.remove());
           }
         }
       }
-      catch (e) {}
+      catch (e) {
+        this.SB.logError(e);
+      }
     }
   },
 

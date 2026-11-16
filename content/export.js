@@ -46,12 +46,24 @@ BetterAnnotations.Export = {
     const resolver = await SB.Profiles.resolver();
     const index = (await Library.index()).filter(r => !r.del && match(r) && (!options.only || resolver.of(r) === options.only));
     const profileOf = new Map(index.map(r => [r.id, resolver.of(r)]));
+    SB.log("export: " + index.length + " annotations in the area");
     const items = await Library.loadItems(index.map(r => r.id));
     const profiles = this.profileTable();
     const docs = new Map();
     const rendered = new Set();
     const rows = [];
+    let done = 0;
     for (const item of items) {
+      // Let Zotero breathe: large exports must not block the window
+      if (++done % 100 === 0) {
+        if (options.onProgress) {
+          options.onProgress(done, items.length);
+        }
+        await Zotero.Promise.delay(0);
+        if (options.cancelled && options.cancelled()) {
+          return [];
+        }
+      }
       if (!item || !item.isAnnotation || !item.isAnnotation()) {
         continue;
       }
@@ -89,7 +101,7 @@ BetterAnnotations.Export = {
         image: null,
       };
       if (options.images && (type === "image" || type === "ink")) {
-        row.image = await this.image(item, rendered);
+        row.image = await this.image(item, rendered, options);
       }
       rows.push(row);
     }
@@ -251,7 +263,10 @@ BetterAnnotations.Export = {
   },
 
   /** Image of an image or ink annotation from Zotero's cache. */
-  async image(item, rendered) {
+  /** Rendering missing images is slow (whole PDF pages); at most this many files per export. */
+  MAX_RENDERED_FILES: 25,
+
+  async image(item, rendered, options = {}) {
     const IO = this.IO();
     let path = null;
     try {
@@ -261,8 +276,10 @@ BetterAnnotations.Export = {
       return null;
     }
     try {
-      if (!(await IO.exists(path)) && !rendered.has(item.parentItemID) && Zotero.PDFRenderer?.renderAttachmentAnnotations) {
+      if (!(await IO.exists(path)) && !rendered.has(item.parentItemID) && rendered.size < this.MAX_RENDERED_FILES
+        && Zotero.PDFRenderer?.renderAttachmentAnnotations) {
         rendered.add(item.parentItemID);
+        this.SB.log("export: rendering images of file " + item.parentItemID);
         await Zotero.PDFRenderer.renderAttachmentAnnotations(item.parentItemID);
       }
       if (!(await IO.exists(path))) {
@@ -1004,9 +1021,13 @@ BetterAnnotations.Export = {
       await Zotero.File.putContentsAsync(path, this.toHTML(rows, meta));
     }
     else {
+      this.SB.log("export: building xlsx with " + rows.length + " rows");
+      await Zotero.Promise.delay(0);
       const bytes = this.toXLSX(rows, this.codebook(rows, meta.profileObj), meta);
+      this.SB.log("export: writing " + bytes.length + " bytes");
       await this.IO().write(path, bytes);
     }
+    this.SB.log("export: done");
     return rows.length;
   },
 };

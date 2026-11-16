@@ -839,13 +839,18 @@ BetterAnnotations.PanelView = class {
     const S = (k, a) => this.S(k, a);
     const reader = this.Panel.readerOf(this.target);
     const source = reader ? SB.Reader.sourceText(reader) : "";
+    const n = reader ? SB.Reader.annotationCount(reader) : null;
     const b = this.h("button", {
       class: "bac-p-menu",
       "data-key": "profile",
       title: S("panelProfile") + (source ? "\n" + source : ""),
       "aria-haspopup": "menu",
       "aria-label": S("panelProfile") + ": " + profile.name,
-    }, this.h("span", { class: "bac-p-menu-name", text: profile.name }), this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
+    },
+    // As in the reader toolbar: number · profile
+    n === null ? null : this.h("span", { class: "bac-p-menu-n", text: String(n) }),
+    n === null ? null : this.h("span", { class: "bac-p-menu-dot", "aria-hidden": "true", text: "·" }),
+    this.h("span", { class: "bac-p-menu-name", text: profile.name }), this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
     b.addEventListener("click", (e) => {
       e.preventDefault();
       this.openProfileMenu(b, profile.id, summary);
@@ -1246,6 +1251,8 @@ BetterAnnotations.PanelView = class {
 .bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; }
 .bac-p-menu { appearance: none; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px 0 0;
   padding: 0 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
+.bac-p-menu-n { font-variant-numeric: tabular-nums; }
+.bac-p-menu-dot { color: var(--fill-secondary, GrayText); }
 .bac-p-menu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bac-p-caret { display: flex; align-items: center; color: var(--fill-secondary, GrayText); }
 .bac-p-menu:hover, .bac-p-icon:hover, .bac-p-edit-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }

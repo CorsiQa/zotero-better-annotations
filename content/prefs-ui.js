@@ -1423,7 +1423,13 @@ BetterAnnotations.PaneController = class {
         images: format !== "csv" && SB.setting("exportImages") !== false,
         sort: SB.setting("exportSort"),
         only,
+        onProgress: (n, total) => {
+          if (this.exportCount && this.exportCount.isConnected) {
+            this.exportCount.textContent = this.S("exportProgress", { n, total });
+          }
+        },
       });
+      this.exportCount.textContent = this.S("working");
       if (!rows.length) {
         this.alert(this.S("exportNone"));
         return;
@@ -1439,7 +1445,8 @@ BetterAnnotations.PaneController = class {
       });
       this.notice = this.S("exportDone", { n, file: String(path).split(/[\\/]/).pop() });
       this.render();
-      this.revealFile(path);
+      // Only after the file is complete and Zotero has drawn the page again
+      SB.setTimeout(() => this.revealFile(path), 500);
     }
     catch (e) {
       SB.logError(e);
@@ -1996,12 +2003,17 @@ BetterAnnotations.PaneController = class {
         continue;
       }
       const n = this.usage.get(entry.color) || 0;
-      span.textContent = n ? n + "×" : "";
+      span.replaceChildren();
       if (n) {
+        // Marker icon and number, like the icon for other profiles next to it
+        span.append(this.smallIcon("marker"), this.h("span", { text: String(n) }));
         span.setAttribute("title", this.S("tipUsage", { n }));
+        span.setAttribute("role", "img");
+        span.setAttribute("aria-label", this.S("tipUsage", { n }));
       }
       else {
         span.removeAttribute("title");
+        span.removeAttribute("aria-label");
       }
       this.updateShared(row.querySelector(".bac-shared"), entry.color);
     }
@@ -2025,20 +2037,35 @@ BetterAnnotations.PaneController = class {
     const text = this.S("tipSharedColor", { n: names.length, list: this.SB.listText(names) });
     el.setAttribute("title", text);
     el.setAttribute("aria-label", text);
+    el.append(this.smallIcon("profiles"), this.h("span", { text: String(names.length) }));
+  }
+
+  /** 12 px icons of the color list: “profiles” (two squares), “marker” (annotations). */
+  smallIcon(kind) {
     const NS = "http://www.w3.org/2000/svg";
     const svg = this.doc.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", "0 0 16 16");
     svg.setAttribute("width", "12");
     svg.setAttribute("height", "12");
     svg.setAttribute("aria-hidden", "true");
-    for (const [x, y] of [[5.5, 1.5], [1.5, 5.5]]) {
-      const r = this.doc.createElementNS(NS, "rect");
-      for (const [k, v] of Object.entries({ x, y, width: 9, height: 9, rx: 2, fill: "none", stroke: "currentColor", "stroke-width": 1.3 })) {
-        r.setAttribute(k, String(v));
+    const add = (tag, attrs) => {
+      const el = this.doc.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(Object.assign({ fill: "none", stroke: "currentColor", "stroke-width": 1.3,
+        "stroke-linejoin": "round", "stroke-linecap": "round" }, attrs))) {
+        el.setAttribute(k, String(v));
       }
-      svg.append(r);
+      svg.append(el);
+    };
+    if (kind === "profiles") {
+      add("rect", { x: 5.5, y: 1.5, width: 9, height: 9, rx: 2 });
+      add("rect", { x: 1.5, y: 5.5, width: 9, height: 9, rx: 2 });
     }
-    el.append(svg, this.h("span", { text: String(names.length) }));
+    else {
+      // Highlighter over a line of text
+      add("path", { d: "M9.5 2.5l3.5 3.5-5.5 5.5H4v-3.5z" });
+      add("path", { d: "M2 14.5h12" });
+    }
+    return svg;
   }
 
   updateDirty() {

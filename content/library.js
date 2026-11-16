@@ -204,13 +204,14 @@ BetterAnnotations.Library = {
   /** Menu items for the areas; unavailable areas are disabled. */
   scopeOptions(ctx) {
     const S = (k, a) => this.SB.S(k, a);
+    // From the narrowest to the widest area: selection, document, collection, ...
     return [
-      ctx.doc
-        ? { value: "doc", label: S("scopeDoc", { name: ctx.doc.name }), scope: { type: "doc", id: ctx.doc.id }, name: ctx.doc.name }
-        : { value: "doc", label: S("scopeDocNone"), disabled: true },
       ctx.items
         ? { value: "items", label: S("scopeItems", { n: ctx.items.n, name: ctx.items.name }), scope: { type: "items", ids: ctx.items.ids }, name: ctx.items.name }
         : { value: "items", label: S("scopeItemsNone"), disabled: true },
+      ctx.doc
+        ? { value: "doc", label: S("scopeDoc", { name: ctx.doc.name }), scope: { type: "doc", id: ctx.doc.id }, name: ctx.doc.name }
+        : { value: "doc", label: S("scopeDocNone"), disabled: true },
       ctx.collection
         ? { value: "collection", label: S("scopeCollection", { name: ctx.collection.name }), scope: { type: "collection", id: ctx.collection.id }, name: ctx.collection.name }
         : { value: "collection", label: S("scopeCollectionNone"), disabled: true },

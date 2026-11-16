@@ -309,6 +309,28 @@ BetterAnnotations.Profiles = {
     return null;
   },
 
+  /** Rules in their order, each with the set of collection IDs it covers. */
+  ruleCoverage() {
+    const out = [];
+    for (const rule of this.rules()) {
+      const coll = this.collectionOf(rule);
+      if (!coll || !this.Store.getProfile(rule.profileId)) {
+        continue;
+      }
+      const ids = new Set([coll.id]);
+      if (rule.sub !== false) {
+        try {
+          for (const d of coll.getDescendents(false, "collection")) {
+            ids.add(d.id);
+          }
+        }
+        catch (e) {}
+      }
+      out.push({ ids, profileId: rule.profileId });
+    }
+    return out;
+  },
+
   /** Collections that contain the file or its parent item. */
   async collectionsOf(item) {
     const ids = [item.id];
@@ -1288,6 +1310,8 @@ BetterAnnotations.Profiles = {
         SB.logError(e);
       }
     }
+    // Collections each rule covers, computed once (not per file)
+    const coverage = itemCollections.size ? this.ruleCoverage() : [];
     const fallback = this.defaultId();
     const files = new Map();
     const fileProfile = (att, top) => {
@@ -1299,7 +1323,8 @@ BetterAnnotations.Profiles = {
         id = this.majority(perFile.get(att));
       }
       if (!id && itemCollections.size) {
-        id = this.ruleFor([...(itemCollections.get(att) || []), ...(itemCollections.get(top) || [])]);
+        const ids = [...(itemCollections.get(att) || []), ...(itemCollections.get(top) || [])];
+        id = (coverage.find(c => ids.some(x => c.ids.has(x))) || {}).profileId || null;
       }
       id = id || fallback;
       files.set(att, id);
