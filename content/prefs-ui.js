@@ -431,12 +431,11 @@ BetterAnnotations.PaneController = class {
         this.checkbox(S("optShowPopupButton"), settings.showPopupButton !== false, v => set("showPopupButton", v)),
         this.checkbox(S("optInstantTip"), settings.instantTooltip !== false, v => set("instantTooltip", v)),
       ),
-      this.card(S("secToolbar"), S("infoToolbar"), null,
-        this.checkbox(S("optToolbarProfile"), settings.showToolbarProfile !== false, v => set("showToolbarProfile", v)),
-        this.checkbox(S("optToolbarStats"), settings.showToolbarStats !== false, v => set("showToolbarStats", v)),
-      ),
-      this.card(S("secItemPane"), S("infoItemPane"), null,
-        this.checkbox(S("optItemPaneSection"), settings.showItemPaneSection !== false, v => set("showItemPaneSection", v)),
+      this.card(S("secReaderPanes"), S("infoToolbar") + "\n\n" + S("infoItemPane"), null,
+        this.h("div", { class: "bac-checks" },
+          this.checkbox(S("optToolbarButton"), settings.showToolbarButton !== false, v => set("showToolbarButton", v)),
+          this.checkbox(S("optItemPaneSection"), settings.showItemPaneSection !== false, v => set("showItemPaneSection", v)),
+        ),
       ),
     );
 

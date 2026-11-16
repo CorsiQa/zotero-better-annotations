@@ -31,6 +31,7 @@ Changes for the next release are collected here. The section is renamed to the v
 - Recoloring and export can be limited to one profile; exports take the labels from the profile of each annotation and have a column “Profile”. When colors of a profile change, only its own annotations are recolored
 - Full backups include the rules for collections and the profile chosen per document
 - The buttons of the profile card wrap in groups when the settings window is narrow
+- Reader toolbar: one split button instead of two. Its main part shows the statistics icon, the profile of the document and the number of annotations; hovering or clicking opens the statistics, which also name the profile and why it was chosen. The arrow opens the profile menu. In the settings, toolbar and item pane share one card
 - The statistics and the profile menu in the reader toolbar close on a click anywhere outside, also in the document, and with Esc. Statistics opened by hovering stay open while the pointer is on them; the bars have the same height with display scaling
 - Norwegian Bokmål and Swedish are no longer available; the plugin then follows Zotero’s language or uses English
 

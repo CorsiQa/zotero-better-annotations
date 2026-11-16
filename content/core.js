@@ -68,8 +68,7 @@ var BetterAnnotations = {
     showMenuEntry: true,
     showPopupButton: true,
     hideProfileTags: true,
-    showToolbarProfile: true,
-    showToolbarStats: true,
+    showToolbarButton: true,
     statsDescriptions: false,
     keepToolColor: true,
     showItemPaneSection: true,
@@ -678,13 +677,17 @@ BetterAnnotations.Store = {
     out.settings.recentColors = (Array.isArray(s.recentColors) ? s.recentColors : [])
       .map(c => SB.normalize(c)).filter(Boolean).filter((c, i, a) => a.indexOf(c) === i).slice(0, 12);
     for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "hideProfileTags",
-      "showToolbarProfile", "showToolbarStats", "showItemPaneSection",
+      "showToolbarButton", "showItemPaneSection",
       "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled",
       "descriptionsEnabled", "profilesPerDocument", "profileTagColor", "profileFilterDefault",
       "tipProfilesShown"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
       }
+    }
+    // 1.0.0-beta.2: one toolbar button instead of two; hidden only if both were hidden
+    if (typeof s.showToolbarButton !== "boolean" && s.showToolbarProfile === false && s.showToolbarStats === false) {
+      out.settings.showToolbarButton = false;
     }
     if (s.popupLayout === "flow" || s.popupLayout === "fixed") {
       out.settings.popupLayout = s.popupLayout;

@@ -1205,11 +1205,16 @@ BetterAnnotations.Reader = {
 .selection-popup[data-bac-fixed] > :not(.bac-colors) { max-width: 100%; min-width: 0; box-sizing: border-box; overflow-wrap: anywhere; }
 .selection-popup[data-bac-fixed] textarea, .selection-popup[data-bac-fixed] input[type="text"] { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
 .selection-popup[data-bac-fixed] pre, .selection-popup[data-bac-fixed] table, .selection-popup[data-bac-fixed] img { max-width: 100%; overflow: auto; }
-.bac-tb-profile { display: flex; align-items: center; gap: 4px; width: auto !important; max-width: 220px; padding-inline: 6px !important; }
-.bac-tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.bac-tb-caret { display: flex; align-items: center; margin-inline-start: 2px; }
-.bac-tb-stats { display: flex; align-items: center; gap: 4px; width: auto !important; padding-inline: 6px !important; }
-.bac-tb-count { font-size: 12px; font-variant-numeric: tabular-nums; }
+/* Split button: statistics and profile | arrow for the profile menu */
+.bac-tb-split { display: flex; align-items: center; gap: 0; }
+.bac-tb-main { display: flex; align-items: center; gap: 5px; width: auto !important; max-width: 240px; padding-inline: 6px 5px !important;
+  border-start-end-radius: 0 !important; border-end-end-radius: 0 !important; }
+.bac-tb-drop { display: flex; align-items: center; justify-content: center; width: 18px !important; min-width: 18px; padding: 0 !important;
+  border-start-start-radius: 0 !important; border-end-start-radius: 0 !important; }
+.bac-tb-split:hover .bac-tb-main:not(:hover), .bac-tb-split:hover .bac-tb-drop:not(:hover) { background: var(--fill-quinary, rgba(127,127,127,.1)); }
+.bac-tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; min-width: 0; }
+.bac-tb-count { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
+.bac-tb-count:empty { display: none; }
 [data-bac-panel] { position: fixed; z-index: 2147483646; min-width: 200px; max-width: 360px; max-height: calc(100vh - 16px); overflow: auto;
   padding: 4px 0; border-radius: 6px; box-sizing: border-box;
   font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -1317,7 +1322,7 @@ BetterAnnotations.Reader = {
    */
   scanReaders() {
     const SB = this.SB;
-    if (!SB.setting("showToolbarProfile") && !SB.setting("showToolbarStats")) {
+    if (!SB.setting("showToolbarButton")) {
       return;
     }
     let readers = [];
@@ -1374,31 +1379,32 @@ BetterAnnotations.Reader = {
     this.ensureReaderStyle(doc);
     const wrap = doc.createElement("div");
     wrap.setAttribute("data-bac-toolbar", "1");
-    wrap.style.cssText = "display:flex;align-items:center;gap:2px;";
 
-    const profileBtn = doc.createElement("button");
-    profileBtn.className = "toolbar-button bac-tb-profile";
-    profileBtn.setAttribute("tabindex", "-1");
-    profileBtn.setAttribute("title", SB.S("tbProfileTip"));
+    // One split button: the main part shows the statistics (hover or click),
+    // the arrow opens the profile menu, like a split button in Zotero.
+    const statsBtn = doc.createElement("button");
+    statsBtn.className = "toolbar-button bac-tb-main";
+    statsBtn.setAttribute("tabindex", "-1");
     const name = doc.createElement("span");
     name.className = "bac-tb-name";
-    const caret = doc.createElement("span");
-    caret.className = "bac-tb-caret";
-    caret.append(this.makeIcon(doc, "chevron"));
-    profileBtn.append(this.makeIcon(doc, "palette"), name, caret);
+    const count = doc.createElement("span");
+    count.className = "bac-tb-count";
+    statsBtn.append(this.makeIcon(doc, "stats"), name, count);
+
+    const profileBtn = doc.createElement("button");
+    profileBtn.className = "toolbar-button bac-tb-drop";
+    profileBtn.setAttribute("tabindex", "-1");
+    profileBtn.setAttribute("aria-haspopup", "menu");
+    profileBtn.setAttribute("title", SB.S("tbProfileMenu"));
+    profileBtn.setAttribute("aria-label", SB.S("tbProfileMenu"));
+    profileBtn.append(this.makeIcon(doc, "chevron"));
     profileBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.toggleProfileMenu(reader, doc, profileBtn);
+      this.closePanel(doc, "stats");
+      this.toggleProfileMenu(reader, doc, wrap);
     });
 
-    const statsBtn = doc.createElement("button");
-    statsBtn.className = "toolbar-button bac-tb-stats";
-    statsBtn.setAttribute("tabindex", "-1");
-    statsBtn.setAttribute("aria-label", SB.S("tbStatsTip"));
-    const count = doc.createElement("span");
-    count.className = "bac-tb-count";
-    statsBtn.append(this.makeIcon(doc, "stats"), count);
     // Hover shows the statistics; the pointer can move onto them. A click
     // (on the button or inside) keeps them open until a click outside or Esc.
     const win = doc.defaultView;
@@ -1454,7 +1460,8 @@ BetterAnnotations.Reader = {
       pinned = true;
     });
 
-    wrap.append(profileBtn, statsBtn);
+    wrap.className = "bac-tb-split";
+    wrap.append(statsBtn, profileBtn);
     const record = { wrap, name, profileBtn, statsBtn, count, reader };
     this._toolbars.add(record);
     this.updateToolbar(record);
@@ -1501,13 +1508,15 @@ BetterAnnotations.Reader = {
 
   updateToolbar(rec) {
     const SB = this.SB;
-    rec.name.textContent = SB.Profiles.profileForReader(rec.reader).name;
+    const profileName = SB.Profiles.profileForReader(rec.reader).name;
+    rec.name.textContent = profileName;
     const source = this.sourceText(rec.reader);
-    rec.profileBtn.setAttribute("title", SB.S("tbProfileTip") + (source ? "\n" + source : ""));
-    rec.profileBtn.style.display = SB.setting("showToolbarProfile") ? "" : "none";
-    rec.statsBtn.style.display = SB.setting("showToolbarStats") ? "" : "none";
     const n = this.annotationCount(rec.reader);
     rec.count.textContent = n === null ? "" : String(n);
+    const tip = SB.S("tbStatsTip") + (n === null ? "" : ": " + n) + "\n" + SB.S("chipTip", { profile: profileName }) + (source ? "\n" + source : "");
+    // No tooltip: hovering shows the statistics, which name the profile
+    rec.statsBtn.setAttribute("aria-label", tip.replace(/\n/g, ". "));
+    rec.wrap.style.display = SB.setting("showToolbarButton") ? "" : "none";
   },
 
   refreshToolbars() {
@@ -1746,6 +1755,11 @@ BetterAnnotations.Reader = {
       });
       head.append(btn);
     }
+    // Profile of the document and why
+    const prof = doc.createElement("div");
+    prof.className = "bac-sub bac-profile-line";
+    const source = this.sourceText(reader);
+    prof.textContent = SB.S("chipTip", { profile: P.name(activeId) || P.profileForReader(reader).name }) + (source ? " · " + source : "");
     const sub = doc.createElement("div");
     sub.className = "bac-sub";
     if (!total) {
@@ -1757,7 +1771,7 @@ BetterAnnotations.Reader = {
     else {
       sub.textContent = SB.S("statsTotal", { n: total });
     }
-    panel.append(head, sub);
+    panel.append(head, prof, sub);
     const ids = filtered
       ? [activeId]
       : [activeId, ...others].filter(id => id === activeId || summary.byProfile.get(id));
