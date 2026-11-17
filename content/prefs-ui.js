@@ -1327,16 +1327,20 @@ BetterAnnotations.PaneController = class {
         return;
       }
       await this.own(() => this.Store.setSetting("profilesPerDocument", true));
-      this.noticeProfilesChanged(true);
+      let assigned = false;
       if (choice === 0) {
         const changes = await this.Library.planProfileAssignByDocument();
         if (changes.length) {
           await this.runLibraryTask(() => this.Library.run("profileAssignAll", {}, changes));
-          return;
+          assigned = true;
         }
       }
-      await P.syncTagColors();
-      this.render();
+      if (!assigned) {
+        await P.syncTagColors();
+        this.render();
+      }
+      // After the assignment: what the profile tag does and where it is
+      this.noticeProfilesChanged(true);
       return;
     }
     const changes = await this.Library.planRemoveProfileTags();
@@ -1359,17 +1363,27 @@ BetterAnnotations.PaneController = class {
     this.render();
   }
 
-  /** Status after turning “Profile per Document” on or off (also about label tags). */
+  /**
+   * After turning “Profile per Document” on: a dialog on what the profile tag
+   * does and that the reader hides it (read once, so not a notice that fades).
+   * After turning it off: a notice. Both mention stale label tags.
+   */
   noticeProfilesChanged(on) {
     const SB = this.SB;
     const P = SB.Profiles;
-    let text = this.S(on ? "noticeProfilesOn" : "noticeProfilesOff", { profile: P.name(P.defaultId()) });
     // Profiles of annotations change, label tags are not rewritten by themselves
-    if (SB.setting("tagsEnabled") && this.Library.registry.size) {
-      text += " " + this.S("noticeLabelTagsStale");
-    }
+    const stale = SB.setting("tagsEnabled") && this.Library.registry.size ? this.S("noticeLabelTagsStale") : "";
     try {
-      SB.notify(text);
+      if (on) {
+        const text = [
+          this.S("dlgProfileTagText", { profile: P.name(P.defaultId()) }),
+          this.S(SB.setting("hideProfileTags") !== false ? "dlgProfileTagHidden" : "dlgProfileTagShown"),
+          stale,
+        ].filter(Boolean).join("\n\n");
+        Services.prompt.alert(this.win, this.S("dlgProfileTagTitle"), text);
+        return;
+      }
+      SB.notify(this.S("noticeProfilesOff", { profile: P.name(P.defaultId()) }) + (stale ? " " + stale : ""));
     }
     catch (e) {
       SB.logError(e);

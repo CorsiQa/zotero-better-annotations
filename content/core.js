@@ -78,7 +78,7 @@ var BetterAnnotations = {
     statsSharedHint: true,
     panelSharedHint: true,
     panelShowOthers: false, // item pane: also list the other profiles of the document
-    sectionDescriptions: false,
+    sectionDescriptions: true,
     popoutDescriptions: true,
     tagsEnabled: false,
     tagPrefix: "",
@@ -89,7 +89,7 @@ var BetterAnnotations = {
     exportSort: "doc",
     exportImages: true,
     exportLabeledOnly: false,
-    exportDescriptions: false,
+    exportDescriptions: true,
     // Advanced functions, off by default (tab “Advanced”)
     descriptionsEnabled: false,
     profilesPerDocument: false,

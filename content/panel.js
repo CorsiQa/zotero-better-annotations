@@ -1226,7 +1226,8 @@ BetterAnnotations.PanelView = class {
       "aria-haspopup": "menu",
       "aria-label": S("panelProfile") + ": " + profile.name,
     },
-    // As in the reader toolbar: profile · number
+    // “Profile: name · number”; the menu lists the names only
+    this.h("span", { class: "bac-p-menu-label", text: S("profilePrefix") }),
     this.h("span", { class: "bac-p-menu-name", text: profile.name }),
     n === null ? null : this.h("span", { class: "bac-p-menu-dot", "aria-hidden": "true", text: "·" }),
     n === null ? null : this.h("span", { class: "bac-p-menu-n", text: String(n) }),
@@ -1330,7 +1331,10 @@ BetterAnnotations.PanelView = class {
     const next = steps[(steps.indexOf(view) + 1) % steps.length];
     if (target) {
       const label = S("viewState" + view) + "\n" + S("viewNext", { action: S("viewAction" + next) });
-      const btn = this.iconButton("view-" + view, label, () => this.setView(reader, next), view !== "Doc");
+      const btn = this.iconButton("view-" + view, label, () => this.setView(reader, next));
+      // A button in steps, not a switch: the label names the state; a gray
+      // background marks the steps after the first (no accent color)
+      btn.classList.toggle("bac-p-step", view !== "Doc");
       btn.setAttribute("aria-label", S("viewState" + view) + ". " + S("viewNext", { action: S("viewAction" + next) }));
       bar.append(btn);
     }
@@ -1502,7 +1506,6 @@ BetterAnnotations.PanelView = class {
       // Total as a row: its number in the column of the numbers above, a line above it
       const t = SB.Profiles.totals(summary, profile.id, filtered);
       parts.push(this.h("div", { class: "bac-p-row bac-p-total" },
-        this.h("span"),
         this.h("span", { class: "bac-p-name", text: SB.Profiles.totalLabel(filtered) }),
         this.h("span", { class: "bac-p-n", text: String(t.shown) })));
     }
@@ -1656,18 +1659,17 @@ BetterAnnotations.PanelView = class {
 .bac-p-popout { padding: 8px 10px; box-sizing: border-box; }
 .bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; }
 .bac-p-menu { appearance: none; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px 0 0;
-  padding: 0 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
+  padding: 0 7px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
 .bac-p-menu-n { font-variant-numeric: tabular-nums; flex: none; }
 .bac-p-menu-dot { color: var(--fill-secondary, GrayText); flex: none; }
+.bac-p-menu-label { flex: none; color: var(--fill-secondary, GrayText); }
 .bac-p-menu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bac-p-caret { display: flex; align-items: center; color: var(--fill-secondary, GrayText); }
 .bac-p-menu:hover, .bac-p-icon:hover, .bac-p-edit-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 .bac-p-menu:active, .bac-p-icon:active, .bac-p-edit-btn:active, .bac-p-menu[open] { background: var(--fill-quarternary, rgba(127,127,127,.25)); }
 .bac-p-icon { appearance: none; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px;
   margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--fill-secondary, GrayText); }
-.bac-p-icon[aria-pressed="true"] { background: var(--fill-quinary, rgba(127,127,127,.2)); color: var(--fill-primary, CanvasText); }
-/* View button: accent color in the steps after the first (like a repeat button) */
-.bac-p-icon[data-key="btn-view-All"], .bac-p-icon[data-key="btn-view-Only"] { color: var(--accent-blue, #2e7bd1); }
+.bac-p-icon[aria-pressed="true"], .bac-p-icon.bac-p-step { background: var(--fill-quinary, rgba(127,127,127,.2)); color: var(--fill-primary, CanvasText); }
 .bac-p-menu:focus-visible, .bac-p-icon:focus-visible, .bac-p-row:focus-visible, .bac-p-edit-btn:focus-visible {
   outline: var(--width-focus-border, 2px) solid var(--color-focus-border, var(--accent-blue, #2e7bd1)); outline-offset: -1px; }
 .bac-p-fallback { display: flex; flex-direction: column; margin: 0 0 6px; padding: 4px 0; border: 1px solid var(--fill-quinary, #ccc); border-radius: 6px; }
@@ -1704,13 +1706,15 @@ textarea.bac-p-desc-field { -moz-appearance: none; appearance: none; padding: 3p
   border: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); border-radius: 5px;
   outline: 2px solid color-mix(in srgb, var(--accent-blue, #2e7bd1) 55%, transparent); outline-offset: 0; }
 textarea.bac-p-desc-field::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .75; }
-.bac-p-hint { margin-top: 6px; color: var(--fill-secondary, GrayText); font-size: .92em; }
+.bac-p-hint { margin-top: 6px; padding-inline: 7px; color: var(--fill-secondary, GrayText); font-size: .92em; }
 .bac-p-group { margin: 8px 0 2px; padding: 0 7px; font-size: 11px; font-weight: 600; color: var(--fill-secondary, GrayText); }
 .bac-p-group:first-of-type { margin-top: 2px; }
 .bac-p-other { color: var(--fill-secondary, GrayText); }
 .bac-p-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); border-radius: 0;
   font-size: .92em; color: var(--fill-secondary, GrayText); }
-.bac-p-warn { color: var(--fill-primary, CanvasText); }
+.bac-p-total .bac-p-name { grid-column: 1 / 3; }
+/* Warning below a line across the full width, like the total */
+.bac-p-warn { color: var(--fill-primary, CanvasText); margin-top: 8px; padding: 6px 7px 0; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
 .bac-p-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
 .bac-p-link { -moz-appearance: none; appearance: none; border: none; background: none; padding: 0; color: var(--accent-blue, LinkText); font: inherit; cursor: pointer; text-decoration: underline; }
 .bac-p-link:focus-visible { outline: 2px solid var(--color-focus-border, Highlight); outline-offset: 1px; border-radius: 2px; }

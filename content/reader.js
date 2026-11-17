@@ -84,8 +84,8 @@ BetterAnnotations.Reader = {
           }
           this._tagWatch.get(doc)?.observer?.disconnect();
           this._tagWatch.delete(doc);
-          for (const el of doc.querySelectorAll("[data-bac-hidden], [data-bac-last], [data-bac-only], [data-bac-chip]")) {
-            for (const a of ["data-bac-hidden", "data-bac-last", "data-bac-only", "data-bac-chip"]) {
+          for (const el of doc.querySelectorAll("[data-bac-hidden], [data-bac-last], [data-bac-only], [data-bac-chip], [data-bac-centered]")) {
+            for (const a of ["data-bac-hidden", "data-bac-last", "data-bac-only", "data-bac-chip", "data-bac-centered"]) {
               el.removeAttribute(a);
             }
           }
@@ -1212,13 +1212,18 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 .selection-popup[data-bac-fixed] > :not(.bac-colors) { max-width: 100%; min-width: 0; box-sizing: border-box; overflow-wrap: anywhere; }
 .selection-popup[data-bac-fixed] textarea, .selection-popup[data-bac-fixed] input[type="text"] { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
 .selection-popup[data-bac-fixed] pre, .selection-popup[data-bac-fixed] table, .selection-popup[data-bac-fixed] img { max-width: 100%; overflow: auto; }
-/* One button: statistics icon, profile · number, arrow */
+/* One button like Zotero's dropdown buttons: icon (20 px), profile · number (13 px like the toolbar), arrow (8 px) */
 .bac-tb-split { display: flex; align-items: center; gap: 0; }
-.bac-tb-main { display: flex; align-items: center; gap: 5px; width: auto !important; max-width: 260px; padding-inline: 6px 4px !important; }
-.bac-tb-caret { display: flex; align-items: center; margin-inline-start: -1px; }
-.bac-tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; min-width: 0; }
-.bac-tb-count { font-size: 12px; font-variant-numeric: tabular-nums; }
-.bac-tb-dot { font-size: 12px; color: var(--fill-secondary, GrayText); }
+.bac-tb-main { display: flex; align-items: center; gap: 4px; width: auto !important; max-width: 220px; padding-inline: 4px !important; font: inherit; }
+.bac-tb-main > svg { flex: none; }
+.bac-tb-caret { display: flex; align-items: center; flex: none; }
+.bac-tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.bac-tb-count { flex: none; font-variant-numeric: tabular-nums; }
+.bac-tb-dot { flex: none; }
+/* Zotero places its tools in the middle of the free space between the left and
+   the right group, so every button on the right pushed them to the left. With
+   equal groups the tools stay in the middle of the toolbar until space runs out. */
+.toolbar[data-bac-centered] > .start, .toolbar[data-bac-centered] > .end { flex: 1 1 0; }
 .bac-tb-nocount .bac-tb-count, .bac-tb-nocount .bac-tb-dot { display: none; }
 [data-bac-panel] { position: fixed; z-index: 2147483646; min-width: 200px; max-width: 360px; max-height: calc(100vh - 16px); overflow: auto;
   padding: 4px 0; border-radius: 6px; box-sizing: border-box;
@@ -1231,23 +1236,18 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 [data-bac-panel] .bac-sep { height: 1px; margin: 4px 0; background: var(--fill-quinary, rgba(127,127,127,.3)); }
 [data-bac-panel] .bac-head { display: flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 4px 8px 6px 12px; font-weight: 600; min-height: 24px; }
 [data-bac-panel] .bac-head-title { flex: none; }
-[data-bac-panel] .bac-head-profile { appearance: none; display: inline-flex; align-items: center; gap: 3px; min-width: 0; max-width: 65%;
-  margin: 0 0 0 auto; padding: 2px 4px 2px 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; font-weight: normal; cursor: default; }
-[data-bac-panel] .bac-head-profile:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
-[data-bac-panel] .bac-head-profile:focus-visible { outline: 2px solid var(--color-focus-border, #2e7bd1); outline-offset: -1px; }
-[data-bac-panel] .bac-head-profile-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-[data-bac-panel] .bac-head-profile-dot { flex: none; opacity: .6; }
-[data-bac-panel] .bac-head-profile-n { flex: none; font-variant-numeric: tabular-nums; }
 [data-bac-panel] .bac-head-btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px;
-  margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; opacity: .75; cursor: default; }
+  margin: 0; margin-inline-start: auto; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; opacity: .75; cursor: default; }
 [data-bac-panel] .bac-head-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); opacity: 1; }
 [data-bac-panel] .bac-head-btn[aria-pressed="true"] { background: var(--fill-quinary, rgba(127,127,127,.2)); opacity: 1; }
 [data-bac-panel] .bac-head-btn:focus-visible { outline: 2px solid var(--color-focus-border, #2e7bd1); outline-offset: -1px; }
 [data-bac-panel] .bac-group { padding: 6px 12px 2px; font-size: 11px; font-weight: 600; color: var(--fill-secondary, GrayText); }
 [data-bac-panel] .bac-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 [data-bac-panel] .bac-item-n { margin-inline-start: 12px; font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
-[data-bac-panel] .bac-menu-hint { padding: 4px 12px; max-width: 300px; white-space: normal; font-size: 12px; color: var(--fill-secondary, GrayText); }
-[data-bac-panel] .bac-menu-warn { color: var(--fill-primary, CanvasText); margin-top: 6px; }
+/* Hints wrap at the width of the panel and do not widen it */
+[data-bac-panel] .bac-menu-hint, [data-bac-panel] .bac-others { box-sizing: border-box; width: 0; min-width: 100%; }
+[data-bac-panel] .bac-menu-hint { padding: 4px 12px; white-space: normal; font-size: 12px; color: var(--fill-secondary, GrayText); }
+[data-bac-panel] .bac-menu-warn { color: var(--fill-primary, CanvasText); margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
 [data-bac-panel] .bac-menu-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
 [data-bac-panel] .bac-others { padding-top: 6px; white-space: normal; }
 [data-bac-panel] .bac-sub { padding: 0 12px 6px; opacity: .7; font-size: 12px; }
@@ -1258,7 +1258,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 [data-bac-panel] .bac-stat-n { font-variant-numeric: tabular-nums; opacity: .8; }
 [data-bac-panel] .bac-stat-zero .bac-stat-n, [data-bac-panel] .bac-stat-zero .bac-stat-name { opacity: .55; }
 [data-bac-panel] .bac-total { padding-top: 6px; margin-top: 4px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); font-size: 12px; }
-[data-bac-panel] .bac-total .bac-stat-name { color: var(--fill-secondary, GrayText); }
+[data-bac-panel] .bac-total .bac-stat-name { grid-column: 1 / 3; color: var(--fill-secondary, GrayText); }
 [data-bac-panel] .bac-bar { grid-column: 2 / 4; height: 3px; border-radius: 1.5px; margin-top: 2px; }
 [data-bac-panel] .bac-stat-desc { grid-column: 2 / 4; margin: 1px 0 3px; font-size: 12px; line-height: 1.3; white-space: pre-line;
   color: var(--fill-secondary, GrayText); }
@@ -1314,6 +1314,17 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       svg.setAttribute("height", "8");
       svg.setAttribute("viewBox", "0 0 8 8");
       add("path", { d: "M1 2.75 4 5.75 7 2.75", style: "fill:none;stroke:currentColor;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round" });
+    }
+    else if (kind === "bars") {
+      // The four bars of the logo without the card, in the toolbar's color
+      // (20 px like Zotero's toolbar icons; widths 60/44/52/34 of the logo).
+      // Positions in steps of 0.8 px: whole device pixels at 125 % and 250 %.
+      svg.setAttribute("width", "20");
+      svg.setAttribute("height", "20");
+      svg.setAttribute("viewBox", "0 0 20 20");
+      for (const [y, w] of [[2.4, 15.2], [6.4, 11.2], [10.4, 13.6], [14.4, 8.8]]) {
+        add("rect", { x: 2.4, y, width: w, height: 2.4, rx: 1.2, style: "fill:currentColor" });
+      }
     }
     else {
       for (const [x, h] of [[2.5, 6], [6.5, 10], [10.5, 4]]) {
@@ -1407,13 +1418,13 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     const wrap = doc.createElement("div");
     wrap.setAttribute("data-bac-toolbar", "1");
 
-    // One button, like Zotero's toolbar buttons that open a panel (icon,
-    // text, arrow): profile and number of annotations. Hovering shows the
-    // statistics, a click keeps them open; the profile is chosen in them.
+    // One button, like Zotero's dropdown buttons (icon, text, arrow): profile
+    // and number of annotations. A click opens the profile menu (as in the
+    // item pane); hovering or keyboard focus shows the statistics.
     const statsBtn = doc.createElement("button");
     statsBtn.className = "toolbar-button bac-tb-main";
     statsBtn.setAttribute("tabindex", "-1");
-    statsBtn.setAttribute("aria-haspopup", "dialog");
+    statsBtn.setAttribute("aria-haspopup", "menu");
     const name = doc.createElement("span");
     name.className = "bac-tb-name";
     const count = doc.createElement("span");
@@ -1425,20 +1436,24 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     const caret = doc.createElement("span");
     caret.className = "bac-tb-caret";
     caret.append(this.makeIcon(doc, "chevron"));
-    statsBtn.append(this.makeIcon(doc, "stats"), name, dot, count, caret);
+    statsBtn.append(this.makeIcon(doc, "bars"), name, dot, count, caret);
     const profileBtn = null;
 
-    // Hover shows the statistics; the pointer can move onto them. A click
-    // (on the button or inside) keeps them open until a click outside or Esc.
+    // Statistics on hover (and keyboard focus): the pointer can move onto
+    // them; a click inside (funnel) keeps them open until a click outside or Esc.
     const win = doc.defaultView;
     let openTimer = null;
     let closeTimer = null;
     let pinned = false;
+    let menuOpen = false;
     const isOpen = () => !!doc.querySelector("[data-bac-panel=\"stats\"]");
     const unpin = () => {
       pinned = false;
     };
     const open = () => {
+      if (menuOpen) {
+        return;
+      }
       const panel = this.showStats(reader, doc, statsBtn, unpin);
       panel.addEventListener("mouseenter", () => win.clearTimeout(closeTimer));
       panel.addEventListener("mouseleave", () => closeSoon());
@@ -1450,7 +1465,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       win.clearTimeout(closeTimer);
       closeTimer = win.setTimeout(() => {
         const panel = doc.querySelector("[data-bac-panel=\"stats\"]");
-        if (pinned || !panel || panel.matches(":hover") || statsBtn.matches(":hover")) {
+        if (pinned || !panel || panel.matches(":hover") || statsBtn.matches(":hover") || statsBtn.matches(":focus-visible")) {
           return;
         }
         this.closePanel(doc, "stats");
@@ -1468,19 +1483,29 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
         closeSoon();
       }
     });
+    statsBtn.addEventListener("focus", () => {
+      if (statsBtn.matches(":focus-visible") && !isOpen()) {
+        open();
+      }
+    });
+    statsBtn.addEventListener("blur", () => {
+      if (!pinned) {
+        closeSoon();
+      }
+    });
     statsBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       win.clearTimeout(openTimer);
-      if (pinned) {
-        this.closePanel(doc, "stats");
-        pinned = false;
-        return;
-      }
-      if (!isOpen()) {
-        open();
-      }
-      pinned = true;
+      this.closePanel(doc, "stats");
+      pinned = false;
+      // Pressed look while the menu is open, as Zotero's dropdown buttons
+      const opened = this.openReaderProfileMenu(reader, statsBtn, () => this.refreshToolbars(), () => {
+        menuOpen = false;
+        statsBtn.classList.remove("active");
+      });
+      menuOpen = !!opened;
+      statsBtn.classList.toggle("active", menuOpen);
     });
 
     // Right click: hide the button (like toolbars of the operating systems)
@@ -1564,6 +1589,11 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       if (rec.name.textContent !== name) {
         rec.name.textContent = name;
       }
+      // The button is appended before the toolbar is in the document
+      const bar = rec.wrap.closest(".toolbar");
+      if (bar && bar.hasAttribute("data-bac-centered") !== (rec.wrap.style.display !== "none")) {
+        bar.toggleAttribute("data-bac-centered", rec.wrap.style.display !== "none");
+      }
     }
   },
 
@@ -1582,11 +1612,14 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       total = n === null ? "" : P.totalText(P.summarize(P.readerList(rec.reader)), id, P.enabled() && P.filterActive(rec.reader));
     }
     catch (e) {}
-    const tip = SB.S("tbStatsTip") + "\n" + SB.S("chipTip", { profile: profileName }) + (n === null ? "" : " · " + n)
-      + (total ? "\n" + total : "") + (source ? "\n" + source : "");
-    // No tooltip: hovering shows the statistics, which name the profile
-    rec.statsBtn.setAttribute("aria-label", tip.replace(/\n/g, ". "));
-    rec.wrap.style.display = SB.setting("showToolbarButton") ? "" : "none";
+    // No tooltip: hovering shows the statistics. Screen readers hear the
+    // action first (change the profile), the statistics as a description.
+    rec.statsBtn.setAttribute("aria-label", SB.S("tbProfileMenu") + ": " + profileName + (n === null ? "" : ", " + n));
+    rec.statsBtn.setAttribute("aria-description", [SB.S("tbStatsTip"), total, source].filter(Boolean).join(". "));
+    const shown = !!SB.setting("showToolbarButton");
+    rec.wrap.style.display = shown ? "" : "none";
+    // Keep Zotero's tools in the middle of the toolbar while the button is there
+    rec.wrap.closest(".toolbar")?.toggleAttribute("data-bac-centered", shown);
   },
 
   refreshToolbars() {
@@ -1724,17 +1757,17 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
    * opened in the main window below `anchor`. `after` runs once the profile
    * changed.
    */
-  openReaderProfileMenu(reader, anchor, after) {
+  openReaderProfileMenu(reader, anchor, after, onHidden) {
     const SB = this.SB;
     const P = SB.Profiles;
     const main = Zotero.getMainWindow && Zotero.getMainWindow();
     if (!main) {
-      return;
+      return false;
     }
     const win = anchor.ownerDocument.defaultView;
     const r = anchor.getBoundingClientRect();
     const summary = P.summarize(P.readerList(reader));
-    SB.Panel.openProfilePopup({
+    return SB.Panel.openProfilePopup({
       doc: main.document,
       screen: { x: win.mozInnerScreenX + r.left, y: win.mozInnerScreenY + r.bottom + 2 },
       entries: P.menuEntries(summary),
@@ -1744,6 +1777,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
           .then(() => after && after())
           .catch(e => SB.logError(e));
       },
+      onHidden,
     });
   },
 
@@ -1776,34 +1810,6 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     title.className = "bac-head-title";
     title.textContent = SB.S("statsTitle");
     head.append(title);
-    // Profile of the document with its number: the same button as in the item pane
-    const profBtn = doc.createElement("button");
-    profBtn.className = "bac-head-profile";
-    profBtn.setAttribute("aria-haspopup", "menu");
-    const profName = P.profileForReader(reader).name;
-    const source = this.sourceText(reader);
-    profBtn.setAttribute("title", SB.S("tbProfileMenu") + (source ? "\n" + source : ""));
-    profBtn.setAttribute("aria-label", SB.S("tbProfileMenu") + ": " + profName + ", " + totals.own);
-    const profLabel = doc.createElement("span");
-    profLabel.className = "bac-head-profile-name";
-    profLabel.textContent = profName;
-    const profDot = doc.createElement("span");
-    profDot.className = "bac-head-profile-dot";
-    profDot.textContent = "·";
-    const profN = doc.createElement("span");
-    profN.className = "bac-head-profile-n";
-    profN.textContent = String(totals.own);
-    profBtn.append(profLabel, profDot, profN, this.makeIcon(doc, "chevron"));
-    profBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.openReaderProfileMenu(reader, profBtn, () => {
-        if (panel.isConnected) {
-          this.fillStats(reader, doc, panel);
-        }
-      });
-    });
-    head.append(profBtn);
     // Filter “only this profile”: always there with the function, as in the item pane
     if (P.enabled()) {
       const label = SB.S(filtered ? "panelFilterOff" : "panelFilterOn");
@@ -1822,6 +1828,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       head.append(btn);
     }
     panel.append(head);
+    const source = this.sourceText(reader);
     // The document's profile with all its labels (as in the item pane), then
     // the other profiles with the colors they use, then “No profile”
     const ids = filtered ? [activeId] : [activeId, ...others.filter(id => summary.byProfile.get(id))];
@@ -1849,7 +1856,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     const totalN = doc.createElement("span");
     totalN.className = "bac-stat-n";
     totalN.textContent = String(totals.shown);
-    total.append(doc.createElement("span"), totalName, totalN);
+    total.append(totalName, totalN);
     panel.append(total);
     if (filtered) {
       const line = P.othersText(summary, activeId);
