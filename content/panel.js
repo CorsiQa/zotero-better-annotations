@@ -1182,9 +1182,8 @@ BetterAnnotations.PanelView = class {
     // “Profile: name · number”; the menu lists the names only
     this.h("span", { class: "bac-p-menu-label", text: S("profilePrefix") }),
     this.h("span", { class: "bac-p-menu-name", text: profile.name }),
-    n === null ? null : this.h("span", { class: "bac-p-menu-dot", "aria-hidden": "true", text: "·" }),
-    // Number of annotations with the icon of the color list in the settings
-    n === null ? null : this.h("span", { class: "bac-p-menu-n", title: S("tipUsage", { n }) }, this.icon("marker"), String(n)),
+    // “• ✎ n”: number of annotations with the icon of the color list
+    n === null ? null : SB.countLabel(this.doc, n),
     this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
     b.addEventListener("click", (e) => {
       e.preventDefault();
@@ -1424,11 +1423,11 @@ BetterAnnotations.PanelView = class {
     others.sort((a, b) => (a === null) - (b === null));
     if (view === "All" && others.length) {
       // Like the statistics: a heading per profile, the colors it uses
-      parts.push(this.h("div", { class: "bac-p-group", text: profile.name + " · " + (summary.byProfile.get(profile.id) || 0) }));
+      parts.push(this.groupHeading(profile.name, summary.byProfile.get(profile.id) || 0));
       parts.push(listEl);
       for (const id of others) {
         const other = SB.Profiles.profileOrNone(id);
-        parts.push(this.h("div", { class: "bac-p-group", text: SB.Profiles.nameOrNone(id) + " · " + summary.byProfile.get(id) }));
+        parts.push(this.groupHeading(SB.Profiles.nameOrNone(id), summary.byProfile.get(id)));
         const list = this.h("div", { class: "bac-p-list", role: "list" });
         const counts = summary.colors.get(id) || new Map();
         const order = other.colors.map(c => c.color);
@@ -1451,18 +1450,19 @@ BetterAnnotations.PanelView = class {
     }
     else {
       parts.push(listEl);
-      // Other profiles in one line (with the filter they are hidden)
-      const othersText = filtered ? "" : SB.Profiles.othersText(summary, profile.id);
-      if (othersText) {
-        parts.push(this.h("div", { class: "bac-p-hint", text: othersText }));
-      }
     }
     if (target) {
       // Total as a row: its number in the column of the numbers above, a line above it
       const t = SB.Profiles.totals(summary, profile.id, filtered);
-      parts.push(this.h("div", { class: "bac-p-row bac-p-total" },
+      parts.push(this.h("div", { class: "bac-p-row bac-p-total bac-p-line" },
         this.h("span", { class: "bac-p-name", text: SB.Profiles.totalLabel(filtered) }),
         this.h("span", { class: "bac-p-n", text: String(t.shown) })));
+    }
+    // Other profiles in one line below the total, as in the statistics
+    // (not when their headings and colors are shown)
+    const othersText = view === "All" && others.length ? "" : SB.Profiles.othersText(summary, profile.id);
+    if (othersText) {
+      parts.push(this.h("div", { class: "bac-p-hint bac-p-others", text: othersText }));
     }
     // Annotations without a profile tag (older ones, from Zotero's apps): offer to assign them
     const untagged = reader ? SB.Profiles.untaggedCount(reader) : 0;
@@ -1478,7 +1478,7 @@ BetterAnnotations.PanelView = class {
     }
     const shared = SB.setting("panelSharedHint") !== false ? SB.Profiles.sharedColorsText(summary) : "";
     if (shared) {
-      parts.push(this.h("div", { class: "bac-p-hint bac-p-warn", role: "note", text: shared }));
+      parts.push(this.h("div", { class: "bac-p-hint bac-p-warn bac-p-line", role: "note", text: shared }));
     }
     if (showDesc && profile.preset) {
       parts.push(this.h("div", { class: "bac-p-hint", text: S("panelPresetDescHint") }));
@@ -1488,12 +1488,43 @@ BetterAnnotations.PanelView = class {
     }
     this.root.replaceChildren(...parts);
     this.root.classList.add("bac-p-root", "bac-p-" + this.kind);
+    this.bleed();
     if (this.setSummary) {
       try {
         this.setSummary(S("sectionSummary", { n: total, profile: profile.name }));
       }
       catch (e) {}
     }
+  }
+
+  /** Heading of a profile in a list: “Name • ✎ n”. */
+  groupHeading(name, n) {
+    return this.h("div", { class: "bac-p-group" },
+      this.h("span", { class: "bac-p-group-name", text: name }),
+      this.SB.countLabel(this.doc, n));
+  }
+
+  /**
+   * Lines across the whole pane: how far the content is inset from the
+   * edges of Zotero's section (or of the window). Measured, because Zotero
+   * sets the padding of its sections.
+   */
+  bleed() {
+    try {
+      const root = this.root;
+      const r = root.getBoundingClientRect();
+      if (!r.width) {
+        return; // hidden or collapsed: measured at the next render
+      }
+      const cs = root.ownerDocument.defaultView.getComputedStyle(root);
+      const left = r.left + parseFloat(cs.paddingLeft || 0) + parseFloat(cs.borderLeftWidth || 0);
+      const right = r.right - parseFloat(cs.paddingRight || 0) - parseFloat(cs.borderRightWidth || 0);
+      const box = (root.closest("collapsible-section") || root).getBoundingClientRect();
+      const clamp = v => Math.max(0, Math.min(32, Math.round(v)));
+      root.style.setProperty("--bac-bleed-l", clamp(left - box.left) + "px");
+      root.style.setProperty("--bac-bleed-r", clamp(box.right - right) + "px");
+    }
+    catch (e) {}
   }
 
   /** Pencil next to a row: edit (or add) the description. Visible on hover and keyboard focus. */
@@ -1609,16 +1640,14 @@ BetterAnnotations.PanelView = class {
 
   style() {
     const st = this.h("style");
-    st.textContent = `
+    st.textContent = `${this.SB.COUNT_CSS}
 .bac-p-root { font: inherit; color: var(--fill-primary, CanvasText); }
 .bac-p-popout { padding: 8px 10px; box-sizing: border-box; }
 /* Bar with profile and buttons, a line below it (as in the statistics) */
-.bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
+.bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; padding-bottom: 5px; }
 .bac-p-menu { appearance: none; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px 0 0;
   padding: 0 7px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
-.bac-p-menu-n { font-variant-numeric: tabular-nums; flex: none; display: inline-flex; align-items: center; gap: 2px; }
-.bac-p-menu-n svg, .bac-tb-count svg { color: var(--fill-secondary, GrayText); }
-.bac-p-menu-dot { color: var(--fill-secondary, GrayText); flex: none; }
+
 .bac-p-menu-label { flex: none; color: var(--fill-secondary, GrayText); }
 .bac-p-menu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bac-p-caret { display: flex; align-items: center; color: var(--fill-secondary, GrayText); }
@@ -1666,15 +1695,26 @@ textarea.bac-p-desc-field { -moz-appearance: none; appearance: none; padding: 3p
   border: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); border-radius: 5px;
   outline: 2px solid color-mix(in srgb, var(--accent-blue, #2e7bd1) 55%, transparent); outline-offset: 0; }
 textarea.bac-p-desc-field::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .75; }
-.bac-p-hint { margin-top: 6px; padding-inline: 7px; color: var(--fill-secondary, GrayText); font-size: .92em; }
-.bac-p-group { margin: 8px 0 2px; padding: 0 7px; font-size: 11px; font-weight: 600; color: var(--fill-secondary, GrayText); }
+/* Below the lists: total (line above), hints 4 px apart, warning (line above) */
+.bac-p-hint { margin-top: 4px; padding-inline: 7px; color: var(--fill-secondary, GrayText); font-size: .92em; line-height: 1.4; }
+.bac-p-total + .bac-p-hint { margin-top: 2px; }
+/* Heading per profile: the size of the rows, bold and muted */
+.bac-p-group { display: flex; align-items: baseline; min-width: 0; margin: 8px 0 2px; padding: 0 7px; font-weight: 600; color: var(--fill-secondary, GrayText); }
+.bac-p-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bac-p-group:first-of-type { margin-top: 2px; }
 .bac-p-other { color: var(--fill-secondary, GrayText); }
-.bac-p-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); border-radius: 0;
+.bac-p-total { margin-top: 6px; padding-top: 6px; border-radius: 0;
   font-size: .92em; color: var(--fill-secondary, GrayText); }
 .bac-p-total .bac-p-name { grid-column: 1 / 3; }
 /* Warning below a line across the full width, like the total */
-.bac-p-warn { margin-top: 8px; padding: 6px 7px 0; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
+.bac-p-warn { margin-top: 8px; padding: 8px 7px 0; }
+/* Lines from edge to edge of the pane: past the padding of Zotero's section
+   (measured in bleed(): --bac-bleed-l, --bac-bleed-r) */
+.bac-p-line, .bac-p-bar { position: relative; }
+.bac-p-line::after, .bac-p-bar::after { content: ""; position: absolute; left: calc(-1 * var(--bac-bleed-l, 0px)); right: calc(-1 * var(--bac-bleed-r, 0px));
+  border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); pointer-events: none; }
+.bac-p-line::after { top: -1px; }
+.bac-p-bar::after { bottom: 0; }
 .bac-p-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
 .bac-p-link { -moz-appearance: none; appearance: none; border: none; background: none; padding: 0; color: var(--accent-blue, LinkText); font: inherit; cursor: pointer; text-decoration: underline; }
 .bac-p-link:focus-visible { outline: 2px solid var(--color-focus-border, Highlight); outline-offset: 1px; border-radius: 2px; }

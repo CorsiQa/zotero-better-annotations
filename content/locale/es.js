@@ -240,6 +240,8 @@ BetterAnnotations.STRINGS.es = {
   "infoPopup": "La ventana que aparece después de seleccionar texto. Otros complementos, por ejemplo traductores, pueden añadir su propio contenido.\n\n«Adaptar al ancho de la ventana emergente» hace que los colores llenen el espacio disponible. Con un número fijo de colores por fila, la ventana mantiene su ancho y el contenido ancho de otros complementos se ajusta o se desplaza.\n\nQue un color resalte o subraye lo decide el propio interruptor de Zotero bajo los colores. La mitad activa aparece destacada y Zotero recuerda tu última elección.",
   "infoToolbar": "Añade a la barra de herramientas del lector un botón con el perfil del documento y el número de sus anotaciones. Al pasar el cursor por encima ves cuántas anotaciones tiene cada etiqueta; un clic mantiene abiertas las estadísticas. El perfil se elige en las estadísticas. Un clic derecho en el botón lo oculta.",
   "optToolbarButton": "Mostrar el perfil y las anotaciones en la barra de herramientas del lector",
+  "optCenterTools": "Colocar las herramientas de Zotero sobre el centro del documento",
+  "hintCenterTools": "Desactivado: Zotero coloca las herramientas como sin el complemento, en el centro del espacio libre de la barra.",
   "secToolbar": "Barra de herramientas del lector",
   "secSidebar": "Barra lateral",
   "optSharedHint": "Mostrar el aviso sobre colores usados por varios perfiles",

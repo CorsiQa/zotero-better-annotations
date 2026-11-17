@@ -67,6 +67,13 @@ BetterAnnotations.Reader = {
       catch (e) {}
     }
     this._handlers = null;
+    for (const obs of this._centerObservers || []) {
+      try {
+        obs.disconnect();
+      }
+      catch (e) {}
+    }
+    this._centerObservers = [];
     this.endColorDrag();
     this.hideTip();
     this.stopScan();
@@ -84,6 +91,7 @@ BetterAnnotations.Reader = {
           }
           this._tagWatch.get(doc)?.observer?.disconnect();
           this._tagWatch.delete(doc);
+          doc.querySelector(".toolbar")?.style.removeProperty("--bac-center-shift");
           for (const el of doc.querySelectorAll("[data-bac-hidden], [data-bac-last], [data-bac-only], [data-bac-chip], [data-bac-centered]")) {
             for (const a of ["data-bac-hidden", "data-bac-last", "data-bac-only", "data-bac-chip", "data-bac-centered"]) {
               el.removeAttribute(a);
@@ -1169,7 +1177,7 @@ BetterAnnotations.Reader = {
     }
     const style = doc.createElement("style");
     style.id = "bac-reader-style";
-    style.textContent = `
+    style.textContent = `${this.SB.COUNT_CSS}
 /* Profile label in the card head: page left, label and icons right */
 header[data-bac-chip] > .start { flex: 0 1 auto; }
 header[data-bac-chip] > .end { flex: 1 1 0; min-width: 0; }
@@ -1195,13 +1203,13 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 .bac-tb-main > svg { flex: none; }
 .bac-tb-caret { display: flex; align-items: center; flex: none; }
 .bac-tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.bac-tb-count { flex: none; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 2px; }
-.bac-tb-dot { flex: none; }
+
 /* Zotero places its tools in the middle of the free space between the left and
-   the right group, so every button on the right pushed them to the left. With
-   equal groups the tools stay in the middle of the toolbar until space runs out. */
-.toolbar[data-bac-centered] > .start, .toolbar[data-bac-centered] > .end { flex: 1 1 0; }
-.bac-tb-nocount .bac-tb-count, .bac-tb-nocount .bac-tb-dot { display: none; }
+   the right group, so every button on the right pushed them aside. The plugin
+   moves them above the middle of the document (centerTools); they give way
+   only when the groups beside them need the space. */
+.toolbar[data-bac-centered] > .center { transform: translateX(var(--bac-center-shift, 0px)); }
+.bac-tb-nocount .bac-tb-count { display: none; }
 [data-bac-panel] { position: fixed; z-index: 2147483646; min-width: 200px; max-width: 360px; max-height: calc(100vh - 16px); overflow: auto;
   padding: 4px 0; border-radius: 6px; box-sizing: border-box;
   font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -1222,15 +1230,17 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 [data-bac-panel] .bac-head-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 [data-bac-panel] .bac-head-btn[aria-pressed="true"] { background: var(--fill-quinary, rgba(127,127,127,.2)); }
 [data-bac-panel] .bac-head-btn:focus-visible { outline: 2px solid var(--color-focus-border, #2e7bd1); outline-offset: -1px; }
-[data-bac-panel] .bac-group { padding: 6px 12px 2px; font-size: 11px; font-weight: 600; color: var(--fill-secondary, GrayText); }
+/* Heading per profile: the size of the rows, bold and muted */
+[data-bac-panel] .bac-group { display: flex; align-items: baseline; min-width: 0; padding: 8px 12px 2px; font-weight: 600; color: var(--fill-secondary, GrayText); }
+[data-bac-panel] .bac-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-bac-panel] .bac-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 [data-bac-panel] .bac-item-n { margin-inline-start: 12px; font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
 /* Hints wrap at the width of the panel and do not widen it */
 [data-bac-panel] .bac-menu-hint, [data-bac-panel] .bac-others { box-sizing: border-box; width: 0; min-width: 100%; }
-[data-bac-panel] .bac-menu-hint { padding: 4px 12px; white-space: normal; font-size: 12px; color: var(--fill-secondary, GrayText); }
-[data-bac-panel] .bac-menu-warn { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
+[data-bac-panel] .bac-menu-hint { padding: 2px 12px; line-height: 1.4; white-space: normal; font-size: 12px; color: var(--fill-secondary, GrayText); }
+[data-bac-panel] .bac-menu-warn { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
 [data-bac-panel] .bac-menu-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
-[data-bac-panel] .bac-others { padding-top: 6px; white-space: normal; }
+
 [data-bac-panel] .bac-sub { padding: 0 12px 6px; opacity: .7; font-size: 12px; }
 [data-bac-panel] .bac-stat { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding: 3px 12px; }
 [data-bac-panel] .bac-dot { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
@@ -1238,7 +1248,9 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 [data-bac-panel] .bac-stat-name i { opacity: .6; }
 [data-bac-panel] .bac-stat-n { font-variant-numeric: tabular-nums; opacity: .8; }
 [data-bac-panel] .bac-stat-zero .bac-stat-n, [data-bac-panel] .bac-stat-zero .bac-stat-name { opacity: .55; }
-[data-bac-panel] .bac-total { padding-top: 6px; margin-top: 4px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); font-size: 12px; }
+/* Below the lists: total (line above), hints 4 px apart, warning (line above) */
+[data-bac-panel] .bac-total { padding-top: 6px; margin-top: 6px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); font-size: 12px; }
+[data-bac-panel] .bac-total + .bac-menu-hint { margin-top: 2px; }
 [data-bac-panel] .bac-total .bac-stat-name { grid-column: 1 / 3; color: var(--fill-secondary, GrayText); }
 [data-bac-panel] .bac-bar { grid-column: 2 / 4; height: 3px; border-radius: 1.5px; margin-top: 2px; }
 [data-bac-panel] .bac-stat-desc { grid-column: 2 / 4; margin: 1px 0 3px; font-size: 12px; line-height: 1.3; white-space: pre-line;
@@ -1315,9 +1327,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
    */
   scanReaders() {
     const SB = this.SB;
-    if (!SB.setting("showToolbarButton")) {
-      return;
-    }
+    // Also with the button hidden: its place keeps Zotero's tools centered
     let readers = [];
     try {
       readers = Zotero.Reader._readers || [];
@@ -1391,21 +1401,14 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     statsBtn.setAttribute("aria-haspopup", "menu");
     const name = doc.createElement("span");
     name.className = "bac-tb-name";
-    const count = doc.createElement("span");
-    count.className = "bac-tb-count";
-    const dot = doc.createElement("span");
-    dot.className = "bac-tb-dot";
-    dot.setAttribute("aria-hidden", "true");
-    dot.textContent = "·";
     const caret = doc.createElement("span");
     caret.className = "bac-tb-caret";
     caret.append(this.makeIcon(doc, "chevron"));
-    // Number of annotations with the icon of the color list in the settings
-    const countBox = doc.createElement("span");
-    countBox.className = "bac-tb-count";
-    countBox.append(this.makeIcon(doc, "marker"), count);
-    count.className = "bac-tb-num";
-    statsBtn.append(this.makeIcon(doc, "bars"), name, dot, countBox, caret);
+    // “• ✎ n”: number of annotations with the icon of the color list
+    const countBox = this.SB.countLabel(doc, "");
+    countBox.classList.add("bac-tb-count");
+    const count = countBox.querySelector(".bac-count-n");
+    statsBtn.append(this.makeIcon(doc, "bars"), name, countBox, caret);
     const profileBtn = null;
 
     // Statistics on hover (and keyboard focus): the pointer can move onto
@@ -1558,11 +1561,89 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       if (rec.name.textContent !== name) {
         rec.name.textContent = name;
       }
-      // The button is appended before the toolbar is in the document
-      const bar = rec.wrap.closest(".toolbar");
-      if (bar && bar.hasAttribute("data-bac-centered") !== (rec.wrap.style.display !== "none")) {
-        bar.toggleAttribute("data-bac-centered", rec.wrap.style.display !== "none");
+      // The button is appended before the toolbar is in the document; the
+      // check also catches changes no observer reports
+      this.centerTools(rec);
+    }
+  },
+
+  /**
+   * Zotero's tools above the middle of the document (the view between the
+   * sidebar and the right edge), not in the middle of the free space of the
+   * toolbar. They move only as far as the groups beside them allow, with a
+   * gap of 12 px. Setting “centerReaderTools” (on by default) turns it off.
+   */
+  centerTools(rec) {
+    const bar = rec.wrap.closest(".toolbar");
+    if (!bar) {
+      return;
+    }
+    const on = this.SB.setting("centerReaderTools") !== false;
+    if (!on) {
+      if (bar.hasAttribute("data-bac-centered")) {
+        bar.removeAttribute("data-bac-centered");
+        bar.style.removeProperty("--bac-center-shift");
       }
+      return;
+    }
+    bar.setAttribute("data-bac-centered", "true");
+    const doc = bar.ownerDocument;
+    const start = bar.querySelector(":scope > .start");
+    const center = bar.querySelector(":scope > .center");
+    const end = bar.querySelector(":scope > .end");
+    const view = doc.querySelector(".split-view");
+    if (!start || !center || !end) {
+      return;
+    }
+    this.watchCentering(rec, [bar, start, end, view].filter(Boolean));
+    const current = parseFloat(bar.style.getPropertyValue("--bac-center-shift")) || 0;
+    const c = center.getBoundingClientRect();
+    const left = c.left - current;
+    const right = c.right - current;
+    const v = (view || bar).getBoundingClientRect();
+    if (!c.width || !v.width) {
+      return;
+    }
+    const want = (v.left + v.right) / 2 - (left + right) / 2;
+    const GAP = 12;
+    const lo = start.getBoundingClientRect().right + GAP - left;
+    const hi = end.getBoundingClientRect().left - GAP - right;
+    // No room on either side: as Zotero places them
+    const shift = lo > hi ? 0 : Math.round(Math.max(lo, Math.min(want, hi)));
+    if (shift !== current) {
+      bar.style.setProperty("--bac-center-shift", shift + "px");
+    }
+  },
+
+  /** Recenter at once when the toolbar, its groups or the document view change size. */
+  watchCentering(rec, els) {
+    if (rec.centerObserver) {
+      return;
+    }
+    this._centerObservers = this._centerObservers || [];
+    try {
+      // Observer of the main window, as for the tag lines (the reader's own
+      // constructor would call back into a content compartment)
+      const win = Zotero.getMainWindow?.() || rec.wrap.ownerDocument.defaultView;
+      const RO = win.ResizeObserver || rec.wrap.ownerDocument.defaultView.ResizeObserver;
+      if (!RO) {
+        return;
+      }
+      const obs = new RO(() => {
+        if (!rec.wrap.isConnected) {
+          obs.disconnect();
+          return;
+        }
+        this._safe(() => this.centerTools(rec));
+      });
+      for (const el of els) {
+        obs.observe(el);
+      }
+      rec.centerObserver = obs;
+      this._centerObservers.push(obs);
+    }
+    catch (e) {
+      this.SB.log("could not watch the toolbar: " + e);
     }
   },
 
@@ -1587,8 +1668,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     rec.statsBtn.setAttribute("aria-description", [SB.S("tbStatsTip"), total, source].filter(Boolean).join(". "));
     const shown = !!SB.setting("showToolbarButton");
     rec.wrap.style.display = shown ? "" : "none";
-    // Keep Zotero's tools in the middle of the toolbar while the button is there
-    rec.wrap.closest(".toolbar")?.toggleAttribute("data-bac-centered", shown);
+    this.centerTools(rec);
   },
 
   refreshToolbars() {
@@ -1818,7 +1898,10 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       if (ids.length > 1) {
         const g = doc.createElement("div");
         g.className = "bac-group";
-        g.textContent = P.nameOrNone(id) + " · " + (summary.byProfile.get(id) || 0);
+        const gName = doc.createElement("span");
+        gName.className = "bac-group-name";
+        gName.textContent = P.nameOrNone(id);
+        g.append(gName, SB.countLabel(doc, summary.byProfile.get(id) || 0));
         if (id === activeId && source) {
           g.setAttribute("title", source);
         }
@@ -1842,7 +1925,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       const line = P.othersText(summary, activeId);
       if (line) {
         const el = doc.createElement("div");
-        el.className = "bac-sub bac-others";
+        el.className = "bac-menu-hint bac-others";
         el.textContent = line;
         panel.append(el);
       }

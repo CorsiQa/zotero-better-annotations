@@ -240,6 +240,8 @@ BetterAnnotations.STRINGS.it = {
   "infoPopup": "Il popup che compare dopo aver selezionato del testo. Altri plugin, per esempio i traduttori, possono aggiungere i propri contenuti.\n\nCon «Adatta alla larghezza del popup» i colori riempiono lo spazio disponibile. Con un numero fisso di colori per riga, il popup mantiene la sua larghezza e i contenuti larghi di altri plugin vanno a capo o scorrono.\n\nSe un colore evidenzia o sottolinea lo decide l’interruttore di Zotero sotto i colori. La metà attiva è messa in risalto e Zotero ricorda la tua ultima scelta.",
   "infoToolbar": "Aggiunge alla barra degli strumenti del lettore un pulsante con il profilo del documento e il numero delle sue annotazioni. Passandoci sopra vedi quante annotazioni ha ogni etichetta; un clic tiene aperte le statistiche. Il profilo si sceglie nelle statistiche. Un clic destro sul pulsante lo nasconde.",
   "optToolbarButton": "Mostra il profilo e le annotazioni nella barra degli strumenti del lettore",
+  "optCenterTools": "Posiziona gli strumenti di Zotero sopra il centro del documento",
+  "hintCenterTools": "Disattivato: Zotero dispone gli strumenti come senza il plugin, al centro dello spazio libero della barra.",
   "secToolbar": "Barra degli strumenti del lettore",
   "secSidebar": "Barra laterale",
   "optSharedHint": "Mostra l’avviso sui colori usati da più profili",

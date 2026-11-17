@@ -240,6 +240,8 @@ BetterAnnotations.STRINGS.en = {
   "infoPopup": "The popup that appears after you select text. Other plugins, for example translators, can add their own content to it.\n\n“Adapt to the popup width” lets the colors fill the available space. With a fixed number of colors per row, the popup keeps its width and wide content from other plugins wraps or scrolls.\n\nWhether a color creates a highlight or an underline is set by Zotero’s own toggle below the colors. The active half is highlighted, and Zotero remembers your last choice.",
   "infoToolbar": "Adds a button to the reader toolbar with the profile of the document and the number of its annotations. Hover over it to see how many annotations each label has; a click keeps the statistics open. You choose the profile in the statistics. A right click on the button hides it.",
   "optToolbarButton": "Show the profile and the annotations in the reader toolbar",
+  "optCenterTools": "Place Zotero's tools above the middle of the document",
+  "hintCenterTools": "Off: Zotero places the tools as without the plugin, in the middle of the free space of the toolbar.",
   "secToolbar": "Reader toolbar",
   "secSidebar": "Sidebar",
   "optSharedHint": "Show the warning about colors used by several profiles",

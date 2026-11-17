@@ -478,7 +478,7 @@ BetterAnnotations.PaneController = class {
     this.panels.get("about").append(
       this.card(S("secAbout"), null, null,
         this.h("div", { class: "bac-prose" }, ...String(S("aboutText")).split("\n\n").map(t => this.h("p", { class: "bac-about-text", text: t }))),
-        this.h("div", { class: "bac-hint", text: S("versionLabel", { v: SB.version || "?" }) + " · "
+        this.h("div", { class: "bac-hint bac-about-meta", text: S("versionLabel", { v: SB.version || "?" }) + " · "
           + S("aboutCompat", { min: P.zoteroMin, max: P.zoteroMax }) + " · " + S("aboutLicense", { license: P.license })
             + (P.author ? " · " + S("aboutAuthor", { author: P.author }) : "") }),
       ),
@@ -1296,6 +1296,9 @@ BetterAnnotations.PaneController = class {
       on && SB.descriptionsOn()
         ? this.checkbox(S("optStatsDescriptions"), SB.setting("statsDescriptions") !== false, v => set("statsDescriptions", v))
         : null,
+      // Not part of the button: stays when the button is off
+      this.checkbox(S("optCenterTools"), SB.setting("centerReaderTools") !== false, v => set("centerReaderTools", v)),
+      this.hint(S("hintCenterTools")),
     );
   }
 
@@ -2095,8 +2098,8 @@ BetterAnnotations.PaneController = class {
       text: "✕",
       on: { click: () => this.removeColor(entry.id) },
     });
-    // Annotations with this color first, then the other profiles with it
-    row.append(handle, visible, pos, swatch, labelCol, usage, shared, del);
+    // Other profiles with this color, then the annotations with it
+    row.append(handle, visible, pos, swatch, labelCol, shared, usage, del);
     return row;
   }
 

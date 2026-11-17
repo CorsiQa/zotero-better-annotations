@@ -95,10 +95,10 @@ BetterAnnotations.PREFS_CSS = `
   outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
 #bac-root .bac-indent { padding-inline-start: 22px; }
 /* Other profiles with this color; fixed width, so all label fields are equally wide */
-#bac-root .bac-shared { height: 24px; width: 2.4em; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; margin-inline-start: -2px;
+#bac-root .bac-shared { height: 24px; width: 2.4em; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px;
   font-size: 11px; color: var(--bac-muted); font-variant-numeric: tabular-nums; }
 #bac-root .bac-shared[hidden] { display: inline-flex; visibility: hidden; }
-#bac-root .bac-usage { gap: 2px; font-size: 11px; color: var(--bac-muted); width: 2.6em; text-align: right; font-variant-numeric: tabular-nums; }
+#bac-root .bac-usage { gap: 2px; font-size: 11px; color: var(--bac-muted); width: 2.6em; margin-inline-start: -4px; text-align: right; font-variant-numeric: tabular-nums; }
 #bac-root .bac-del { -moz-appearance: none; appearance: none; border: none; background: transparent; color: var(--bac-muted);
   cursor: pointer; font-size: 12px; width: 24px; height: 24px; border-radius: 50%; padding: 0; margin: 0; min-width: 0; }
 #bac-root .bac-del:hover:not(:disabled) { background: rgba(220,40,60,.12); color: #d14; }
@@ -197,6 +197,8 @@ BetterAnnotations.PREFS_CSS = `
 /* A text of several paragraphs: one row */
 #bac-root .bac-prose > p { margin: 0 0 6px; }
 #bac-root .bac-prose > :last-child { margin-bottom: 0; }
+/* Version line below the About text: more space than between its paragraphs */
+#bac-root .bac-card-body > .bac-hint.bac-about-meta:not(.bac-hint-row) { margin-top: 2px; }
 /* A hint explains the row above it */
 #bac-root .bac-card-body > .bac-hint:not(.bac-hint-row), #bac-root .bac-box > .bac-hint:not(.bac-hint-row) { margin: -4px 0 0; padding-bottom: 8px; }
 #bac-root .bac-card .bac-bar { flex-wrap: wrap; }

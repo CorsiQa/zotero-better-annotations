@@ -52,14 +52,17 @@ Changes for the next release are collected here. The section is renamed to the v
 - Settings: cards with a frame, a light gray head with title, a short description and a smaller “i” for longer explanations, and lines across the full width between groups of options (none between options that belong together). Options have a label on the left and their control right-aligned; menus share one narrower width, numbers have their own field with − and +. Lighter switch colors, one corner radius for header, tabs and cards. The language menu explains itself in a tooltip instead of an “i”. “Rules for collections” has a short explanation and an “i”. The About text describes the current functions; the credits have no bullets
 - The profile label in the head of an annotation keeps 4 px more distance to the next icon
 - Norwegian Bokmål and Swedish are no longer available; the plugin then follows Zotero’s language or uses English
-- Zotero's tools stay in the middle of the reader toolbar, also with a long profile name; before, every button on the right moved them to the left
+- Zotero's tools in the reader toolbar stand above the middle of the document, also with a long profile name, and move aside only when the window gets too narrow; before, every button on the right moved them to the left. A setting in “Appearance” turns this off (on by default)
 - After turning on “Profile per Document”, a dialog explains what the profile tag does and that the reader hides it in the tag line of an annotation; the “i” of the card explains it too
 - With descriptions turned on, they appear in the item pane section and as a column in exports by default
 - The explanation of the profile card with “Profile per Document” showed an outdated text
 - With “Profile per Document”, a new color moves an annotation into the profile that has the color, if its own profile does not have it: from the item pane, by drag and drop and from the reader's color menus. Color and profile tag change in one step, so Ctrl+Z undoes both. A color dragged from the list of another profile puts the annotation there
 - Icons of the item pane, the statistics and the color list share one line weight and size
 - The pencil next to a label no longer stays after a click on the label
-- Settings: lines between rows reach from edge to edge also next to checkboxes; options that belong together (from and to, arrangement and number, the profile buttons, the actions of the color list) share a row. The number field centers its value and signs. Tabs show a gray background on hover; “Colors and Profiles” instead of “Colors & Profiles”. The color list shows the number of annotations before the number of other profiles. Popovers, templates and the color rows use the same corner radius as the rest
+- Settings: lines between rows reach from edge to edge also next to checkboxes; options that belong together (from and to, arrangement and number, the profile buttons, the actions of the color list) share a row. The number field centers its value and signs. Tabs show a gray background on hover; “Colors and Profiles” instead of “Colors & Profiles”. Popovers, templates and the color rows use the same corner radius as the rest
+- A name with its number of annotations reads “Name • ✎ n” in the toolbar, the item pane and the headings of profiles in the statistics and the item pane, with a stronger dot and the annotation icon in the middle of the digits; the headings of profiles have the size of the rows
+- Item pane: lines reach from edge to edge of the pane; “Other profiles” stands below the total, as in the statistics. Below the lists, the item pane and the statistics use the same spacing, size and color for the total, hints and the warning
+- About: more space above the line with the version
 
 ## 1.0.0-beta.1 – 2026-11-13
 

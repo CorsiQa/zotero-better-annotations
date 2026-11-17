@@ -240,6 +240,8 @@ BetterAnnotations.STRINGS.fr = {
   "infoPopup": "La fenêtre qui apparaît après la sélection d’un texte. D’autres modules, par exemple des traducteurs, peuvent y ajouter leur propre contenu.\n\nAvec « S’adapter à la largeur de la fenêtre », les couleurs remplissent l’espace disponible. Avec un nombre fixe de couleurs par ligne, la fenêtre garde sa largeur et le contenu large d’autres modules passe à la ligne ou défile.\n\nC’est l’interrupteur de Zotero sous les couleurs qui détermine si une couleur surligne ou souligne. La moitié active est mise en évidence et Zotero mémorise votre dernier choix.",
   "infoToolbar": "Ajoute à la barre d’outils du lecteur un bouton avec le profil du document et le nombre de ses annotations. Survolez-le pour voir combien d’annotations porte chaque libellé ; un clic garde les statistiques ouvertes. Le profil se choisit dans les statistiques. Un clic droit sur le bouton le masque.",
   "optToolbarButton": "Afficher le profil et les annotations dans la barre d’outils du lecteur",
+  "optCenterTools": "Placer les outils de Zotero au-dessus du centre du document",
+  "hintCenterTools": "Désactivé : Zotero place les outils comme sans le module, au milieu de l’espace libre de la barre.",
   "secToolbar": "Barre d’outils du lecteur",
   "secSidebar": "Barre latérale",
   "optSharedHint": "Afficher l’avertissement sur les couleurs utilisées par plusieurs profils",

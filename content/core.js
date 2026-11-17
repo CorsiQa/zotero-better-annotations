@@ -71,6 +71,8 @@ var BetterAnnotations = {
     showPopupButton: true,
     hideProfileTags: true,
     showToolbarButton: true,
+    // Zotero's tools in the reader toolbar above the middle of the document
+    centerReaderTools: true,
     statsDescriptions: false,
     keepToolColor: true,
     showItemPaneSection: true,
@@ -527,6 +529,37 @@ var BetterAnnotations = {
     }
     return this.stockName(color) || this.S("noLabel");
   },
+
+  /**
+   * “• ✎ n” after a name: separator dot and number of annotations with the
+   * icon of the color list (UI guidelines 7.5). Returns one element; numEl is
+   * the text of the number, for updates.
+   */
+  countLabel(doc, n) {
+    const box = doc.createElement("span");
+    box.className = "bac-count";
+    const dot = doc.createElement("span");
+    dot.className = "bac-sepdot";
+    dot.setAttribute("aria-hidden", "true");
+    const num = doc.createElement("span");
+    num.className = "bac-count-n";
+    num.textContent = n === null || n === undefined ? "" : String(n);
+    box.append(dot, this.Icons.make(doc, "marker", 14), num);
+    return box;
+  },
+
+  /**
+   * CSS for countLabel(), in em so it fits every font size. The dot and the
+   * icon sit on the baseline and are moved to the middle of the digits
+   * (about .35em above the baseline), not to the middle of the line box.
+   */
+  COUNT_CSS: `
+.bac-count { display: inline-flex; align-items: baseline; flex: none; font-variant-numeric: tabular-nums; }
+.bac-sepdot { flex: none; width: .24em; height: .24em; margin: 0 .35em; border-radius: 50%; background: currentColor; opacity: .75;
+  position: relative; top: -.25em; }
+.bac-count > svg { flex: none; width: 1.1em; height: 1.1em; margin: -.3em .12em 0 0; position: relative; top: .17em;
+  color: var(--fill-secondary, GrayText); }
+`,
 
   /** Name under which a color is shown (e.g. in lists and statistics). */
   displayName(color, profile) {

@@ -240,6 +240,8 @@ BetterAnnotations.STRINGS.pt = {
   "infoPopup": "A janela que aparece depois de selecionar texto. Outros plugins, como tradutores, podem adicionar conteúdo próprio a ela.\n\n“Ajustar à largura da janela” faz as cores ocuparem o espaço disponível. Com um número fixo de cores por linha, a janela mantém a largura e conteúdo largo de outros plugins quebra a linha ou rola.\n\nSe uma cor cria um realce ou um sublinhado é definido pelo próprio seletor do Zotero abaixo das cores. A metade ativa fica destacada, e o Zotero lembra sua última escolha.",
   "infoToolbar": "Adiciona à barra de ferramentas do leitor um botão com o perfil do documento e o número das suas anotações. Ao passar o cursor, vê quantas anotações tem cada rótulo; um clique mantém as estatísticas abertas. O perfil é escolhido nas estatísticas. Um clique com o botão direito no botão o oculta.",
   "optToolbarButton": "Mostrar o perfil e as anotações na barra de ferramentas do leitor",
+  "optCenterTools": "Posicionar as ferramentas do Zotero acima do centro do documento",
+  "hintCenterTools": "Desativado: o Zotero posiciona as ferramentas como sem o plugin, no centro do espaço livre da barra.",
   "secToolbar": "Barra de ferramentas do leitor",
   "secSidebar": "Barra lateral",
   "optSharedHint": "Mostrar o aviso sobre cores usadas por vários perfis",

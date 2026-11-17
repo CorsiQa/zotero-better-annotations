@@ -240,6 +240,8 @@ BetterAnnotations.STRINGS.pl = {
   "infoPopup": "Okno, które pojawia się po zaznaczeniu tekstu. Inne wtyczki, na przykład tłumacze, mogą dodawać do niego własną treść.\n\n„Dopasuj do szerokości okna” pozwala kolorom wypełnić dostępne miejsce. Przy stałej liczbie kolorów w wierszu okno zachowuje szerokość, a szeroka treść innych wtyczek jest zawijana lub przewijana.\n\nTo, czy kolor tworzy wyróżnienie, czy podkreślenie, ustala własny przełącznik Zotero pod kolorami. Aktywna połowa jest wyróżniona, a Zotero zapamiętuje ostatni wybór.",
   "infoToolbar": "Dodaje do paska narzędzi czytnika przycisk z profilem dokumentu i liczbą jego adnotacji. Po najechaniu kursorem widać, ile adnotacji ma każda etykieta; kliknięcie zostawia statystykę otwartą. Profil wybierasz w statystyce. Kliknięcie prawym przyciskiem ukrywa przycisk.",
   "optToolbarButton": "Pokazuj profil i adnotacje na pasku narzędzi czytnika",
+  "optCenterTools": "Umieść narzędzia Zotero nad środkiem dokumentu",
+  "hintCenterTools": "Wyłączone: Zotero układa narzędzia jak bez wtyczki, na środku wolnego miejsca paska.",
   "secToolbar": "Pasek narzędzi czytnika",
   "secSidebar": "Pasek boczny",
   "optSharedHint": "Pokazuj ostrzeżenie o kolorach używanych przez kilka profili",
