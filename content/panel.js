@@ -130,6 +130,7 @@ BetterAnnotations.Panel = {
     }
   },
 
+  /** Register the section in Zotero's item pane (Zotero 7+). */
   registerSection() {
     const SB = this.SB;
     if (!Zotero.ItemPaneManager?.registerSection) {
@@ -1007,6 +1008,7 @@ BetterAnnotations.PanelView = class {
     return this.SB.S(key, args);
   }
 
+  /** Create an HTML element with attributes, event handlers (on…) and children. */
   h(tag, attrs, ...children) {
     const el = this.doc.createElementNS("http://www.w3.org/1999/xhtml", tag);
     for (const [k, v] of Object.entries(attrs || {})) {
@@ -1253,6 +1255,7 @@ BetterAnnotations.PanelView = class {
     anchor.after(menu);
   }
 
+  /** Build the content: profile bar, legend with counts, hints and other profiles. */
   _build() {
     const SB = this.SB;
     const S = (k, a) => this.S(k, a);
@@ -1514,15 +1517,26 @@ BetterAnnotations.PanelView = class {
       const root = this.root;
       const r = root.getBoundingClientRect();
       if (!r.width) {
-        return; // hidden or collapsed: measured at the next render
+        // Not laid out yet (section closed or just added): try again a few frames later
+        if ((this._bleedTries = (this._bleedTries || 0) + 1) <= 10) {
+          root.ownerDocument.defaultView.requestAnimationFrame(() => this.bleed());
+        }
+        return;
       }
+      this._bleedTries = 0;
       const cs = root.ownerDocument.defaultView.getComputedStyle(root);
       const left = r.left + parseFloat(cs.paddingLeft || 0) + parseFloat(cs.borderLeftWidth || 0);
       const right = r.right - parseFloat(cs.paddingRight || 0) - parseFloat(cs.borderRightWidth || 0);
-      const box = (root.closest("collapsible-section") || root).getBoundingClientRect();
+      // Zotero pads the scrolling item pane (.zotero-view-item, 8 px), not
+      // the section; the window pads our own root. Measured inside the
+      // border and without the scrollbar (clientLeft, clientWidth).
+      const pane = root.closest(".zotero-view-item") || root;
+      const p = pane.getBoundingClientRect();
+      const paneLeft = p.left + pane.clientLeft;
+      const paneRight = paneLeft + (pane.clientWidth || p.width);
       const clamp = v => Math.max(0, Math.min(32, Math.round(v)));
-      root.style.setProperty("--bac-bleed-l", clamp(left - box.left) + "px");
-      root.style.setProperty("--bac-bleed-r", clamp(box.right - right) + "px");
+      root.style.setProperty("--bac-bleed-l", clamp(left - paneLeft) + "px");
+      root.style.setProperty("--bac-bleed-r", clamp(paneRight - right) + "px");
     }
     catch (e) {}
   }
@@ -1642,7 +1656,6 @@ BetterAnnotations.PanelView = class {
     const st = this.h("style");
     st.textContent = `${this.SB.COUNT_CSS}
 .bac-p-root { font: inherit; color: var(--fill-primary, CanvasText); }
-.bac-p-popout { padding: 8px 10px; box-sizing: border-box; }
 /* Bar with profile and buttons, a line below it (as in the statistics) */
 .bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; padding-bottom: 5px; }
 .bac-p-menu { appearance: none; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px 0 0;

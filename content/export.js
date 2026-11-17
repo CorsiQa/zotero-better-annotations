@@ -269,6 +269,7 @@ BetterAnnotations.Export = {
   /** Rendering missing images is slow (whole PDF pages); at most this many files per export. */
   MAX_RENDERED_FILES: 25,
 
+  /** PNG of an image annotation from Zotero's cache; renders it first if requested and missing. */
   async image(item, rendered, options = {}) {
     const IO = this.IO();
     let path = null;
@@ -484,6 +485,7 @@ BetterAnnotations.Export = {
     return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   },
 
+  /** A standalone HTML page: rows grouped by document, colors as badges, images embedded. */
   toHTML(rows, meta) {
     const SB = this.SB;
     const S = (k, a) => SB.S(k, a);
@@ -959,6 +961,7 @@ BetterAnnotations.Export = {
     return (crc ^ 0xffffffff) >>> 0;
   },
 
+  /** A minimal ZIP archive without compression (enough for XLSX). files: [{ name, data: Uint8Array }]. */
   zip(files) {
     const chunks = [];
     const central = [];

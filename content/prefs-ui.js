@@ -121,6 +121,7 @@ BetterAnnotations.PaneController = class {
     return cb;
   }
 
+  /** A XUL menulist from [{ value, label }] that calls onSelect with the chosen value. */
   menulist(items, selected, onSelect) {
     const doc = this.doc;
     const ml = doc.createXULElement("menulist");
@@ -1001,6 +1002,7 @@ BetterAnnotations.PaneController = class {
     }
   }
 
+  /** React to changes made elsewhere (reader, item pane) unless this page made them. */
   onStoreChange(what) {
     if (this._self) {
       return;
@@ -1058,6 +1060,7 @@ BetterAnnotations.PaneController = class {
     return this.SB.Library;
   }
 
+  /** Card for color tags: switch, prefix and the tags currently used. */
   renderTags() {
     const S = (k, a) => this.S(k, a);
     const enabled = !!this.SB.setting("tagsEnabled");
@@ -1142,6 +1145,7 @@ BetterAnnotations.PaneController = class {
     return names.join(" › ");
   }
 
+  /** Card for profiles per document and per collection (rules). */
   renderDocProfiles() {
     const S = (k, a) => this.S(k, a);
     const Store = this.Store;
@@ -1597,6 +1601,7 @@ BetterAnnotations.PaneController = class {
     this.setDisabled(this.exportBtn, !n);
   }
 
+  /** Ask for a file and write the annotations in the chosen format. */
   async exportAnnotations() {
     const SB = this.SB;
     const E = SB.Export;
@@ -1803,6 +1808,7 @@ BetterAnnotations.PaneController = class {
     this.render();
   }
 
+  /** Change all annotations of one color to another, after a preview and with a backup. */
   async manualRecolor() {
     const from = this.recolorFrom;
     const to = this.recolorTo;
@@ -1919,6 +1925,7 @@ BetterAnnotations.PaneController = class {
     }
   }
 
+  /** Popover to replace the color list with a palette. */
   openPaletteMenu(anchor) {
     if (this.popover) {
       this.closePopover();
@@ -2040,6 +2047,7 @@ BetterAnnotations.PaneController = class {
     this.updateUsage();
   }
 
+  /** One row of the color list: drag handle, swatch, label, description and actions. */
   makeRow(entry) {
     const S = (k, a) => this.S(k, a);
     const row = this.h("div", { class: "bac-row", "data-id": entry.id, role: "listitem" });
@@ -2184,6 +2192,7 @@ BetterAnnotations.PaneController = class {
     }
   }
 
+  /** Show in each row of the color list how often the color is used. */
   updateUsage() {
     if (!this.listEl) {
       return;
@@ -2237,6 +2246,7 @@ BetterAnnotations.PaneController = class {
     return this.SB.Icons.make(this.doc, kind, 12);
   }
 
+  /** Mark unsaved changes in the status line and the tab. */
   updateDirty() {
     if (!this.statusEl) {
       return;
@@ -2811,6 +2821,7 @@ BetterAnnotations.PaneController = class {
     this.updateDirty();
   }
 
+  /** Create a profile from the current one or from a template. */
   async newProfile() {
     const choice = this.confirm3(this.S("dlgNewTitle"), this.S("dlgNewSourceText"),
       this.S("dlgNewFromCurrent"), this.S("dlgNewFromPlus"));
@@ -2868,6 +2879,7 @@ BetterAnnotations.PaneController = class {
     this.render();
   }
 
+  /** Delete the current profile; asks what happens to its profile tags (remove, move, keep). */
   async deleteProfile() {
     const p = this.Store.getProfile(this.baseId);
     if (!p || this.isPreset()) {
@@ -2998,6 +3010,7 @@ BetterAnnotations.PaneController = class {
     }
   }
 
+  /** Restore settings and profiles from a full backup file. */
   async loadFullBackup() {
     const SB = this.SB;
     let obj;

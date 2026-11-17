@@ -19,9 +19,8 @@ BetterAnnotations.PREFS_CSS = `
   --bac-raise: var(--material-sidepane, #f6f6f6);
   --bac-accent: var(--accent-blue, #2e7bd1); }
 #bac-root .bac-section { margin-bottom: 14px; }
-#bac-root .bac-intro { margin: 0 0 10px; color: var(--bac-muted); line-height: 1.45; }
 #bac-root .bac-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
-#bac-root .bac-bar > button, #bac-root .bac-bar > menulist, #bac-root .bac-logrow > button, #bac-root .bac-opt > menulist { margin: 0; }
+#bac-root .bac-bar > button, #bac-root .bac-bar > menulist, #bac-root .bac-logrow > button { margin: 0; }
 #bac-root .bac-end { justify-content: flex-end; }
 #bac-root .bac-text { width: 12em; font: inherit; padding: 2px 5px; }
 #bac-root.bac-busy, #bac-root.bac-busy * { cursor: progress !important; }
@@ -53,9 +52,6 @@ BetterAnnotations.PREFS_CSS = `
   border-radius: 5px; border: 1px solid transparent; background: var(--bac-bg); box-sizing: border-box;
   transition: opacity 180ms ease, height 180ms ease, margin 180ms ease, padding 180ms ease, box-shadow 160ms ease; }
 #bac-root .bac-row:hover { border-color: var(--bac-border); }
-#bac-root .bac-row.bac-sub-start { margin-top: 13px; }
-#bac-root .bac-row.bac-sub-start::before { content: ""; position: absolute; left: 4px; right: 4px; top: -9px;
-  border-top: 1px solid var(--bac-border); pointer-events: none; }
 #bac-root .bac-row.bac-off .bac-swatch { opacity: .35; }
 #bac-root .bac-row.bac-off .bac-label:not(:focus):not(.bac-empty) { color: var(--bac-muted); text-decoration: line-through; }
 #bac-root .bac-row.bac-dragging { z-index: 5; border-color: var(--bac-accent); box-shadow: 0 8px 22px rgba(0,0,0,.22);
@@ -93,7 +89,6 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-desc:hover { border-color: var(--bac-border); }
 #bac-root .bac-desc:focus { color: inherit; background: var(--bac-bg); border-color: var(--bac-border);
   outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
-#bac-root .bac-indent { padding-inline-start: 22px; }
 /* Other profiles with this color; fixed width, so all label fields are equally wide */
 #bac-root .bac-shared { height: 24px; width: 2.4em; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px;
   font-size: 11px; color: var(--bac-muted); font-variant-numeric: tabular-nums; }
@@ -114,8 +109,6 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-actions-dirty .bac-save:hover { background: color-mix(in srgb, var(--bac-accent) 85%, #000); }
 #bac-root .bac-spacer { flex: 1; }
 #bac-root .bac-status { color: #c77700; font-size: 12px; margin-inline-end: 4px; }
-#bac-root .bac-opt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0; }
-#bac-root .bac-number { width: 4.5em; font: inherit; padding: 2px 4px; }
 #bac-root .bac-hint { color: var(--bac-muted); font-size: 12px; margin: 0 0 6px; line-height: 1.45; }
 #bac-root .bac-path { user-select: text; font-size: 11px; word-break: break-all; }
 #bac-root .bac-picker { position: absolute; z-index: 20; width: 264px; padding: 10px; border-radius: 6px;
@@ -168,7 +161,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-tab-on { background: var(--bac-bg); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 #bac-root .bac-tab-dirty::after { content: " ●"; color: #c77700; }
 #bac-root .bac-panel[hidden] { display: none; }
-/* Cards: framed all around, radius as in Zotero (5px); head in a light gray
+/* Cards: framed all around, radius 6px (sections in Zotero's settings); head in a light gray
    with title, “i” and a short description; rows with lines across the width */
 #bac-root .bac-card { position: relative; margin-bottom: 12px; border-radius: 6px; border: 1px solid var(--bac-line);
   background: var(--material-background, #fff); overflow: hidden; }
@@ -243,7 +236,6 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-info:hover .bac-info-pop, #bac-root .bac-info:focus .bac-info-pop { display: block; }
 #bac-root .bac-info-par { display: block; white-space: pre-line; }
 #bac-root .bac-info-par + .bac-info-par { margin-top: 7px; }
-#bac-root .bac-sub { margin-top: 8px; }
 #bac-root .bac-about-text { margin: 0 0 6px; line-height: 1.5; }
 #bac-root .bac-credits { margin: 4px 0 0; padding-inline-start: 20px; line-height: 1.6; }
 #bac-root .bac-credits a { color: var(--bac-accent); cursor: pointer; }
@@ -266,9 +258,6 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-notice-top { margin: 0 0 10px; }
 #bac-root .bac-scope .bac-bar { flex-wrap: nowrap; }
 #bac-root .bac-scope-menu { flex: 1; min-width: 0; }
-#bac-root .bac-scope .bac-sub { margin-top: 0; }
-#bac-root .bac-recolor-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 6px 10px; margin: 6px 0; }
-#bac-root .bac-recolor-grid menulist { width: 100%; margin: 0; }
 #bac-root .bac-update-hint .bac-bar { margin: 6px 0 0; padding: 0; }
 #bac-root .bac-update-hint { margin-top: 6px; padding: 7px 10px; border-radius: 6px; font-size: 12px; line-height: 1.4;
   background: color-mix(in srgb, var(--bac-accent) 10%, var(--bac-bg)); border: 1px solid color-mix(in srgb, var(--bac-accent) 30%, transparent); }
@@ -299,7 +288,6 @@ BetterAnnotations.PREFS_CSS = `
 /* A card that is off: only head and description, the title muted */
 #bac-root .bac-card-off .bac-card-title h3 { color: var(--bac-muted); }
 @media (prefers-reduced-motion: reduce) { #bac-root * { transition: none !important; } }
-#bac-root .bac-steps { margin: 4px 0 8px; padding-inline-start: 22px; color: var(--bac-muted); line-height: 1.45; }
 #bac-root .bac-subhead { margin: 0 0 6px; font-size: 1em; font-weight: 600; }
 #bac-root .bac-rules { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px; }
 /* Rule: number, collection → profile, ↑ ↓ ✕ in one line; “with subcollections” below. Fixed columns, so nothing wraps */
@@ -319,6 +307,4 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-group { display: inline-flex; flex: none; flex-wrap: nowrap; align-items: center; gap: 6px; }
 #bac-root .bac-group > button { margin: 0; }
 #bac-root .bac-tab-intro { margin: 0 4px 10px; }
-#bac-root .bac-switch-body { margin-top: 4px; }
-#bac-root .bac-switch-body[hidden] { display: none; }
 `;

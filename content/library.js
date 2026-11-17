@@ -35,6 +35,7 @@ BetterAnnotations.Library = {
     return this.Store.join(this.Store.dir, name);
   },
 
+  /** Load the tag registry and history; make a first backup if none exists. */
   async init() {
     const reg = await this.Store.readJSON(this.path("tags.json"));
     this.registry = new Map(Object.entries(reg.data?.tags || {}).filter(([, v]) => typeof v === "string"));
@@ -340,6 +341,7 @@ BetterAnnotations.Library = {
     }
   },
 
+  /** Keep color tags in step when annotations are added or recolored in Zotero. */
   async onItemsChanged(event, ids) {
     if (!this.SB.setting("tagsEnabled")) {
       return;
@@ -658,11 +660,6 @@ BetterAnnotations.Library = {
     return resolver.tagged.size;
   },
 
-  /** Number of annotations with the tag of a profile. */
-  async countTagged(tag) {
-    return tag ? (await this.annotationsWithTags([tag])).length : 0;
-  },
-
   /** Give annotations without a profile tag in an area the tag of a profile. */
   async planProfileAssign(scope, profileId) {
     const Profiles = this.SB.Profiles;
@@ -741,6 +738,7 @@ BetterAnnotations.Library = {
     return info;
   },
 
+  /** Changes needed to bring annotations back to the state of a backup. */
   async planRestore(backup) {
     const { data } = await this.Store.readJSON(this.Store.join(this.path("backups"), backup.file));
     if (!data || !Array.isArray(data.annotations)) {

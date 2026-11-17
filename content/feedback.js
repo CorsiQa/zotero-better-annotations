@@ -52,6 +52,7 @@ BetterAnnotations.Feedback = {
     this._timer = null;
   },
 
+  /** Show the feedback request when its timer fires, unless it was answered. */
   async ask() {
     const SB = this.SB;
     const S = (k, a) => SB.S(k, a);

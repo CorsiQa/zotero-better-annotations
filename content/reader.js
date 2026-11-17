@@ -56,6 +56,7 @@ BetterAnnotations.Reader = {
     }
   },
 
+  /** Remove the reader hooks, toolbars and styles (plugin shutdown). */
   unregister() {
     if (!this._handlers) {
       return;
@@ -269,6 +270,7 @@ BetterAnnotations.Reader = {
     });
   },
 
+  /** Entries of the color menu for the selection popup and the context menu. */
   buildColorMenu(reader, append, opts) {
     const SB = this.SB;
     const profile = SB.Profiles.profileForReader(reader);
@@ -997,6 +999,7 @@ BetterAnnotations.Reader = {
     }
   },
 
+  /** One color button in the popup, styled like Zotero's own. */
   makePopupButton(doc, popup, template, entry, stockButton, instant) {
     const label = entry.label;
     const shown = label && label.trim() ? label : "";
@@ -1215,10 +1218,6 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
   font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
   background: var(--material-background, Canvas); color: var(--fill-primary, CanvasText);
   border: 1px solid var(--fill-quinary, rgba(127,127,127,.35)); box-shadow: 0 6px 20px rgba(0,0,0,.22); }
-[data-bac-panel] .bac-item { display: flex; align-items: center; gap: 8px; padding: 4px 12px; cursor: default; white-space: nowrap; }
-[data-bac-panel] .bac-item:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
-[data-bac-panel] .bac-check { width: 12px; text-align: center; }
-[data-bac-panel] .bac-sep { height: 1px; margin: 4px 0; background: var(--fill-quinary, rgba(127,127,127,.3)); }
 /* Statistics: between 260 and 340 px; names are shortened, hints wrap */
 [data-bac-panel="stats"] { min-width: 260px; max-width: 340px; }
 /* Head with title and buttons, a line below it (as in the item pane) */
@@ -1233,15 +1232,11 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 /* Heading per profile: the size of the rows, bold and muted */
 [data-bac-panel] .bac-group { display: flex; align-items: baseline; min-width: 0; padding: 8px 12px 2px; font-weight: 600; color: var(--fill-secondary, GrayText); }
 [data-bac-panel] .bac-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-[data-bac-panel] .bac-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-[data-bac-panel] .bac-item-n { margin-inline-start: 12px; font-variant-numeric: tabular-nums; color: var(--fill-secondary, GrayText); }
 /* Hints wrap at the width of the panel and do not widen it */
 [data-bac-panel] .bac-menu-hint, [data-bac-panel] .bac-others { box-sizing: border-box; width: 0; min-width: 100%; }
 [data-bac-panel] .bac-menu-hint { padding: 2px 12px; line-height: 1.4; white-space: normal; font-size: 12px; color: var(--fill-secondary, GrayText); }
 [data-bac-panel] .bac-menu-warn { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
 [data-bac-panel] .bac-menu-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
-
-[data-bac-panel] .bac-sub { padding: 0 12px 6px; opacity: .7; font-size: 12px; }
 [data-bac-panel] .bac-stat { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding: 3px 12px; }
 [data-bac-panel] .bac-dot { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
 [data-bac-panel] .bac-stat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1276,38 +1271,10 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 
   _toolbars: new Set(),
 
+  /** An icon of the plugin's shared set (UI guidelines 7.6) in the size used in the reader. */
   makeIcon(doc, kind) {
-    const NS = "http://www.w3.org/2000/svg";
-    const svg = doc.createElementNS(NS, "svg");
-    svg.setAttribute("width", "16");
-    svg.setAttribute("height", "16");
-    svg.setAttribute("viewBox", "0 0 16 16");
-    svg.setAttribute("aria-hidden", "true");
-    const add = (tag, attrs) => {
-      const el = doc.createElementNS(NS, tag);
-      for (const [k, v] of Object.entries(attrs)) {
-        el.setAttribute(k, String(v));
-      }
-      svg.append(el);
-    };
-    if (kind === "palette") {
-      add("path", { d: "M8 1.8a6.2 6.2 0 1 0 0 12.4c.9 0 1.4-.6 1.4-1.3 0-.9-.8-1.2-.8-2 0-.7.6-1.2 1.3-1.2h1.6c1.6 0 2.7-1.1 2.7-2.6C14.2 4.1 11.4 1.8 8 1.8z",
-        fill: "none", stroke: "currentColor", "stroke-width": "1.2", "stroke-linejoin": "round" });
-      add("circle", { cx: 4.8, cy: 8.2, r: 1.1, style: "fill:currentColor" });
-      add("circle", { cx: 6.2, cy: 5, r: 1.1, style: "fill:currentColor" });
-      add("circle", { cx: 9.6, cy: 4.6, r: 1.1, style: "fill:currentColor" });
-    }
-    else if (["filter", "funnel", "funnel-one", "describe", "chevron", "bars", "marker"].includes(kind)) {
-      // The plugin's shared icons (UI guidelines 7.6)
-      const name = kind === "filter" ? "funnel" : kind;
-      return this.SB.Icons.make(doc, name, name === "chevron" ? 8 : name === "bars" ? 20 : name === "marker" ? 12 : 16);
-    }
-    else {
-      for (const [x, h] of [[2.5, 6], [6.5, 10], [10.5, 4]]) {
-        add("rect", { x, y: 14 - h, width: 3, height: h, rx: 0.8, style: "fill:currentColor" });
-      }
-    }
-    return svg;
+    const sizes = { chevron: 8, bars: 20, marker: 12 };
+    return this.SB.Icons.make(doc, kind, sizes[kind] || 16);
   },
 
   onToolbar({ reader, doc, append }) {
@@ -1386,8 +1353,8 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     this._scanWin = null;
   },
 
+  /** The toolbar button: profile, number of annotations, menu on click, statistics on hover. */
   buildToolbar(reader, doc) {
-    const SB = this.SB;
     this.ensureReaderStyle(doc);
     const wrap = doc.createElement("div");
     wrap.setAttribute("data-bac-toolbar", "1");
@@ -1409,7 +1376,6 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     countBox.classList.add("bac-tb-count");
     const count = countBox.querySelector(".bac-count-n");
     statsBtn.append(this.makeIcon(doc, "bars"), name, countBox, caret);
-    const profileBtn = null;
 
     // Statistics on hover (and keyboard focus): the pointer can move onto
     // them; a click inside (funnel) keeps them open until a click outside or Esc.
@@ -1492,7 +1458,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 
     wrap.className = "bac-tb-split";
     wrap.append(statsBtn);
-    const record = { wrap, name, profileBtn, statsBtn, count, reader };
+    const record = { wrap, name, statsBtn, count, reader };
     this._toolbars.add(record);
     this.updateToolbar(record);
     return wrap;
@@ -2117,6 +2083,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     this.markTags(doc);
   },
 
+  /** Show profile labels in the annotation heads and hide the profile tags (if set). */
   markTags(doc) {
     const P = this.SB.Profiles;
     const rec = this._tagWatch.get(doc);

@@ -382,6 +382,7 @@ var BetterAnnotations = {
     return null;
   },
 
+  /** "#rrggbb" → { h: 0–360, s: 0–1, v: 0–1 }. */
   hexToHsv(hex) {
     const n = parseInt(hex.slice(1), 16);
     const r = (n >> 16 & 255) / 255;
@@ -1320,6 +1321,7 @@ BetterAnnotations.Updates = {
     this.set(Object.assign({}, this.state, { autoUpdate: true }));
   },
 
+  /** Ask Zotero's add-on manager for a newer version; the result goes to this.state. */
   async check() {
     if (this.state.status === "checking" || this.state.status === "installing") {
       return this.state;
