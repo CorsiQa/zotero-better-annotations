@@ -587,6 +587,100 @@ var BetterAnnotations = {
 };
 
 // -------------------------------------------------------------------------
+// Icons: one set of line icons for the whole plugin (UI guidelines 7.6)
+// -------------------------------------------------------------------------
+BetterAnnotations.Icons = {
+  // Stroke on the 16-unit grid; 1.1 is the plugin's line weight
+  STROKE: 1.1,
+  // The funnel is the same in every state; badges sit at its lower right
+  FUNNEL: "M2.5 3.5h9l-3.5 4.2v3.8l-2 1V7.7z",
+
+  /**
+   * Line icon in the current text color. kind: funnel, funnel-plus,
+   * funnel-one, keep, describe, tune, edit, marker, profiles, chevron, bars.
+   * size: displayed size in px (the grid is 16 units, chevron 8, bars 20).
+   */
+  make(doc, kind, size) {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = doc.createElementNS(NS, "svg");
+    const grid = kind === "chevron" ? 8 : kind === "bars" ? 20 : 16;
+    const px = size || grid;
+    svg.setAttribute("width", String(px));
+    svg.setAttribute("height", String(px));
+    svg.setAttribute("viewBox", "0 0 " + grid + " " + grid);
+    svg.setAttribute("aria-hidden", "true");
+    // Small icons get a slightly thicker line on the grid, so they look as heavy
+    const stroke = this.STROKE * Math.max(1, 14 / px);
+    const line = (d, w) => {
+      const el = doc.createElementNS(NS, "path");
+      el.setAttribute("d", d);
+      el.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:" + (w || stroke) + ";stroke-linecap:round;stroke-linejoin:round");
+      svg.append(el);
+    };
+    const shape = (tag, attrs, filled) => {
+      const el = doc.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, String(v));
+      }
+      el.setAttribute("style", filled ? "fill:currentColor" : "fill:none;stroke:currentColor;stroke-width:" + stroke);
+      svg.append(el);
+    };
+    switch (kind) {
+      case "funnel":
+        line(this.FUNNEL);
+        break;
+      case "funnel-plus":
+        // All profiles: the funnel with a small “+”
+        line(this.FUNNEL);
+        line("M12.9 10.2v3.4M11.2 11.9h3.4");
+        break;
+      case "funnel-one":
+        // Only this profile: the funnel with a small “1”
+        line(this.FUNNEL);
+        line("M12.3 10.8l1.1-.9v4.2");
+        break;
+      case "keep":
+        // Repeat: the color stays selected for further annotations
+        line("M2.5 7V6.5a2 2 0 0 1 2-2h8.5M11 2.5l2 2-2 2M13.5 9v.5a2 2 0 0 1-2 2H3M5 9.5l-2 2 2 2");
+        break;
+      case "describe":
+        line("M2.5 3.5h11M2.5 6.5h11M2.5 9.5h7M2.5 12.5h5");
+        break;
+      case "tune":
+        line("M2.5 4h7M12.5 4h1M2.5 8h1.5M7.5 8h6M2.5 12h8M14 12h-.5");
+        for (const [cx, cy] of [[11, 4], [5.75, 8], [12, 12]]) {
+          shape("circle", { cx, cy, r: 1.5 });
+        }
+        break;
+      case "edit":
+        line("M10.6 2.4l3 3-8.2 8.2-3.7.7.7-3.7z M9.2 3.8l3 3");
+        break;
+      case "marker":
+        // Annotations: a highlighter over a line of text
+        line("M9.5 2.5l3.5 3.5-5.5 5.5H4v-3.5z");
+        line("M2.5 14h11");
+        break;
+      case "profiles":
+        // Other profiles: two squares
+        shape("rect", { x: 5.5, y: 2.5, width: 8, height: 8, rx: 1.8 });
+        shape("rect", { x: 2.5, y: 5.5, width: 8, height: 8, rx: 1.8 });
+        break;
+      case "chevron":
+        line("M1 2.75 4 5.75 7 2.75", 1.1);
+        break;
+      case "bars":
+        // The four bars of the logo without the card (widths 60/44/52/34 of
+        // the logo). Steps of 0.8 px: whole device pixels at 125 % and 250 %.
+        for (const [y, w] of [[4.4, 14.4], [7.6, 10.4], [10.8, 12.8], [14, 8]]) {
+          shape("rect", { x: 2.8, y, width: w, height: 1.6, rx: 0.8 }, true);
+        }
+        break;
+    }
+    return svg;
+  },
+};
+
+// -------------------------------------------------------------------------
 // Profile store (JSON file in the Zotero data directory)
 // -------------------------------------------------------------------------
 BetterAnnotations.Store = {

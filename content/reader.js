@@ -158,29 +158,7 @@ BetterAnnotations.Reader = {
 
   /** “Customize” icon (sliders), drawn in the text color. */
   makeTuneIcon(doc, size) {
-    const NS = "http://www.w3.org/2000/svg";
-    const svg = doc.createElementNS(NS, "svg");
-    svg.setAttribute("width", String(size || 16));
-    svg.setAttribute("height", String(size || 16));
-    svg.setAttribute("viewBox", "0 0 16 16");
-    svg.setAttribute("fill", "none");
-    svg.setAttribute("stroke", "currentColor");
-    svg.setAttribute("stroke-width", "1.3");
-    svg.setAttribute("stroke-linecap", "round");
-    svg.setAttribute("aria-hidden", "true");
-    const path = doc.createElementNS(NS, "path");
-    path.setAttribute("d", "M2 4h7M13 4h1M2 8h2M8 8h6M2 12h9M14 12h0");
-    path.setAttribute("style", "fill:none;stroke:currentColor");
-    svg.append(path);
-    for (const [cx, cy] of [[11, 4], [6, 8], [12.5, 12]]) {
-      const c = doc.createElementNS(NS, "circle");
-      c.setAttribute("cx", String(cx));
-      c.setAttribute("cy", String(cy));
-      c.setAttribute("r", "1.6");
-      c.setAttribute("style", "fill:none;stroke:currentColor");
-      svg.append(c);
-    }
-    return svg;
+    return this.SB.Icons.make(doc, "tune", size || 16);
   },
 
   /** “More Colors” icon: up to four swatches in a square. */
@@ -721,15 +699,14 @@ BetterAnnotations.Reader = {
   // Actions in the reader
   // -------------------------------------------------------------------
 
-  setAnnotationColor(reader, ids, color) {
+  /**
+   * New color for annotations. With “Profile per Document” the profile tag
+   * follows the color (Profiles.recolor); preferred: the profile whose
+   * color list the color came from.
+   */
+  setAnnotationColor(reader, ids, color, preferred) {
     try {
-      const internal = reader._internalReader;
-      if (!internal || !internal._annotationManager) {
-        throw new Error("_internalReader._annotationManager missing");
-      }
-      internal._annotationManager.updateAnnotations(
-        this.cloneIntoFrame(reader, ids.map(id => ({ id, color })))
-      );
+      this.SB.Profiles.recolor(reader, ids, color, preferred);
     }
     catch (e) {
       this.SB.logError(e);
@@ -816,12 +793,12 @@ BetterAnnotations.Reader = {
   },
 
   /** Color a snapshot from selectionSnapshot() once; the tool stays as it is. */
-  colorSnapshot(reader, snapshot, color) {
+  colorSnapshot(reader, snapshot, color, profileId) {
     if (snapshot.ids) {
-      this.setAnnotationColor(reader, snapshot.ids, color);
+      this.setAnnotationColor(reader, snapshot.ids, color, profileId);
     }
     else if (snapshot.annotation) {
-      this.createAnnotation(reader, snapshot.annotation, color);
+      this.createAnnotation(reader, snapshot.annotation, color, profileId);
     }
   },
 
@@ -850,7 +827,7 @@ BetterAnnotations.Reader = {
    * (MCXCC303, AGPL-3.0-or-later) does; this approach is adapted from there.
    * Internal API: check after Zotero updates.
    */
-  createAnnotation(reader, annotation, color) {
+  createAnnotation(reader, annotation, color, profileId) {
     const SB = this.SB;
     try {
       if (BetterAnnotations.readerState(reader)?.readOnly) {
@@ -859,7 +836,7 @@ BetterAnnotations.Reader = {
       const type = BetterAnnotations.readerState(reader)?.textSelectionAnnotationMode === "underline" ? "underline" : "highlight";
       const payload = Object.assign(JSON.parse(JSON.stringify(annotation)), { type, color });
       // Directly, with the profile tag; not through the wrapper (see Profiles.addAnnotation)
-      const result = SB.Profiles.addAnnotation(reader, payload);
+      const result = SB.Profiles.addAnnotation(reader, payload, profileId);
       if (!result) {
         throw new Error("addAnnotation returned nothing (read-only?)");
       }
@@ -1218,7 +1195,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 .bac-tb-main > svg { flex: none; }
 .bac-tb-caret { display: flex; align-items: center; flex: none; }
 .bac-tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.bac-tb-count { flex: none; font-variant-numeric: tabular-nums; }
+.bac-tb-count { flex: none; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 2px; }
 .bac-tb-dot { flex: none; }
 /* Zotero places its tools in the middle of the free space between the left and
    the right group, so every button on the right pushed them to the left. With
@@ -1234,12 +1211,16 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 [data-bac-panel] .bac-item:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 [data-bac-panel] .bac-check { width: 12px; text-align: center; }
 [data-bac-panel] .bac-sep { height: 1px; margin: 4px 0; background: var(--fill-quinary, rgba(127,127,127,.3)); }
-[data-bac-panel] .bac-head { display: flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 4px 8px 6px 12px; font-weight: 600; min-height: 24px; }
-[data-bac-panel] .bac-head-title { flex: none; }
+/* Statistics: between 260 and 340 px; names are shortened, hints wrap */
+[data-bac-panel="stats"] { min-width: 260px; max-width: 340px; }
+/* Head with title and buttons, a line below it (as in the item pane) */
+[data-bac-panel] .bac-head { display: flex; align-items: center; justify-content: flex-start; gap: 2px; padding: 0 8px 4px 12px; margin-bottom: 4px;
+  font-weight: 600; min-height: 28px; border-bottom: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
+[data-bac-panel] .bac-head-title { flex: 1; min-width: 0; }
 [data-bac-panel] .bac-head-btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px;
-  margin: 0; margin-inline-start: auto; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; opacity: .75; cursor: default; }
-[data-bac-panel] .bac-head-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); opacity: 1; }
-[data-bac-panel] .bac-head-btn[aria-pressed="true"] { background: var(--fill-quinary, rgba(127,127,127,.2)); opacity: 1; }
+  margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--fill-secondary, GrayText); cursor: default; }
+[data-bac-panel] .bac-head-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
+[data-bac-panel] .bac-head-btn[aria-pressed="true"] { background: var(--fill-quinary, rgba(127,127,127,.2)); }
 [data-bac-panel] .bac-head-btn:focus-visible { outline: 2px solid var(--color-focus-border, #2e7bd1); outline-offset: -1px; }
 [data-bac-panel] .bac-group { padding: 6px 12px 2px; font-size: 11px; font-weight: 600; color: var(--fill-secondary, GrayText); }
 [data-bac-panel] .bac-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -1247,7 +1228,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 /* Hints wrap at the width of the panel and do not widen it */
 [data-bac-panel] .bac-menu-hint, [data-bac-panel] .bac-others { box-sizing: border-box; width: 0; min-width: 100%; }
 [data-bac-panel] .bac-menu-hint { padding: 4px 12px; white-space: normal; font-size: 12px; color: var(--fill-secondary, GrayText); }
-[data-bac-panel] .bac-menu-warn { color: var(--fill-primary, CanvasText); margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
+[data-bac-panel] .bac-menu-warn { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
 [data-bac-panel] .bac-menu-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
 [data-bac-panel] .bac-others { padding-top: 6px; white-space: normal; }
 [data-bac-panel] .bac-sub { padding: 0 12px 6px; opacity: .7; font-size: 12px; }
@@ -1304,27 +1285,10 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       add("circle", { cx: 6.2, cy: 5, r: 1.1, style: "fill:currentColor" });
       add("circle", { cx: 9.6, cy: 4.6, r: 1.1, style: "fill:currentColor" });
     }
-    else if (kind === "filter") {
-      // Funnel, as in the item pane
-      add("path", { d: "M2.5 3h11l-4.2 5v4.5l-2.6 1.3V8z", style: "fill:none;stroke:currentColor;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round" });
-    }
-    else if (kind === "chevron") {
-      // Arrow like Zotero's dropdown buttons
-      svg.setAttribute("width", "8");
-      svg.setAttribute("height", "8");
-      svg.setAttribute("viewBox", "0 0 8 8");
-      add("path", { d: "M1 2.75 4 5.75 7 2.75", style: "fill:none;stroke:currentColor;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round" });
-    }
-    else if (kind === "bars") {
-      // The four bars of the logo without the card, in the toolbar's color
-      // (20 px like Zotero's toolbar icons; widths 60/44/52/34 of the logo).
-      // Positions in steps of 0.8 px: whole device pixels at 125 % and 250 %.
-      svg.setAttribute("width", "20");
-      svg.setAttribute("height", "20");
-      svg.setAttribute("viewBox", "0 0 20 20");
-      for (const [y, w] of [[2.4, 15.2], [6.4, 11.2], [10.4, 13.6], [14.4, 8.8]]) {
-        add("rect", { x: 2.4, y, width: w, height: 2.4, rx: 1.2, style: "fill:currentColor" });
-      }
+    else if (["filter", "funnel", "funnel-one", "describe", "chevron", "bars", "marker"].includes(kind)) {
+      // The plugin's shared icons (UI guidelines 7.6)
+      const name = kind === "filter" ? "funnel" : kind;
+      return this.SB.Icons.make(doc, name, name === "chevron" ? 8 : name === "bars" ? 20 : name === "marker" ? 12 : 16);
     }
     else {
       for (const [x, h] of [[2.5, 6], [6.5, 10], [10.5, 4]]) {
@@ -1436,7 +1400,12 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     const caret = doc.createElement("span");
     caret.className = "bac-tb-caret";
     caret.append(this.makeIcon(doc, "chevron"));
-    statsBtn.append(this.makeIcon(doc, "bars"), name, dot, count, caret);
+    // Number of annotations with the icon of the color list in the settings
+    const countBox = doc.createElement("span");
+    countBox.className = "bac-tb-count";
+    countBox.append(this.makeIcon(doc, "marker"), count);
+    count.className = "bac-tb-num";
+    statsBtn.append(this.makeIcon(doc, "bars"), name, dot, countBox, caret);
     const profileBtn = null;
 
     // Statistics on hover (and keyboard focus): the pointer can move onto
@@ -1810,22 +1779,33 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     title.className = "bac-head-title";
     title.textContent = SB.S("statsTitle");
     head.append(title);
-    // Filter “only this profile”: always there with the function, as in the item pane
-    if (P.enabled()) {
-      const label = SB.S(filtered ? "panelFilterOff" : "panelFilterOn");
+    const headButton = (icon, label, pressed, run) => {
       const btn = doc.createElement("button");
       btn.className = "bac-head-btn";
-      btn.setAttribute("aria-pressed", filtered ? "true" : "false");
+      btn.setAttribute("aria-pressed", pressed ? "true" : "false");
       btn.setAttribute("aria-label", label);
       btn.setAttribute("title", label);
-      btn.append(this.makeIcon(doc, "filter"));
+      btn.append(this.makeIcon(doc, icon));
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        P.toggleFilter(reader);
-        this.fillStats(reader, doc, panel);
+        Promise.resolve(run())
+          .then(() => this.fillStats(reader, doc, panel))
+          .catch(err => SB.logError(err));
       });
       head.append(btn);
+    };
+    // Filter “only this profile”: always there with the function, as in the
+    // item pane; the same funnel, with “1” and a gray background when on
+    if (P.enabled()) {
+      headButton(filtered ? "funnel-one" : "funnel", SB.S(filtered ? "panelFilterOff" : "panelFilterOn"), filtered,
+        () => P.toggleFilter(reader));
+    }
+    // Descriptions: its own setting, independent of the item pane
+    if (SB.descriptionsOn()) {
+      const shown = SB.setting("statsDescriptions") === true;
+      headButton("describe", SB.S("panelDescriptions"), shown,
+        () => SB.Store.setSetting("statsDescriptions", !shown));
     }
     panel.append(head);
     const source = this.sourceText(reader);
@@ -2166,7 +2146,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
    * recolors the annotation, or all selected annotations if it is one of
    * them; dropped on selected text it creates an annotation in this color.
    */
-  startColorDrag(reader, color, event, label) {
+  startColorDrag(reader, color, event, label, profileId) {
     this.endColorDrag();
     const doc = reader._iframeWindow && reader._iframeWindow.document;
     if (!doc) {
@@ -2174,7 +2154,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     }
     const source = event.target.ownerDocument;
     const docs = this.outsideDocs(doc).filter(d => d !== source);
-    const drag = { reader, color, label: label || color, docs, target: null, overlay: null, listeners: [], ghosts: new Map(), last: Date.now() };
+    const drag = { reader, color, profileId: profileId || null, label: label || color, docs, target: null, overlay: null, listeners: [], ghosts: new Map(), last: Date.now() };
     const on = (d, type, fn) => {
       d.addEventListener(type, fn, true);
       drag.listeners.push(() => d.removeEventListener(type, fn, true));
@@ -2302,10 +2282,10 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     e.preventDefault();
     e.stopPropagation();
     if (target.annotation) {
-      this.createAnnotation(drag.reader, target.annotation, drag.color);
+      this.createAnnotation(drag.reader, target.annotation, drag.color, drag.profileId);
     }
     else if (target.ids) {
-      this.setAnnotationColor(drag.reader, target.ids, drag.color);
+      this.setAnnotationColor(drag.reader, target.ids, drag.color, drag.profileId);
     }
   },
 

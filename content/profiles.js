@@ -928,8 +928,19 @@ BetterAnnotations.Profiles = {
       const token = "w" + (++this._token);
       manager.__bacOriginal = original;
       manager.addAnnotation = wrapped;
+      // A new color can move an annotation to another profile: the tag
+      // changes in the same update, so Ctrl+Z undoes both
+      let originalUpdate = null;
+      if (typeof manager.updateAnnotations === "function") {
+        originalUpdate = typeof manager.__bacOriginalUpdate === "function" ? manager.__bacOriginalUpdate : manager.updateAnnotations;
+        manager.__bacOriginalUpdate = originalUpdate;
+        manager.updateAnnotations = Components.utils.exportFunction(function (annotations) {
+          self.retagIncoming(reader, annotations);
+          return originalUpdate.call(manager, annotations);
+        }, win);
+      }
       manager.__bacWrapToken = token;
-      this._wrapped.set(reader, { manager, original, token });
+      this._wrapped.set(reader, { manager, original, originalUpdate, token });
     }
     catch (e) {
       this.SB.log("could not wrap addAnnotation: " + e);
@@ -945,7 +956,11 @@ BetterAnnotations.Profiles = {
     try {
       if (w.manager.__bacWrapToken === w.token) {
         w.manager.addAnnotation = w.manager.__bacOriginal || w.original;
+        if (w.originalUpdate) {
+          w.manager.updateAnnotations = w.manager.__bacOriginalUpdate || w.originalUpdate;
+        }
         delete w.manager.__bacOriginal;
+        delete w.manager.__bacOriginalUpdate;
         delete w.manager.__bacWrapToken;
       }
     }
@@ -962,6 +977,143 @@ BetterAnnotations.Profiles = {
     return typeof fn === "function" ? { manager, fn } : null;
   },
 
+  /** The reader's own updateAnnotations, without the wrapper. */
+  originalUpdate(reader) {
+    const manager = reader._internalReader && reader._internalReader._annotationManager;
+    if (!manager) {
+      return null;
+    }
+    const fn = typeof manager.__bacOriginalUpdate === "function" ? manager.__bacOriginalUpdate : manager.updateAnnotations;
+    return typeof fn === "function" ? { manager, fn } : null;
+  },
+
+  /**
+   * Profile an annotation moves to when its color changes (“Profile per
+   * Document”). It stays in the profile of its tag if that contains the new color;
+   * otherwise it goes to the preferred profile (a color dragged from the
+   * list of another profile), the document's profile, “Standard” for
+   * Zotero's colors, or another profile with the color. If no profile has
+   * the color, it stays where it is. Returns a profile ID or null.
+   */
+  retagTarget(currentId, color, docId, preferred) {
+    if (currentId && this.hasColor(currentId, color)) {
+      return currentId;
+    }
+    if (preferred && this.hasColor(preferred, color)) {
+      return preferred;
+    }
+    if (this.hasColor(docId, color)) {
+      return docId;
+    }
+    if (this.SB.STOCK_COLORS.includes(color)) {
+      return "standard";
+    }
+    return this.profileWithColor(color) || currentId;
+  },
+
+  /**
+   * New tags for an annotation that gets a new color, or null if its profile
+   * stays. existing: the annotation as the reader has it (tags, color).
+   */
+  tagsForRecolor(reader, existing, color, preferred) {
+    if (!this.tagsEnabled() || !existing) {
+      return null;
+    }
+    let tags = [];
+    try {
+      tags = Array.from(existing.tags || []);
+    }
+    catch (e) {}
+    // Only a tag puts an annotation into a profile on purpose. Without one
+    // (counted to “Standard” or to no profile), a color from a profile's
+    // list moves it into that profile.
+    const tagId = this.idForTags(tags);
+    const target = this.retagTarget(tagId, this.SB.normalize(color), this.cachedId(reader), preferred);
+    if (!target || target === tagId) {
+      return null;
+    }
+    // Untagged with a color of Zotero still counts to “Standard”: no tag needed
+    if (!tagId && target === "standard") {
+      return null;
+    }
+    const tag = this.tagFor(target);
+    if (!tag) {
+      return null;
+    }
+    const list = tags.map((t) => {
+      const o = { name: String(t.name ?? t.tag) };
+      if (t.color) {
+        o.color = String(t.color);
+      }
+      return o;
+    }).filter(t => !this.isProfileTag(t.name));
+    const o = { name: tag };
+    const tagColor = this.colorForNew(reader, tag);
+    if (tagColor) {
+      o.color = tagColor;
+      list.unshift(o);
+    }
+    else {
+      list.push(o);
+    }
+    this.colorLater(reader, tag);
+    return list;
+  },
+
+  /** Called by the wrapper when the reader changes annotations (its own color menus). */
+  retagIncoming(reader, annotations) {
+    if (this._tagging || !this.tagsEnabled()) {
+      return;
+    }
+    this._tagging = true;
+    try {
+      const raw = Components.utils.waiveXrays(annotations);
+      const len = raw && raw.length;
+      if (!len) {
+        return;
+      }
+      const byId = new Map(this.readerAnnotations(reader).map(a => [a.id, a]));
+      for (let i = 0; i < len; i++) {
+        const a = raw[i];
+        if (!a || !a.color || a.tags) {
+          continue;
+        }
+        const tags = this.tagsForRecolor(reader, byId.get(a.id), a.color);
+        if (tags) {
+          a.tags = Components.utils.cloneInto(tags, reader._iframeWindow);
+        }
+      }
+    }
+    catch (e) {
+      this.SB.logError(e);
+    }
+    finally {
+      this._tagging = false;
+    }
+  },
+
+  /**
+   * Recolor annotations from the plugin (menus, drag and drop, the item
+   * pane): color and, if needed, the profile tag in one update, through the
+   * reader's own function (not the wrapper).
+   */
+  recolor(reader, ids, color, preferred) {
+    const target = this.originalUpdate(reader);
+    if (!target) {
+      throw new Error("_internalReader._annotationManager missing");
+    }
+    const byId = new Map(this.readerAnnotations(reader).map(a => [a.id, a]));
+    const updates = ids.map((id) => {
+      const u = { id, color };
+      const tags = this.tagsForRecolor(reader, byId.get(id), color, preferred);
+      if (tags) {
+        u.tags = tags;
+      }
+      return u;
+    });
+    return target.fn.call(target.manager, Components.utils.cloneInto(updates, reader._iframeWindow));
+  },
+
   /** Profile of a reader from the cache, without starting anything (safe inside the reader's calls). */
   cachedId(reader) {
     if (!this.enabled()) {
@@ -976,8 +1128,10 @@ BetterAnnotations.Profiles = {
    * reader's profile. The tag carries its color, as Zotero passes it to the
    * reader, so the sidebar shows it colored right away.
    */
-  tagsForNew(reader, tags) {
-    const tag = this.tagFor(this.cachedId(reader));
+  tagsForNew(reader, tags, preferred, color) {
+    // A color from the list of another profile (item pane, “all profiles”) puts it there
+    const id = preferred && color && this.hasColor(preferred, this.SB.normalize(color)) ? preferred : this.cachedId(reader);
+    const tag = this.tagFor(id);
     const list = Array.from(tags || []).map((t) => {
       const o = { name: String(t.name) };
       if (t.color) {
@@ -1048,14 +1202,14 @@ BetterAnnotations.Profiles = {
    * the tag is added here and the reader's own function is called directly,
    * not through the wrapper.
    */
-  addAnnotation(reader, payload) {
+  addAnnotation(reader, payload, preferred) {
     const target = this.originalAdd(reader);
     if (!target) {
       throw new Error("_internalReader._annotationManager missing");
     }
     const data = Object.assign({}, payload);
     if (this.tagsEnabled()) {
-      data.tags = this.tagsForNew(reader, data.tags);
+      data.tags = this.tagsForNew(reader, data.tags, preferred, data.color);
     }
     return target.fn.call(target.manager, Components.utils.cloneInto(data, reader._iframeWindow));
   },

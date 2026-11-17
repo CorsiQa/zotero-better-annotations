@@ -1036,59 +1036,12 @@ BetterAnnotations.PanelView = class {
     return el;
   }
 
-  /** Line icons drawn in the current text color (follow light and dark mode). */
+  /** Line icons of the plugin (BetterAnnotations.Icons), in the current text color. */
   icon(kind) {
-    const NS = "http://www.w3.org/2000/svg";
-    const svg = this.doc.createElementNS(NS, "svg");
-    svg.setAttribute("width", "16");
-    svg.setAttribute("height", "16");
-    svg.setAttribute("viewBox", "0 0 16 16");
-    svg.setAttribute("aria-hidden", "true");
-    const path = (d, width) => {
-      const p = this.doc.createElementNS(NS, "path");
-      p.setAttribute("d", d);
-      p.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:" + (width || 1.1) + ";stroke-linecap:round;stroke-linejoin:round");
-      svg.append(p);
-    };
-    if (kind === "keep") {
-      // Repeat: the color stays selected for further annotations
-      path("M2.5 7V6.5a2 2 0 0 1 2-2h8.5M11 2.5l2 2-2 2M13.5 9v.5a2 2 0 0 1-2 2H3M5 9.5l-2 2 2 2");
-    }
-    else if (kind === "filter" || kind === "view-Doc") {
-      // Funnel: what the list shows
-      path("M2.5 3h11l-4.2 5v4.5l-2.6 1.3V8z");
-    }
-    else if (kind === "view-All") {
-      // Funnel with “+”: the other profiles too
-      path("M1.5 3h10l-3.8 4.5v4l-2.4 1.2V7.5z");
-      path("M12.5 9.5v5M10 12h5", 1.3);
-    }
-    else if (kind === "view-Only") {
-      // Filled funnel with “1”: only this profile, also in the document
-      const f = this.doc.createElementNS(NS, "path");
-      f.setAttribute("d", "M1.5 3h10l-3.8 4.5v4l-2.4 1.2V7.5z");
-      f.setAttribute("style", "fill:currentColor;stroke:currentColor;stroke-width:1.1;stroke-linejoin:round");
-      svg.append(f);
-      path("M12.2 10.3l1.4-1v5.4", 1.3);
-    }
-    else if (kind === "describe") {
-      path("M2.5 3.5h11M2.5 6.5h11M2.5 9.5h7M2.5 12.5h5");
-    }
-    else if (kind === "edit") {
-      svg.setAttribute("width", "14");
-      svg.setAttribute("height", "14");
-      path("M10.6 2.4l3 3-8.2 8.2-3.7.7.7-3.7z M9.2 3.8l3 3");
-    }
-    else if (kind === "chevron") {
-      svg.setAttribute("width", "8");
-      svg.setAttribute("height", "8");
-      svg.setAttribute("viewBox", "0 0 8 8");
-      path("M1 2.75 4 5.75 7 2.75");
-    }
-    else {
-      return this.SB.Reader.makeTuneIcon(this.doc, 16);
-    }
-    return svg;
+    const map = { "filter": "funnel", "view-Doc": "funnel", "view-All": "funnel-plus", "view-Only": "funnel-one" };
+    const name = map[kind] || (["keep", "describe", "edit", "chevron", "marker"].includes(kind) ? kind : "tune");
+    const size = name === "edit" ? 14 : name === "chevron" ? 8 : name === "marker" ? 12 : 16;
+    return this.SB.Icons.make(this.doc, name, size);
   }
 
   iconButton(kind, label, onClick, pressed) {
@@ -1230,7 +1183,8 @@ BetterAnnotations.PanelView = class {
     this.h("span", { class: "bac-p-menu-label", text: S("profilePrefix") }),
     this.h("span", { class: "bac-p-menu-name", text: profile.name }),
     n === null ? null : this.h("span", { class: "bac-p-menu-dot", "aria-hidden": "true", text: "·" }),
-    n === null ? null : this.h("span", { class: "bac-p-menu-n", text: String(n) }),
+    // Number of annotations with the icon of the color list in the settings
+    n === null ? null : this.h("span", { class: "bac-p-menu-n", title: S("tipUsage", { n }) }, this.icon("marker"), String(n)),
     this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
     b.addEventListener("click", (e) => {
       e.preventDefault();
@@ -1413,7 +1367,8 @@ BetterAnnotations.PanelView = class {
             // Drag the color onto an annotation in the reader
             dragstart: (e) => {
               snapshot = null;
-              if (!SB.Reader.startColorDrag(reader, r.color, e, r.name)) {
+              // The profile of this list: with “Profile per Document” the annotation moves there
+              if (!SB.Reader.startColorDrag(reader, r.color, e, r.name, profile.id)) {
                 e.preventDefault();
                 return;
               }
@@ -1436,7 +1391,7 @@ BetterAnnotations.PanelView = class {
               snapshot = null;
               if (once) {
                 // Color the selection once; the tool is not changed
-                SB.Reader.colorSnapshot(reader, once, r.color);
+                SB.Reader.colorSnapshot(reader, once, r.color, profile.id);
               }
               else {
                 SB.Reader.pickToolColor(reader, r.color);
@@ -1657,10 +1612,12 @@ BetterAnnotations.PanelView = class {
     st.textContent = `
 .bac-p-root { font: inherit; color: var(--fill-primary, CanvasText); }
 .bac-p-popout { padding: 8px 10px; box-sizing: border-box; }
-.bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; }
+/* Bar with profile and buttons, a line below it (as in the statistics) */
+.bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
 .bac-p-menu { appearance: none; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px 0 0;
   padding: 0 7px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
-.bac-p-menu-n { font-variant-numeric: tabular-nums; flex: none; }
+.bac-p-menu-n { font-variant-numeric: tabular-nums; flex: none; display: inline-flex; align-items: center; gap: 2px; }
+.bac-p-menu-n svg, .bac-tb-count svg { color: var(--fill-secondary, GrayText); }
 .bac-p-menu-dot { color: var(--fill-secondary, GrayText); flex: none; }
 .bac-p-menu-label { flex: none; color: var(--fill-secondary, GrayText); }
 .bac-p-menu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1669,7 +1626,7 @@ BetterAnnotations.PanelView = class {
 .bac-p-menu:active, .bac-p-icon:active, .bac-p-edit-btn:active, .bac-p-menu[open] { background: var(--fill-quarternary, rgba(127,127,127,.25)); }
 .bac-p-icon { appearance: none; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px;
   margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--fill-secondary, GrayText); }
-.bac-p-icon[aria-pressed="true"], .bac-p-icon.bac-p-step { background: var(--fill-quinary, rgba(127,127,127,.2)); color: var(--fill-primary, CanvasText); }
+.bac-p-icon[aria-pressed="true"], .bac-p-icon.bac-p-step { background: var(--fill-quinary, rgba(127,127,127,.2)); }
 .bac-p-menu:focus-visible, .bac-p-icon:focus-visible, .bac-p-row:focus-visible, .bac-p-edit-btn:focus-visible {
   outline: var(--width-focus-border, 2px) solid var(--color-focus-border, var(--accent-blue, #2e7bd1)); outline-offset: -1px; }
 .bac-p-fallback { display: flex; flex-direction: column; margin: 0 0 6px; padding: 4px 0; border: 1px solid var(--fill-quinary, #ccc); border-radius: 6px; }
@@ -1693,8 +1650,11 @@ BetterAnnotations.PanelView = class {
 .bac-p-edit-btn { appearance: none; position: absolute; top: 1px; right: 1px; display: inline-flex; align-items: center; justify-content: center;
   width: 24px; height: 24px; margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent;
   color: var(--fill-secondary, GrayText); opacity: 0; }
-.bac-p-item:hover .bac-p-edit-btn, .bac-p-item:focus-within .bac-p-edit-btn { opacity: 1; }
-.bac-p-editable:hover .bac-p-n, .bac-p-editable:focus-within .bac-p-n { visibility: hidden; }
+/* Only on hover or keyboard focus: a click on the row keeps the focus there,
+   and the pencil must not stay after the pointer has left */
+.bac-p-item:hover .bac-p-edit-btn, .bac-p-row:focus-visible ~ .bac-p-edit-btn, .bac-p-edit-btn:focus-visible { opacity: 1; }
+.bac-p-editable:hover .bac-p-n, .bac-p-editable .bac-p-row:focus-visible .bac-p-n { visibility: hidden; }
+.bac-p-edit-btn:focus-visible { background: var(--material-sidepane, Canvas); }
 .bac-p-desc { display: block; box-sizing: border-box; width: calc(100% - 20px); min-height: 0; margin: 0 0 4px 20px;
   padding: 0 7px; color: var(--fill-secondary, GrayText); font: inherit; font-size: 12px; line-height: 1.4; }
 /* Text: no field look, not selectable; a click selects the color like the row */
@@ -1714,7 +1674,7 @@ textarea.bac-p-desc-field::placeholder { color: var(--fill-secondary, GrayText);
   font-size: .92em; color: var(--fill-secondary, GrayText); }
 .bac-p-total .bac-p-name { grid-column: 1 / 3; }
 /* Warning below a line across the full width, like the total */
-.bac-p-warn { color: var(--fill-primary, CanvasText); margin-top: 8px; padding: 6px 7px 0; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
+.bac-p-warn { margin-top: 8px; padding: 6px 7px 0; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
 .bac-p-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
 .bac-p-link { -moz-appearance: none; appearance: none; border: none; background: none; padding: 0; color: var(--accent-blue, LinkText); font: inherit; cursor: pointer; text-decoration: underline; }
 .bac-p-link:focus-visible { outline: 2px solid var(--color-focus-border, Highlight); outline-offset: 1px; border-radius: 2px; }

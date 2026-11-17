@@ -353,6 +353,8 @@ BetterAnnotations.PaneController = class {
     // Buttons wrap only in groups that belong together
     const group = (...items) => this.h("span", { class: "bac-group" }, ...items);
     colors.append(this.card(S("secProfile"), S(perDocument ? "infoProfilePerDoc" : "infoProfile"), S(perDocument ? "cardProfilePerDoc" : "cardProfile"),
+      // Choosing and managing profiles: one row, even if it wraps
+      this.h("div", { class: "bac-stack" },
       this.h("div", { class: "bac-bar bac-profile-row" },
         this.profileMenu,
         group(
@@ -371,6 +373,7 @@ BetterAnnotations.PaneController = class {
           this.button(S("btnExport"), () => this.exportProfiles()),
         ),
       ),
+      ),
       perDocument ? this.defaultProfileField() : null,
       perDocument ? this.hint(S("profilePerDocHint")) : null,
       this.libraryOpen ? this.renderLibrary() : null,
@@ -387,10 +390,12 @@ BetterAnnotations.PaneController = class {
     const paletteBtn = this.button(S("btnApplyPalette"), () => this.openPaletteMenu(paletteBtn), { tooltip: S("applyPaletteHint") });
     colors.append(this.card(S("secColors"), S("infoColors") + (SB.descriptionsOn() ? "\n\n" + S("infoDescriptions") : ""), S("cardColors"),
       this.listEl,
-      this.h("div", { class: "bac-bar bac-end" }, this.addBtn),
+      // Everything that changes the list: one bar below it, adding on the right
       this.h("div", { class: "bac-bar bac-actions" },
         this.button(S("btnResetPlus"), () => this.resetToPlus()),
         paletteBtn,
+        this.h("span", { class: "bac-spacer" }),
+        this.addBtn,
       ),
     ));
 
@@ -412,11 +417,13 @@ BetterAnnotations.PaneController = class {
           this.checkbox(S("optShowMenuEntry"), settings.showMenuEntry !== false, v => set("showMenuEntry", v))),
       ),
       this.card(S("secPopup"), S("infoPopup"), S("cardPopup"),
-        this.field(S("optPopupLayout"), layoutMenu),
-        // The fixed number needs more explanation: an “i” instead of a sentence
-        fixedLayout
-          ? this.field(S("optPopupFixedColumns"), number("popupFixedColumns", 4, 17, S("optPopupFixedColumns")), S("optPopupFixedHint"))
-          : this.field(S("optPopupColumns"), number("popupColumns", 4, 16, S("optPopupColumns"))),
+        // Arrangement and its number: one row
+        this.h("div", { class: "bac-stack" },
+          this.field(S("optPopupLayout"), layoutMenu),
+          // The fixed number needs more explanation: an “i” instead of a sentence
+          fixedLayout
+            ? this.field(S("optPopupFixedColumns"), number("popupFixedColumns", 4, 17, S("optPopupFixedColumns")), S("optPopupFixedHint"))
+            : this.field(S("optPopupColumns"), number("popupColumns", 4, 16, S("optPopupColumns")))),
         fixedLayout ? null : this.hint(S("optPopupColumnsHint")),
         this.h("div", { class: "bac-checks" },
           this.checkbox(S("optShowPopupButton"), settings.showPopupButton !== false, v => set("showPopupButton", v)),
@@ -685,7 +692,7 @@ BetterAnnotations.PaneController = class {
       if (child.localName === "div" && !child.className) {
         child.classList.add("bac-box");
       }
-      body.append(child);
+      body.append(this.asRow(child));
     }
     const card = this.h("section", { class: "bac-card" }, head, body);
     this.syncCardBody(card);
@@ -733,8 +740,20 @@ BetterAnnotations.PaneController = class {
 
   /** Replace the content of a box; empty entries (null, false) are left out. */
   fill(box, ...children) {
-    box.replaceChildren(...children.flat().filter(Boolean));
+    box.replaceChildren(...children.flat().filter(Boolean).map(c => this.asRow(c)));
     this.syncCardBody(box.closest(".bac-card"));
+  }
+
+  /**
+   * A row of a card is always a block: Zotero's XUL checkboxes and buttons
+   * keep the width of their text, so their line would end there.
+   */
+  asRow(el) {
+    const name = el && el.localName;
+    if (name === "checkbox" || name === "button" || name === "menulist") {
+      return this.h("div", { class: "bac-optrow" }, el);
+    }
+    return el;
   }
 
   /** Part of a card with a thin line above and an optional heading. */
@@ -790,8 +809,22 @@ BetterAnnotations.PaneController = class {
       "aria-valuemin": String(min),
       "aria-valuemax": String(max),
     });
-    const dec = this.h("button", { class: "bac-step-btn", tabindex: "-1", "aria-hidden": "true" }, "−");
-    const inc = this.h("button", { class: "bac-step-btn", tabindex: "-1", "aria-hidden": "true" }, "+");
+    // Drawn signs: text glyphs sit on the baseline, not in the middle
+    const sign = (plus) => {
+      const NS = "http://www.w3.org/2000/svg";
+      const svg = this.doc.createElementNS(NS, "svg");
+      svg.setAttribute("width", "10");
+      svg.setAttribute("height", "10");
+      svg.setAttribute("viewBox", "0 0 10 10");
+      svg.setAttribute("aria-hidden", "true");
+      const p = this.doc.createElementNS(NS, "path");
+      p.setAttribute("d", plus ? "M1.5 5h7M5 1.5v7" : "M1.5 5h7");
+      p.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round");
+      svg.append(p);
+      return svg;
+    };
+    const dec = this.h("button", { class: "bac-step-btn", tabindex: "-1", "aria-hidden": "true" }, sign(false));
+    const inc = this.h("button", { class: "bac-step-btn", tabindex: "-1", "aria-hidden": "true" }, sign(true));
     const show = () => {
       input.value = String(current);
       input.setAttribute("aria-valuenow", String(current));
@@ -1648,8 +1681,10 @@ BetterAnnotations.PaneController = class {
     this.fill(box,
       scope.el,
       this.SB.Profiles.enabled() ? this.field(S("filterProfile"), profileMenu) : null,
-      this.field(S("recolorFrom"), this.recolorFromSlot),
-      this.field(S("recolorTo"), this.recolorToSlot),
+      // From and to: one change, one row
+      this.h("div", { class: "bac-stack" },
+        this.field(S("recolorFrom"), this.recolorFromSlot),
+        this.field(S("recolorTo"), this.recolorToSlot)),
       this.isDirty() ? this.hint(S("recolorDraftHint")) : null,
       this.checkbox(S("optRecolorTags"), this.recolorTags, (v) => {
         this.recolorTags = v;
@@ -2060,7 +2095,8 @@ BetterAnnotations.PaneController = class {
       text: "✕",
       on: { click: () => this.removeColor(entry.id) },
     });
-    row.append(handle, visible, pos, swatch, labelCol, shared, usage, del);
+    // Annotations with this color first, then the other profiles with it
+    row.append(handle, visible, pos, swatch, labelCol, usage, shared, del);
     return row;
   }
 
@@ -2195,30 +2231,7 @@ BetterAnnotations.PaneController = class {
 
   /** 12 px icons of the color list: “profiles” (two squares), “marker” (annotations). */
   smallIcon(kind) {
-    const NS = "http://www.w3.org/2000/svg";
-    const svg = this.doc.createElementNS(NS, "svg");
-    svg.setAttribute("viewBox", "0 0 16 16");
-    svg.setAttribute("width", "12");
-    svg.setAttribute("height", "12");
-    svg.setAttribute("aria-hidden", "true");
-    const add = (tag, attrs) => {
-      const el = this.doc.createElementNS(NS, tag);
-      for (const [k, v] of Object.entries(Object.assign({ fill: "none", stroke: "currentColor", "stroke-width": 1.3,
-        "stroke-linejoin": "round", "stroke-linecap": "round" }, attrs))) {
-        el.setAttribute(k, String(v));
-      }
-      svg.append(el);
-    };
-    if (kind === "profiles") {
-      add("rect", { x: 5.5, y: 1.5, width: 9, height: 9, rx: 2 });
-      add("rect", { x: 1.5, y: 5.5, width: 9, height: 9, rx: 2 });
-    }
-    else {
-      // Highlighter over a line of text
-      add("path", { d: "M9.5 2.5l3.5 3.5-5.5 5.5H4v-3.5z" });
-      add("path", { d: "M2 14.5h12" });
-    }
-    return svg;
+    return this.SB.Icons.make(this.doc, kind, 12);
   }
 
   updateDirty() {

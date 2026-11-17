@@ -29,7 +29,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-logtext { flex: 1; min-width: 0; line-height: 1.4; }
 #bac-root .bac-undone .bac-logtext { opacity: .55; text-decoration: line-through; }
 #bac-root .bac-undone-label { margin: 0; }
-#bac-root .bac-popover { position: absolute; z-index: 20; width: 340px; padding: 6px; border-radius: 9px; box-sizing: border-box;
+#bac-root .bac-popover { position: absolute; z-index: 20; width: 340px; padding: 6px; border-radius: 6px; box-sizing: border-box;
   background: var(--bac-raise); border: 1px solid var(--bac-border); box-shadow: 0 10px 30px rgba(0,0,0,.25); }
 #bac-root .bac-pal-row { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 5px; cursor: pointer; }
 #bac-root .bac-pal-row:hover { background: color-mix(in srgb, var(--bac-accent) 14%, transparent); }
@@ -50,7 +50,7 @@ BetterAnnotations.PREFS_CSS = `
   border: 1px solid color-mix(in srgb, var(--bac-accent) 30%, transparent); }
 #bac-root .bac-list { position: relative; display: flex; flex-direction: column; gap: 3px; }
 #bac-root .bac-row { position: relative; display: flex; align-items: flex-start; gap: 8px; padding: 3px 6px;
-  border-radius: 7px; border: 1px solid transparent; background: var(--bac-bg); box-sizing: border-box;
+  border-radius: 5px; border: 1px solid transparent; background: var(--bac-bg); box-sizing: border-box;
   transition: opacity 180ms ease, height 180ms ease, margin 180ms ease, padding 180ms ease, box-shadow 160ms ease; }
 #bac-root .bac-row:hover { border-color: var(--bac-border); }
 #bac-root .bac-row.bac-sub-start { margin-top: 13px; }
@@ -95,10 +95,10 @@ BetterAnnotations.PREFS_CSS = `
   outline: 2px solid color-mix(in srgb, var(--bac-accent) 55%, transparent); outline-offset: 0; }
 #bac-root .bac-indent { padding-inline-start: 22px; }
 /* Other profiles with this color; fixed width, so all label fields are equally wide */
-#bac-root .bac-shared { height: 24px; width: 2.4em; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px;
+#bac-root .bac-shared { height: 24px; width: 2.4em; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; margin-inline-start: -2px;
   font-size: 11px; color: var(--bac-muted); font-variant-numeric: tabular-nums; }
 #bac-root .bac-shared[hidden] { display: inline-flex; visibility: hidden; }
-#bac-root .bac-usage { gap: 3px; font-size: 11px; color: var(--bac-muted); width: 2.6em; margin-inline-start: -4px; text-align: right; font-variant-numeric: tabular-nums; }
+#bac-root .bac-usage { gap: 2px; font-size: 11px; color: var(--bac-muted); width: 2.6em; text-align: right; font-variant-numeric: tabular-nums; }
 #bac-root .bac-del { -moz-appearance: none; appearance: none; border: none; background: transparent; color: var(--bac-muted);
   cursor: pointer; font-size: 12px; width: 24px; height: 24px; border-radius: 50%; padding: 0; margin: 0; min-width: 0; }
 #bac-root .bac-del:hover:not(:disabled) { background: rgba(220,40,60,.12); color: #d14; }
@@ -118,7 +118,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-number { width: 4.5em; font: inherit; padding: 2px 4px; }
 #bac-root .bac-hint { color: var(--bac-muted); font-size: 12px; margin: 0 0 6px; line-height: 1.45; }
 #bac-root .bac-path { user-select: text; font-size: 11px; word-break: break-all; }
-#bac-root .bac-picker { position: absolute; z-index: 20; width: 264px; padding: 10px; border-radius: 9px;
+#bac-root .bac-picker { position: absolute; z-index: 20; width: 264px; padding: 10px; border-radius: 6px;
   background: var(--bac-raise); border: 1px solid var(--bac-border); box-shadow: 0 10px 30px rgba(0,0,0,.25);
   display: flex; flex-direction: column; gap: 8px; }
 #bac-root .bac-sv { position: relative; height: 140px; border-radius: 6px; cursor: crosshair; touch-action: none;
@@ -164,7 +164,7 @@ BetterAnnotations.PREFS_CSS = `
   border: 1px solid var(--bac-line); }
 #bac-root .bac-tab { -moz-appearance: none; appearance: none; flex: 1; margin: 0; min-width: 0; padding: 6px 10px; border: none; border-radius: 4px;
   background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#bac-root .bac-tab:hover { background: color-mix(in srgb, var(--bac-accent) 10%, transparent); }
+#bac-root .bac-tab:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 #bac-root .bac-tab-on { background: var(--bac-bg); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 #bac-root .bac-tab-dirty::after { content: " ●"; color: #c77700; }
 #bac-root .bac-panel[hidden] { display: none; }
@@ -184,6 +184,12 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-hint-row {
   margin: 0 calc(-1 * var(--bac-pad)); padding: 8px var(--bac-pad); border-top: 1px solid var(--bac-line); box-sizing: border-box; }
 #bac-root .bac-box { display: block; margin: 0; padding: 0; }
+#bac-root .bac-optrow { display: block; }
+/* Several bars that belong together: one row, no line between them */
+#bac-root .bac-stack { display: flex; flex-direction: column; gap: 6px; }
+#bac-root .bac-stack > .bac-bar { margin: 0; padding: 0; border: 0; }
+#bac-root .bac-spacer { flex: 1; }
+#bac-root .bac-optrow > checkbox, #bac-root .bac-optrow > button, #bac-root .bac-optrow > menulist { margin: 0; }
 /* Options that belong together: one row, no lines between them */
 #bac-root .bac-checks { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 #bac-root .bac-checks > * { margin: 0; }
@@ -213,22 +219,24 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-stepper { display: inline-flex; align-items: stretch; height: 24px; box-sizing: border-box; border-radius: 5px; overflow: hidden;
   border: 1px solid var(--bac-line); background: var(--material-background, #fff); }
 #bac-root .bac-stepper:focus-within { outline: 2px solid var(--bac-accent); outline-offset: 1px; }
-#bac-root .bac-step-btn { -moz-appearance: none; appearance: none; width: 24px; margin: 0; padding: 0; border: none; border-radius: 0;
-  background: var(--bac-head); color: inherit; font: 14px/1 system-ui, sans-serif; cursor: pointer; }
+#bac-root .bac-step-btn { -moz-appearance: none; appearance: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; min-width: 0; height: auto; min-height: 0; margin: 0; padding: 0; border: none; border-radius: 0;
+  background: var(--bac-head); color: inherit; cursor: pointer; }
 #bac-root .bac-step-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--fill-primary, #000) 8%, var(--material-background, #fff)); }
 #bac-root .bac-step-btn:disabled { color: var(--bac-muted); opacity: .45; cursor: default; }
-#bac-root .bac-step-val { -moz-appearance: textfield; appearance: textfield; width: 3.2ch; margin: 0; padding: 0 4px; border: none;
+#bac-root .bac-step-val { -moz-appearance: textfield; appearance: textfield; width: 3.2ch; height: auto; min-height: 0; margin: 0; padding: 0 4px;
+  line-height: 22px; border: none; border-radius: 0; box-sizing: content-box;
   border-inline: 1px solid var(--bac-line); text-align: center; font: inherit; font-variant-numeric: tabular-nums; background: transparent; color: inherit; outline: none; }
 #bac-root .bac-scope > checkbox { margin: 0; }
 /* Small, quiet “i”; stronger on hover and focus */
 #bac-root .bac-info { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; flex: none;
-  box-sizing: border-box; border-radius: 50%; border: 1px solid currentColor; color: var(--bac-muted); opacity: .6;
+  box-sizing: border-box; border-radius: 50%; border: 1px solid currentColor; color: var(--bac-muted);
   font: italic 700 8.5px/1 Georgia, serif; cursor: help; user-select: none; }
-#bac-root .bac-info:hover, #bac-root .bac-info:focus { opacity: 1; color: var(--bac-accent); outline: none; }
+#bac-root .bac-info:hover, #bac-root .bac-info:focus { color: var(--bac-accent); outline: none; }
 #bac-root .bac-info:focus-visible { outline: 2px solid var(--bac-accent); outline-offset: 1px; }
 #bac-root .bac-info-pop { display: none; position: fixed; z-index: 1000; width: 330px; padding: 10px 12px;
-  border-radius: 8px; background: var(--bac-raise); color: var(--fill-primary, CanvasText); border: 1px solid var(--bac-border);
-  box-shadow: 0 8px 24px rgba(0,0,0,.22); font: 12px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; font-style: normal; font-weight: normal;
+  border-radius: 6px; background: var(--bac-raise); color: var(--fill-primary, CanvasText); border: 1px solid var(--bac-border);
+  box-shadow: 0 6px 20px rgba(0,0,0,.22); font: 12px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; font-style: normal; font-weight: normal;
   cursor: default; white-space: normal; text-align: left; }
 #bac-root .bac-info:hover .bac-info-pop, #bac-root .bac-info:focus .bac-info-pop { display: block; }
 #bac-root .bac-info-par { display: block; white-space: pre-line; }
@@ -237,12 +245,12 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-about-text { margin: 0 0 6px; line-height: 1.5; }
 #bac-root .bac-credits { margin: 4px 0 0; padding-inline-start: 20px; line-height: 1.6; }
 #bac-root .bac-credits a { color: var(--bac-accent); cursor: pointer; }
-#bac-root .bac-library { margin: 6px 0 8px; padding: 10px 12px; border-radius: 9px; border: 1px dashed var(--bac-border);
+#bac-root .bac-library { margin: 6px 0 8px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--bac-border);
   background: color-mix(in srgb, var(--bac-accent) 4%, var(--bac-bg)); }
 #bac-root .bac-library-title { font-weight: 700; margin-bottom: 4px; }
 #bac-root .bac-chip.bac-chip-empty { border-style: dashed; color: var(--bac-muted); font-style: italic; }
 #bac-root .bac-tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 8px; }
-#bac-root .bac-tpl { display: flex; flex-direction: column; gap: 5px; padding: 10px; border-radius: 8px; border: 1px solid var(--bac-border); background: var(--bac-bg); }
+#bac-root .bac-tpl { display: flex; flex-direction: column; gap: 5px; padding: 10px; border-radius: 6px; border: 1px solid var(--bac-border); background: var(--bac-bg); }
 #bac-root .bac-tpl-name { font-weight: 600; }
 #bac-root .bac-tpl.bac-tpl-builtin { border-color: color-mix(in srgb, var(--bac-accent) 55%, var(--bac-border)); }
 #bac-root .bac-tpl-source { font-size: 11px; color: var(--bac-muted); font-style: italic; }
@@ -260,8 +268,8 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-recolor-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 6px 10px; margin: 6px 0; }
 #bac-root .bac-recolor-grid menulist { width: 100%; margin: 0; }
 #bac-root .bac-update-hint .bac-bar { margin: 6px 0 0; padding: 0; }
-#bac-root .bac-update-hint { margin-top: 6px; padding: 6px 9px; border-radius: 6px; font-size: 12px; line-height: 1.4;
-  background: color-mix(in srgb, #f19837 14%, var(--bac-bg)); border: 1px solid color-mix(in srgb, #f19837 45%, var(--bac-border)); }
+#bac-root .bac-update-hint { margin-top: 6px; padding: 7px 10px; border-radius: 6px; font-size: 12px; line-height: 1.4;
+  background: color-mix(in srgb, var(--bac-accent) 10%, var(--bac-bg)); border: 1px solid color-mix(in srgb, var(--bac-accent) 30%, transparent); }
 #bac-root .bac-grow { flex: 1; margin: 0; }
 #bac-root .bac-empty-slot { background: transparent !important; border: 1px dashed var(--bac-border) !important; box-shadow: none; cursor: default; }
 #bac-root .bac-empty-slot:hover { transform: none; }
