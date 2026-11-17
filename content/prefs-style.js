@@ -163,9 +163,11 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-tab-on { background: var(--bac-bg); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 #bac-root .bac-tab-dirty::after { content: " ●"; color: #c77700; }
 #bac-root .bac-panel[hidden] { display: none; }
-#bac-root .bac-card { position: relative; padding: 12px 14px; margin-bottom: 12px; border-radius: 10px; border: 1px solid var(--bac-border);
+#bac-root .bac-card { position: relative; padding: 0 14px 12px; margin-bottom: 12px; border-radius: 10px; border: 1px solid var(--bac-border);
   background: var(--bac-bg); }
-#bac-root .bac-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+/* Head as a grey band with a line below, like the panes of Zotero's settings */
+#bac-root .bac-card-head { display: flex; align-items: center; gap: 8px; min-height: 20px; margin: 0 -14px 10px; padding: 8px 14px;
+  border-radius: 9px 9px 0 0; background: var(--bac-raise); border-bottom: 1px solid var(--bac-border); }
 #bac-root .bac-card-head h3 { margin: 0; font-size: 13px; font-weight: 700; }
 #bac-root .bac-card > .bac-hint { margin-bottom: 8px; }
 #bac-root .bac-info { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; flex: none;
@@ -215,7 +217,11 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-recent-hint { margin: 3px 0 0; font-size: 11px; }
 /* Same left edge for everything in a card: text, checkboxes, menus, buttons */
 #bac-root .bac-card checkbox { margin-inline: 0; }
-#bac-root .bac-checks { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 4px 0 6px; }
+/* Options one per row, with a thin line between the rows */
+#bac-root .bac-checks { display: flex; flex-direction: column; align-items: stretch; gap: 0; margin: 2px 0 6px; }
+#bac-root .bac-checks > * { margin-block: 0; padding-block: 5px; }
+#bac-root .bac-checks > * + * { border-top: 1px solid var(--bac-border); }
+#bac-root .bac-checks + .bac-bar, #bac-root .bac-recolor-grid + .bac-checks { border-top: 1px solid var(--bac-border); padding-top: 6px; }
 #bac-root .bac-subsec { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bac-border); }
 #bac-root .bac-subsec > :last-child { margin-bottom: 0; }
 /* On/off switch in the head of a card */
@@ -230,6 +236,7 @@ BetterAnnotations.PREFS_CSS = `
 /* A card that is off: muted, only its short description */
 #bac-root .bac-card-off { background: var(--bac-raise); }
 #bac-root .bac-card-off .bac-card-head h3 { color: var(--bac-muted); }
+#bac-root .bac-card-off .bac-card-head { background: transparent; }
 #bac-root .bac-card-off > :last-child > .bac-hint:last-child { margin-bottom: 0; }
 @media (prefers-reduced-motion: reduce) { #bac-root * { transition: none !important; } }
 #bac-root .bac-steps { margin: 4px 0 8px; padding-inline-start: 22px; color: var(--bac-muted); line-height: 1.45; }

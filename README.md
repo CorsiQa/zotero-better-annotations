@@ -257,7 +257,7 @@ Some plugins change the same menus or the selection popup. If something looks wr
 | [Just Enough Color](https://github.com/MCXCC303/just-enough-color) | Adds its own colors to the selection popup. Disable it. |
 | [Zotero Style](https://github.com/MuiseDestiny/zotero-style) | Has its own editor for annotation color names and sets. Do not use both for annotation colors. |
 | [Actions & Tags](https://github.com/windingwind/zotero-actions-tags) | Community scripts that rename annotation colors change the same menus, and actions that tag new annotations can add tags twice. Use one of both for these tasks. |
-| [Translate for Zotero](https://github.com/windingwind/zotero-pdf-translate) | No conflict. It adds a translation panel to the selection popup; choose a popup layout under **Menus & Reader**. |
+| [Translate for Zotero](https://github.com/windingwind/zotero-pdf-translate) | No conflict. It adds a translation panel to the selection popup; choose a popup layout under **Appearance**. |
 
 <a name="development"></a>
 

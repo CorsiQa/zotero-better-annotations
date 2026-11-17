@@ -394,7 +394,7 @@ BetterAnnotations.PaneController = class {
       ),
     ));
 
-    // --- Tab “Menus & Reader” --------------------------------------------
+    // --- Tab “Appearance” --------------------------------------------
     const display = this.panels.get("display");
     const number = (key, min, max) => this.h("input", {
       class: "bac-number",
@@ -420,23 +420,27 @@ BetterAnnotations.PaneController = class {
       this.card(S("secContextMenu"), S("infoContextMenu"), null,
         this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optMenuLimit") }), number("menuLimit", 1, 20)),
         this.h("div", { class: "bac-hint", text: S("optMenuLimitHint") }),
-        this.checkbox(S("optShowMenuEntry"), settings.showMenuEntry !== false, v => set("showMenuEntry", v)),
+        this.h("div", { class: "bac-checks" },
+          this.checkbox(S("optShowMenuEntry"), settings.showMenuEntry !== false, v => set("showMenuEntry", v))),
       ),
       this.card(S("secPopup"), S("infoPopup"), null,
         this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optPopupLayout") }), layoutMenu),
         this.h("div", { class: "bac-opt" }, this.h("label", { text: S(fixedLayout ? "optPopupFixedColumns" : "optPopupColumns") }),
           fixedLayout ? number("popupFixedColumns", 4, 17) : number("popupColumns", 4, 16)),
         this.h("div", { class: "bac-hint", text: S(fixedLayout ? "optPopupFixedHint" : "optPopupColumnsHint") }),
-        this.checkbox(S("optShowPopupButton"), settings.showPopupButton !== false, v => set("showPopupButton", v)),
-        this.checkbox(S("optInstantTip"), settings.instantTooltip !== false, v => set("instantTooltip", v)),
-      ),
-      this.card(S("secReaderPanes"), S("infoToolbar") + "\n\n" + S("infoItemPane"), null,
         this.h("div", { class: "bac-checks" },
-          this.checkbox(S("optToolbarButton"), settings.showToolbarButton !== false, v => set("showToolbarButton", v)),
-          this.checkbox(S("optItemPaneSection"), settings.showItemPaneSection !== false, v => set("showItemPaneSection", v)),
-        ),
+          this.checkbox(S("optShowPopupButton"), settings.showPopupButton !== false, v => set("showPopupButton", v)),
+          this.checkbox(S("optInstantTip"), settings.instantTooltip !== false, v => set("instantTooltip", v))),
       ),
     );
+    this.toolbarBox = this.h("div");
+    this.sectionBox = this.h("div");
+    display.append(
+      this.card(S("secToolbar"), S("infoToolbar"), null, this.toolbarBox),
+      this.card(S("secSidebar"), S("infoItemPane"), null, this.sectionBox),
+    );
+    this.renderToolbarCard();
+    this.renderSectionCard();
 
     // --- Tab “Tags & Library” --------------------------------------------
     const library = this.panels.get("library");
@@ -897,6 +901,15 @@ BetterAnnotations.PaneController = class {
     if (this._self) {
       return;
     }
+    // Changed in a context menu (toolbar button, section header)
+    if (what === "settings") {
+      if (this.toolbarBox && this.toolbarBox.isConnected) {
+        this.renderToolbarCard();
+      }
+      if (this.sectionBox && this.sectionBox.isConnected) {
+        this.renderSectionCard();
+      }
+    }
     // A description was edited elsewhere (separate window): take it over if nothing is pending here
     if (what === "profiles" && !this.isDirty() && this.Store.getProfile(this.baseId)
       && this.serialize(this.Store.getProfile(this.baseId)) !== this.snapshot) {
@@ -1162,6 +1175,58 @@ BetterAnnotations.PaneController = class {
     }).catch(e => this.SB.logError(e));
   }
 
+  /** Card “Reader toolbar”: switch, warning, descriptions in the statistics. */
+  renderToolbarCard() {
+    const S = (k, a) => this.S(k, a);
+    const SB = this.SB;
+    const set = (key, value) => this.own(() => this.Store.setSetting(key, value));
+    const on = SB.setting("showToolbarButton") !== false;
+    this.setCardSwitch(this.toolbarBox, on, S("optToolbarButton"), async (v) => {
+      await set("showToolbarButton", v);
+      this.renderToolbarCard();
+    });
+    this.fill(this.toolbarBox,
+      on ? null : this.h("div", { class: "bac-hint", text: S("hintToolbarOff") }),
+      on ? this.h("div", { class: "bac-checks" },
+        this.checkbox(S("optSharedHint"), SB.setting("statsSharedHint") !== false, v => set("statsSharedHint", v)),
+        SB.descriptionsOn()
+          ? this.checkbox(S("optStatsDescriptions"), SB.setting("statsDescriptions") !== false, v => set("statsDescriptions", v))
+          : null,
+      ) : null,
+    );
+  }
+
+  /** Card “Sidebar”: switch, place of the button, warning, descriptions, own window. */
+  renderSectionCard() {
+    const S = (k, a) => this.S(k, a);
+    const SB = this.SB;
+    const set = (key, value) => this.own(() => this.Store.setSetting(key, value));
+    const on = SB.setting("showItemPaneSection") !== false;
+    this.setCardSwitch(this.sectionBox, on, S("optItemPaneSection"), async (v) => {
+      await set("showItemPaneSection", v);
+      this.renderSectionCard();
+    });
+    const placement = this.menulist(
+      [{ value: "group", label: S("sidenavGroup") }, { value: "separate", label: S("sidenavSeparate") }],
+      SB.setting("sidenavPlacement") === "separate" ? "separate" : "group",
+      v => set("sidenavPlacement", v),
+    );
+    this.fill(this.sectionBox,
+      on ? null : this.h("div", { class: "bac-hint", text: S("hintSectionOff") }),
+      on ? this.field(S("optSidenavPlacement"), placement) : null,
+      on ? this.h("div", { class: "bac-checks" },
+        this.checkbox(S("optSharedHint"), SB.setting("panelSharedHint") !== false, v => set("panelSharedHint", v)),
+        SB.descriptionsOn()
+          ? this.checkbox(S("optSectionDescriptions"), SB.setting("sectionDescriptions") === true, v => set("sectionDescriptions", v))
+          : null,
+        SB.descriptionsOn()
+          ? this.checkbox(S("optPopoutDescriptions"), SB.setting("popoutDescriptions") !== false, v => set("popoutDescriptions", v))
+          : null,
+      ) : null,
+      on ? this.h("div", { class: "bac-bar" }, this.button(S("btnOpenPopout"), () => SB.Panel.openPopout())) : null,
+    );
+  }
+
   /** Card “Descriptions”: switch and where descriptions are shown. */
   renderDescriptionsCard() {
     const S = (k, a) => this.S(k, a);
@@ -1174,11 +1239,7 @@ BetterAnnotations.PaneController = class {
     });
     this.fill(this.descBox,
       this.h("div", { class: "bac-hint", text: S("descriptionsIntro") }),
-      on ? this.h("div", { class: "bac-checks" },
-        this.checkbox(S("optSectionDescriptions"), SB.setting("sectionDescriptions") === true, v => set("sectionDescriptions", v)),
-        this.checkbox(S("optPopoutDescriptions"), SB.setting("popoutDescriptions") !== false, v => set("popoutDescriptions", v)),
-        this.checkbox(S("optStatsDescriptions"), SB.setting("statsDescriptions") !== false, v => set("statsDescriptions", v)),
-      ) : null,
+      on ? this.h("div", { class: "bac-hint", text: S("descriptionsWhere") }) : null,
     );
   }
 

@@ -54,6 +54,7 @@ BetterAnnotations.Panel = {
       this.onMainWindowLoad(win);
     }
     this.updateSection();
+    this.placeSidenav();
     // The reader reports no event when the tool color changes: check once per second
     const win = Zotero.getMainWindow && Zotero.getMainWindow();
     if (win) {
@@ -80,6 +81,7 @@ BetterAnnotations.Panel = {
       Zotero.Notifier.unregisterObserver(this._observerID);
       this._observerID = null;
     }
+    this.unplaceSidenav();
     this.unregisterSection();
     this.closePopout();
     for (const win of this.mainWindows()) {
@@ -104,6 +106,7 @@ BetterAnnotations.Panel = {
     catch (e) {
       this.SB.logError(e);
     }
+    this.placeSidenav();
   },
 
   onMainWindowUnload(win) {
@@ -160,6 +163,7 @@ BetterAnnotations.Panel = {
         onInit: ({ body }) => {
           body.bacView = new BetterAnnotations.PanelView(body, "section");
           this._views.add(body.bacView);
+          this.extendHeaderMenu(body);
         },
         onDestroy: ({ body }) => {
           if (body.bacView) {
@@ -188,6 +192,282 @@ BetterAnnotations.Panel = {
       SB.logError(e);
       this._sectionKey = null;
     }
+    this.placeSidenav();
+  },
+
+  // -------------------------------------------------------------------
+  // Context menus of the section header and the side navigation button
+  // -------------------------------------------------------------------
+
+  /** Own entries for the context menu of the section header (below Zotero's). */
+  extendHeaderMenu(body) {
+    const SB = this.SB;
+    const win = body.ownerDocument && body.ownerDocument.defaultView;
+    if (!win) {
+      return;
+    }
+    const tryAdd = (attempt) => {
+      const section = body.closest && body.closest("collapsible-section");
+      const menu = section && section._contextMenu;
+      if (!menu) {
+        if (attempt < 20) {
+          win.setTimeout(() => tryAdd(attempt + 1), 100);
+        }
+        return;
+      }
+      if (menu.querySelector(".bac-menu-own")) {
+        return;
+      }
+      const doc = menu.ownerDocument;
+      const sep = doc.createXULElement("menuseparator");
+      sep.className = "bac-menu-own";
+      menu.append(sep);
+      for (const entry of this.ownMenuEntries()) {
+        const item = doc.createXULElement("menuitem");
+        item.className = "bac-menu-own";
+        item.dataset.bacEntry = entry.id;
+        item.addEventListener("command", () => { try { entry.run(); } catch (err) { SB.logError(err); } });
+        menu.append(item);
+      }
+      menu.addEventListener("popupshowing", (e) => {
+        if (e.target !== menu) {
+          return;
+        }
+        const separate = SB.setting("sidenavPlacement") === "separate";
+        for (const item of menu.querySelectorAll("menuitem.bac-menu-own")) {
+          const entry = this.ownMenuEntries().find(x => x.id === item.dataset.bacEntry);
+          item.setAttribute("label", entry ? entry.label() : "");
+        }
+        if (separate) {
+          // Zotero moves sections only within its own group of buttons
+          for (const cls of ["zotero-menuitem-reorder-up", "zotero-menuitem-reorder-down"]) {
+            const item = menu.querySelector("." + cls);
+            if (item) {
+              item.hidden = true;
+            }
+          }
+        }
+      });
+    };
+    tryAdd(0);
+  },
+
+  /** Entries shared by the header menu and the menu of the side navigation button. */
+  ownMenuEntries() {
+    const SB = this.SB;
+    const S = k => SB.S(k);
+    return [
+      { id: "popout", label: () => S("menuOpenPopout"), run: () => this.openPopout({ collapse: this.inReaderTab() }) },
+      {
+        id: "placement",
+        label: () => S(SB.setting("sidenavPlacement") === "separate" ? "menuSidenavJoin" : "menuSidenavSeparate"),
+        run: () => SB.Store.setSetting("sidenavPlacement", SB.setting("sidenavPlacement") === "separate" ? "group" : "separate"),
+      },
+      {
+        id: "remove",
+        label: () => S("menuRemoveSection"),
+        run: () => {
+          SB.Store.setSetting("showItemPaneSection", false);
+          SB.notify(S("noticeSectionRemoved"));
+        },
+      },
+    ];
+  },
+
+  inReaderTab() {
+    try {
+      const win = Zotero.getMainWindow();
+      return String(win.Zotero_Tabs.selectedType || "").startsWith("reader");
+    }
+    catch (e) {
+      return false;
+    }
+  },
+
+  // -------------------------------------------------------------------
+  // Own group in the side navigation (optional, setting “sidenavPlacement”)
+  // -------------------------------------------------------------------
+
+  _navWatch: new WeakMap(),
+  _navs: new Set(),
+
+  placeSidenav() {
+    for (const win of this.mainWindows()) {
+      let navs = [];
+      try {
+        navs = Array.from(win.document.querySelectorAll("item-pane-sidenav"));
+      }
+      catch (e) {}
+      for (const nav of navs) {
+        try { this.placeIn(nav); } catch (err) { this.SB.logError(err); }
+      }
+    }
+  },
+
+  /**
+   * Moves the button of the section behind its own divider, like the notes
+   * button of Zotero, or back into the group of the other sections.
+   */
+  placeIn(nav) {
+    const SB = this.SB;
+    const separate = !!this._sectionKey && SB.setting("sidenavPlacement") === "separate";
+    const doc = nav.ownerDocument;
+    const HTML = "http://www.w3.org/1999/xhtml";
+    let group = nav.querySelector(".bac-sidenav-group");
+    if (!separate) {
+      if (group) {
+        const hadButton = !!group.querySelector(".btn");
+        nav.querySelector(".bac-sidenav-divider")?.remove();
+        group.remove();
+        if (hadButton && this._sectionKey) {
+          try {
+            nav.render(); // Zotero creates the button again in its group
+          }
+          catch (e) {}
+        }
+      }
+      this.unwatchNav(nav);
+      return;
+    }
+    const main = nav.querySelector(".inherit-flex");
+    const key = this._sectionKey;
+    const btn = nav.querySelector(".btn[data-pane=\"" + key.replace(/["\\]/g, "\\$&") + "\"]");
+    if (!main || !btn) {
+      this.watchNav(nav);
+      return;
+    }
+    if (!group) {
+      const divider = doc.createElementNS(HTML, "div");
+      divider.className = "divider bac-sidenav-divider";
+      group = doc.createElementNS(HTML, "div");
+      group.className = "bac-sidenav-group";
+      group.setAttribute("style", "display:flex;flex-direction:inherit;align-items:inherit;justify-content:inherit;gap:inherit;border-radius:5px;");
+      main.after(divider, group);
+    }
+    const wrapper = btn.parentElement;
+    if (wrapper && wrapper.parentElement !== group) {
+      wrapper.draggable = false;
+      group.append(wrapper);
+    }
+    if (!btn.dataset.bacMenu) {
+      btn.dataset.bacMenu = "1";
+      // Own menu instead of Zotero's: it would move the button within the other group
+      wrapper.addEventListener("contextmenu", e => this.openNavMenu(e), true);
+    }
+    this.syncNavGroup(nav);
+    this.watchNav(nav);
+  },
+
+  /** Divider and group follow the visibility of the button and the highlight of the main group. */
+  syncNavGroup(nav) {
+    const group = nav.querySelector(".bac-sidenav-group");
+    if (!group) {
+      return;
+    }
+    const wrapper = group.querySelector(".pin-wrapper");
+    const hidden = !wrapper || wrapper.hidden;
+    if (group.hidden !== hidden) {
+      group.hidden = hidden;
+    }
+    const divider = nav.querySelector(".bac-sidenav-divider");
+    if (divider && divider.hidden !== hidden) {
+      divider.hidden = hidden;
+    }
+    const main = nav.querySelector(".inherit-flex");
+    const lit = !!main && main.classList.contains("highlight");
+    if (group.classList.contains("highlight") !== lit) {
+      group.classList.toggle("highlight", lit);
+    }
+  },
+
+  watchNav(nav) {
+    if (this._navWatch.has(nav)) {
+      return;
+    }
+    const win = nav.ownerDocument.defaultView;
+    let pending = false;
+    const observer = new win.MutationObserver(() => {
+      if (pending) {
+        return;
+      }
+      pending = true;
+      win.setTimeout(() => {
+        pending = false;
+        if (this._navWatch.has(nav)) {
+          this.placeIn(nav);
+        }
+      }, 0);
+    });
+    observer.observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "class"] });
+    this._navWatch.set(nav, observer);
+    this._navs.add(nav);
+  },
+
+  unwatchNav(nav) {
+    const observer = this._navWatch.get(nav);
+    if (observer) {
+      observer.disconnect();
+      this._navWatch.delete(nav);
+    }
+    this._navs.delete(nav);
+  },
+
+  unplaceSidenav() {
+    for (const nav of [...this._navs]) {
+      this.unwatchNav(nav);
+      const group = nav.querySelector(".bac-sidenav-group");
+      if (group) {
+        nav.querySelector(".bac-sidenav-divider")?.remove();
+        group.remove();
+        try {
+          nav.render();
+        }
+        catch (e) {}
+      }
+    }
+  },
+
+  /** Context menu of the button in its own group: pin like Zotero, plus the own entries. */
+  openNavMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const nav = e.currentTarget.closest("item-pane-sidenav");
+    const doc = e.currentTarget.ownerDocument;
+    let menu = doc.getElementById("bac-sidenav-menu");
+    if (!menu) {
+      menu = doc.createXULElement("menupopup");
+      menu.id = "bac-sidenav-menu";
+      (doc.querySelector("popupset") || doc.documentElement).append(menu);
+    }
+    menu.replaceChildren();
+    const key = this._sectionKey;
+    if (nav && key) {
+      try {
+        if (nav.isPanePinnable(key)) {
+          const pinned = nav.pinnedPane === key;
+          const pin = doc.createXULElement("menuitem");
+          pin.setAttribute("data-l10n-id", pinned ? "unpin-section" : "pin-section");
+          pin.addEventListener("command", () => {
+            if (pinned) {
+              nav.pinnedPane = null;
+            }
+            else {
+              nav.container.scrollToPane(key, "smooth");
+              nav.pinnedPane = key;
+            }
+          });
+          menu.append(pin, doc.createXULElement("menuseparator"));
+        }
+      }
+      catch (err) {}
+    }
+    for (const entry of this.ownMenuEntries()) {
+      const item = doc.createXULElement("menuitem");
+      item.setAttribute("label", entry.label());
+      item.addEventListener("command", () => entry.run());
+      menu.append(item);
+    }
+    menu.openPopupAtScreen(e.screenX, e.screenY, true);
   },
 
   unregisterSection() {
@@ -541,6 +821,7 @@ BetterAnnotations.Panel = {
   onStoreChange(what) {
     if (what === "settings") {
       this.updateSection();
+      this.placeSidenav();
     }
     this.refreshAll();
   },
@@ -913,14 +1194,18 @@ BetterAnnotations.PanelView = class {
     return b;
   }
 
-  /** Picture under the pointer while a color is dragged: color and label. */
-  dragGhost(r) {
+  /**
+   * Empty drag image: the system draws drag images translucent, so the reader
+   * draws its own opaque picture under the pointer (Reader.moveGhost).
+   */
+  dragGhost() {
     try {
-      const ghost = this.h("div", { class: "bac-p-ghost" },
-        this.h("span", { class: "bac-p-dot", style: "background:" + r.color }),
-        this.h("span", { text: r.name }));
-      this.doc.documentElement.append(ghost);
-      return ghost;
+      const canvas = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      canvas.className = "bac-p-ghost";
+      this.doc.documentElement.append(canvas);
+      return canvas;
     }
     catch (e) {
       return null;
@@ -1071,15 +1356,16 @@ BetterAnnotations.PanelView = class {
             // Drag the color onto an annotation in the reader
             dragstart: (e) => {
               snapshot = null;
-              if (!SB.Reader.startColorDrag(reader, r.color, e)) {
+              if (!SB.Reader.startColorDrag(reader, r.color, e, r.name)) {
                 e.preventDefault();
                 return;
               }
               e.dataTransfer.setData(SB.Reader.DRAG_TYPE, r.color);
               e.dataTransfer.effectAllowed = "copy";
-              const ghost = this.dragGhost(r);
+              const ghost = this.dragGhost();
               if (ghost) {
-                e.dataTransfer.setDragImage(ghost, 10, 10);
+                e.dataTransfer.setDragImage(ghost, 0, 0);
+                SB.Reader.moveGhostAt(e);
                 SB.setTimeout(() => ghost.remove(), 0);
               }
             },
@@ -1140,7 +1426,7 @@ BetterAnnotations.PanelView = class {
           on: { click: () => this.assignUntagged(reader, profile) },
         }, S("btnAssignHere", { profile: profile.name }))));
     }
-    const shared = SB.Profiles.sharedColorsText(summary);
+    const shared = SB.setting("panelSharedHint") !== false ? SB.Profiles.sharedColorsText(summary) : "";
     if (shared) {
       parts.push(this.h("div", { class: "bac-p-hint bac-p-warn", role: "note", text: shared }));
     }
@@ -1300,9 +1586,7 @@ BetterAnnotations.PanelView = class {
   background: transparent; color: inherit; font: inherit; text-align: start; }
 .bac-p-click:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 .bac-p-click { cursor: default; user-select: none; -moz-user-select: none; }
-.bac-p-ghost { position: fixed; top: -100px; left: 0; display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 5px;
-  font: inherit; font-size: 12px; background: var(--material-background, Canvas); color: var(--fill-primary, CanvasText);
-  border: 1px solid var(--fill-quinary, rgba(127,127,127,.35)); }
+.bac-p-ghost { position: fixed; top: -10px; left: -10px; width: 1px; height: 1px; pointer-events: none; }
 .bac-p-row.bac-p-active { background: color-mix(in srgb, var(--accent-blue, #2e7bd1) 14%, transparent); border-color: color-mix(in srgb, var(--accent-blue, #2e7bd1) 45%, transparent); }
 .bac-p-dot { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
 .bac-p-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

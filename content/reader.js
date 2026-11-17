@@ -1199,7 +1199,8 @@ header[data-bac-chip] > .end { flex: 1 1 0; min-width: 0; }
 header[data-bac-chip] .custom-sections { flex: 0 1 auto; min-width: 0; }
 header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 .bac-chip { display: inline-flex; flex: 0 1 auto; min-width: 2.5em; max-width: 100%; overflow: hidden; white-space: pre; box-sizing: border-box;
-  font-size: 10.5px; line-height: 16px; padding: 0 6px; border-radius: 8px; color: #4a3bc2; background: rgba(107, 91, 214, .14); }
+  font-size: 10.5px; line-height: 16px; padding: 0 6px; border-radius: 8px; color: #4a3bc2; background: rgba(107, 91, 214, .14);
+  margin-inline-end: 5px; /* with the gap of the container: as far from the next icon as the icons from each other */ }
 .bac-chip-h { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .bac-chip-t { flex: none; }
 @media (prefers-color-scheme: dark) { .bac-chip { color: #cfc8f8; background: rgba(179, 168, 242, .2); } }
@@ -1259,7 +1260,9 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 .bac-tip { position: fixed; z-index: 2147483647; pointer-events: none; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px;
   box-sizing: border-box; width: max-content; max-width: 340px; padding: 4px 8px; border-radius: 5px;
   font: 12px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: var(--material-menu, var(--material-background, Canvas)); color: var(--fill-primary, CanvasText);
+  /* Opaque: the menu colour of Zotero over a solid ground (menus may be translucent) */
+  background-color: Canvas; background-image: linear-gradient(var(--material-menu, Canvas), var(--material-menu, Canvas));
+  color: var(--fill-primary, CanvasText);
   border: var(--material-border-quarternary, 1px solid rgba(127,127,127,.35)); box-shadow: 0 4px 12px rgba(0,0,0,.18); }
 .bac-tip-dot { flex: none; width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
 .bac-tip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 310px; }
@@ -1475,12 +1478,53 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       pinned = true;
     });
 
+    // Right click: hide the button (like toolbars of the operating systems)
+    statsBtn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      win.clearTimeout(openTimer);
+      this.closePanel(doc, "stats");
+      pinned = false;
+      this._safe(() => this.openToolbarMenu(e));
+    });
+
     wrap.className = "bac-tb-split";
     wrap.append(statsBtn);
     const record = { wrap, name, profileBtn, statsBtn, count, reader };
     this._toolbars.add(record);
     this.updateToolbar(record);
     return wrap;
+  },
+
+  /** Context menu of the toolbar button: hide it, open the settings. */
+  openToolbarMenu(e) {
+    const SB = this.SB;
+    const main = Zotero.getMainWindow();
+    const mdoc = main && main.document;
+    if (!mdoc) {
+      return;
+    }
+    let menu = mdoc.getElementById("bac-toolbar-menu");
+    if (!menu) {
+      menu = mdoc.createXULElement("menupopup");
+      menu.id = "bac-toolbar-menu";
+      (mdoc.querySelector("popupset") || mdoc.documentElement).append(menu);
+    }
+    menu.replaceChildren();
+    const item = (label, run) => {
+      const mi = mdoc.createXULElement("menuitem");
+      mi.setAttribute("label", label);
+      mi.addEventListener("command", () => this._safe(run));
+      return mi;
+    };
+    menu.append(
+      item(SB.S("menuHideToolbarButton"), () => {
+        SB.Store.setSetting("showToolbarButton", false);
+        SB.notify(SB.S("noticeToolbarHidden"));
+      }),
+      mdoc.createXULElement("menuseparator"),
+      item(SB.S("menuSettings"), () => SB.openPrefs()));
+    menu.openPopupAtScreen(e.screenX, e.screenY, true);
   },
 
   /** Number next to the statistics icon: the annotations shown (only the document's profile while filtered). */
@@ -1795,7 +1839,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       line.textContent = SB.S("statsOthers", { list: others.map(id => P.name(id) + " (" + summary.byProfile.get(id) + ")").join(", ") });
       panel.append(line);
     }
-    const hint = P.sharedColorsText(summary);
+    const hint = SB.setting("statsSharedHint") !== false ? P.sharedColorsText(summary) : "";
     if (hint) {
       const h = doc.createElement("div");
       h.className = "bac-menu-hint bac-menu-warn";
@@ -2078,18 +2122,23 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
    * recolors the annotation, or all selected annotations if it is one of
    * them; dropped on selected text it creates an annotation in this color.
    */
-  startColorDrag(reader, color, event) {
+  startColorDrag(reader, color, event, label) {
     this.endColorDrag();
     const doc = reader._iframeWindow && reader._iframeWindow.document;
     if (!doc) {
       return false;
     }
-    const docs = this.outsideDocs(doc).filter(d => d !== event.target.ownerDocument);
-    const drag = { reader, color, docs, target: null, overlay: null, listeners: [] };
+    const source = event.target.ownerDocument;
+    const docs = this.outsideDocs(doc).filter(d => d !== source);
+    const drag = { reader, color, label: label || color, docs, target: null, overlay: null, listeners: [], ghosts: new Map() };
     const on = (d, type, fn) => {
       d.addEventListener(type, fn, true);
       drag.listeners.push(() => d.removeEventListener(type, fn, true));
     };
+    // Own picture under the pointer, opaque, in whichever document the pointer is
+    for (const d of [source, ...docs]) {
+      on(d, "dragover", e => this._safe(() => this.moveGhost(drag, d, e.clientX, e.clientY)));
+    }
     for (const d of docs) {
       on(d, "dragover", e => this._safe(() => this.onColorDragOver(drag, e)));
       on(d, "dragleave", e => this._safe(() => {
@@ -2104,11 +2153,48 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     return true;
   },
 
+  /** Picture of the dragged color: color and label, opaque (system drag images are translucent). */
+  moveGhost(drag, doc, x, y) {
+    let ghost = drag.ghosts.get(doc);
+    if (!ghost) {
+      ghost = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      ghost.style.cssText = "position:fixed;z-index:2147483647;pointer-events:none;display:flex;align-items:center;gap:6px;"
+        + "padding:3px 8px;border-radius:5px;font:12px system-ui,-apple-system,'Segoe UI',sans-serif;white-space:nowrap;"
+        + "background:Canvas;color:CanvasText;border:1px solid rgba(127,127,127,.45);box-shadow:0 3px 10px rgba(0,0,0,.22);";
+      const dot = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      dot.style.cssText = "width:10px;height:10px;border-radius:2px;flex:none;border:1px solid rgba(0,0,0,.15);background:" + drag.color;
+      const text = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      text.textContent = drag.label;
+      ghost.append(dot, text);
+      (doc.body || doc.documentElement).append(ghost);
+      drag.ghosts.set(doc, ghost);
+    }
+    for (const [d, g] of drag.ghosts) {
+      g.style.display = d === doc ? "flex" : "none";
+    }
+    ghost.style.left = (x + 14) + "px";
+    ghost.style.top = (y + 10) + "px";
+  },
+
+  /** Draws the picture at once at the start of a drag (before the first dragover). */
+  moveGhostAt(e) {
+    const drag = this._drag;
+    if (drag && e && e.target && e.target.ownerDocument) {
+      this._safe(() => this.moveGhost(drag, e.target.ownerDocument, e.clientX, e.clientY));
+    }
+  },
+
   endColorDrag() {
     const drag = this._drag;
     this._drag = null;
     if (!drag) {
       return;
+    }
+    for (const g of drag.ghosts.values()) {
+      try {
+        g.remove();
+      }
+      catch (e) {}
     }
     this.setDropTarget(drag, null);
     for (const off of drag.listeners) {
@@ -2189,8 +2275,8 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     if (!doc) {
       return null;
     }
-    // Highlight in a PDF page
-    const hit = this.pdfAnnotationAt(doc, annotations, e.clientX, e.clientY);
+    // Annotation in a PDF page: the view's own hit test, else the plugin's
+    const hit = this.viewAnnotationAt(reader, doc, e) || this.pdfAnnotationAt(doc, annotations, e.clientX, e.clientY);
     if (hit) {
       const id = String(hit.annotation.id);
       return editable(id) ? { ids: withSelection(id), rects: hit.rects, doc } : null;
@@ -2208,20 +2294,76 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     return null;
   },
 
+  /** The reader's view (PDF, EPUB, snapshot) that shows `doc`. */
+  viewForDoc(reader, doc) {
+    const internal = reader._internalReader;
+    for (const view of [internal && internal._primaryView, internal && internal._secondaryView]) {
+      try {
+        const vdoc = view && view._iframeWindow && view._iframeWindow.document;
+        if (vdoc && Components.utils.unwaiveXrays(vdoc) === Components.utils.unwaiveXrays(doc)) {
+          return view;
+        }
+      }
+      catch (e) {}
+    }
+    return null;
+  },
+
+  /**
+   * Annotation under the pointer through the PDF view itself, as it selects
+   * annotations on a click (pointerEventToPosition, getSelectableAnnotations).
+   */
+  viewAnnotationAt(reader, doc, e) {
+    const view = this.viewForDoc(reader, doc);
+    if (!view || typeof view.pointerEventToPosition !== "function" || typeof view.getSelectableAnnotations !== "function") {
+      return null;
+    }
+    const position = view.pointerEventToPosition(e);
+    const list = position ? view.getSelectableAnnotations(position) : null;
+    const annotation = list && list[0];
+    if (!annotation) {
+      return null;
+    }
+    const pos = annotation.position || {};
+    const rects = Array.from(pos.rects || []).map(r => Array.from(r));
+    return { annotation, rects: this.pdfScreenRects(doc, pos.pageIndex, rects) };
+  },
+
+  /** Page of pdf.js: its view and the rectangle of its div on screen. */
+  pdfPage(doc, pageIndex) {
+    const win = doc.defaultView;
+    const app = win && (win.wrappedJSObject || win).PDFViewerApplication;
+    const page = app && app.pdfViewer && app.pdfViewer._pages && app.pdfViewer._pages[pageIndex];
+    return page && page.div && page.viewport ? { page, box: page.div.getBoundingClientRect() } : null;
+  },
+
+  pdfScreenRects(doc, pageIndex, rects) {
+    const p = this.pdfPage(doc, pageIndex);
+    if (!p) {
+      return [];
+    }
+    return rects.map((r) => {
+      const v = p.page.viewport.convertToViewportRectangle(r);
+      return [p.box.left + Math.min(v[0], v[2]), p.box.top + Math.min(v[1], v[3]), p.box.left + Math.max(v[0], v[2]), p.box.top + Math.max(v[1], v[3])];
+    });
+  },
+
   /** Annotation of a PDF page under a point of the view (pdf.js), with its rectangles on screen. */
   pdfAnnotationAt(doc, annotations, x, y) {
     const win = doc.defaultView;
     const app = win && (win.wrappedJSObject || win).PDFViewerApplication;
-    const pageEl = doc.elementFromPoint(x, y)?.closest?.(".page[data-page-number]");
+    // Like the reader: any element under the point that belongs to a page
+    const pageEl = Array.from(doc.elementsFromPoint(x, y)).map(el => el.closest && el.closest(".page")).find(Boolean);
     if (!app || !app.pdfViewer || !pageEl) {
       return null;
     }
-    const pageIndex = Number(pageEl.getAttribute("data-page-number")) - 1;
-    const pageView = app.pdfViewer.getPageView(pageIndex);
-    const box = (pageEl.querySelector(".canvasWrapper") || pageEl).getBoundingClientRect();
+    const pages = Array.from(app.pdfViewer._pages || []);
+    const pageIndex = pages.findIndex(pv => pv.div && Components.utils.unwaiveXrays(pv.div) === Components.utils.unwaiveXrays(pageEl));
+    const pageView = pages[pageIndex];
     if (!pageView || !pageView.viewport) {
       return null;
     }
+    const box = pageView.div.getBoundingClientRect();
     const viewport = pageView.viewport;
     const [px, py] = viewport.convertToPdfPoint(x - box.left, y - box.top);
     let best = null;

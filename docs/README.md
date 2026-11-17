@@ -10,7 +10,7 @@ Deutsch: [README.de.md](README.de.md)
 2. [Quick start](#quick-start)
 3. [Where the colors appear](#where-the-colors-appear)
 4. [Settings: Colors & Profiles](#settings-colors--profiles)
-5. [Settings: Menus & Reader](#settings-menus--reader)
+5. [Settings: Appearance](#settings-appearance)
 6. [Settings: Tags & Library](#settings-tags--library)
 7. [Settings: Export](#settings-export)
 8. [Settings: About](#settings-about)
@@ -110,7 +110,7 @@ Below the list:
 
 The picker offers a saturation/brightness field, a hue slider, a hex field, the color picker of your operating system and six palettes with 12 colors each: Zotero+, Pastel, Light, Strong, Muted and Earth. Below them, **Recently Used** shows the last 12 colors you chose; this row also appears under **Apply Palette…**. **Sorted** shows the palettes ordered by hue; **Zotero** shows them in the order of the Zotero+ slots, so you can see which colors correspond to each other. Zotero+ always keeps its own order. Esc restores the previous color.
 
-## Settings: Menus & Reader
+## Settings: Appearance
 
 | Setting | Effect |
 |---|---|
@@ -122,7 +122,8 @@ The picker offers a saturation/brightness field, a hue slider, a hex field, the 
 | Items per row | Only with a fixed number (default 9). The customize button counts as an item; with 9, eight colors and the button share one row. |
 | Show the customize button in the selection popup | Shortcut to the settings at the end of the colors. |
 | Show labels immediately when hovering | Instant tooltip instead of the delayed system tooltip. |
-| Reader toolbar | Profile switcher and annotation statistics by label can be turned on or off separately. |
+| Reader toolbar | Button with the profile and the number of annotations; hovering shows the statistics by label. A right click on the button hides it. Optional: warning about shared colors, descriptions. |
+| Sidebar | Section “Better Annotations” in the item pane. Its button sits with Zotero’s sections or in an area of its own between dividers. A right click on the header or the button opens the separate window, moves the button or removes the section. |
 
 Whether a color creates a highlight or an underline is decided by Zotero’s own toggle below the colors in the popup. Zotero remembers the last choice.
 
