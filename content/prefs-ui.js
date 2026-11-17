@@ -396,20 +396,8 @@ BetterAnnotations.PaneController = class {
 
     // --- Tab “Appearance” --------------------------------------------
     const display = this.panels.get("display");
-    const number = (key, min, max) => this.h("input", {
-      class: "bac-number",
-      type: "number",
-      min: String(min),
-      max: String(max),
-      value: String(SB.setting(key)),
-      on: {
-        change: (e) => {
-          const v = this.Store.clampInt(e.target.value, min, max, SB.DEFAULT_SETTINGS[key]);
-          e.target.value = String(v);
-          set(key, v, () => this.renumber());
-        },
-      },
-    });
+    const number = (key, min, max, label) => this.stepper(SB.setting(key), min, max, label,
+      v => set(key, v, () => this.renumber()), SB.DEFAULT_SETTINGS[key]);
     const fixedLayout = SB.setting("popupLayout") === "fixed";
     const layoutMenu = this.menulist(
       [{ value: "flow", label: S("layoutFlow") }, { value: "fixed", label: S("layoutFixed") }],
@@ -418,7 +406,7 @@ BetterAnnotations.PaneController = class {
     );
     display.append(
       this.card(S("secContextMenu"), S("infoContextMenu"), S("cardContextMenu"),
-        this.field(S("optMenuLimit"), number("menuLimit", 1, 20)),
+        this.field(S("optMenuLimit"), number("menuLimit", 1, 20, S("optMenuLimit"))),
         this.hint(S("optMenuLimitHint")),
         this.h("div", { class: "bac-checks" },
           this.checkbox(S("optShowMenuEntry"), settings.showMenuEntry !== false, v => set("showMenuEntry", v))),
@@ -427,8 +415,8 @@ BetterAnnotations.PaneController = class {
         this.field(S("optPopupLayout"), layoutMenu),
         // The fixed number needs more explanation: an “i” instead of a sentence
         fixedLayout
-          ? this.field(S("optPopupFixedColumns"), number("popupFixedColumns", 4, 17), S("optPopupFixedHint"))
-          : this.field(S("optPopupColumns"), number("popupColumns", 4, 16)),
+          ? this.field(S("optPopupFixedColumns"), number("popupFixedColumns", 4, 17, S("optPopupFixedColumns")), S("optPopupFixedHint"))
+          : this.field(S("optPopupColumns"), number("popupColumns", 4, 16, S("optPopupColumns"))),
         fixedLayout ? null : this.hint(S("optPopupColumnsHint")),
         this.h("div", { class: "bac-checks" },
           this.checkbox(S("optShowPopupButton"), settings.showPopupButton !== false, v => set("showPopupButton", v)),
@@ -482,7 +470,7 @@ BetterAnnotations.PaneController = class {
     const link = (label, url) => this.button(label, () => this.openURL(url));
     this.panels.get("about").append(
       this.card(S("secAbout"), null, null,
-        ...String(S("aboutText")).split("\n\n").map(t => this.h("p", { class: "bac-about-text", text: t })),
+        this.h("div", { class: "bac-prose" }, ...String(S("aboutText")).split("\n\n").map(t => this.h("p", { class: "bac-about-text", text: t }))),
         this.h("div", { class: "bac-hint", text: S("versionLabel", { v: SB.version || "?" }) + " · "
           + S("aboutCompat", { min: P.zoteroMin, max: P.zoteroMax }) + " · " + S("aboutLicense", { license: P.license })
             + (P.author ? " · " + S("aboutAuthor", { author: P.author }) : "") }),
@@ -640,6 +628,7 @@ BetterAnnotations.PaneController = class {
       lang => this.onLanguage(lang),
     );
     languageMenu.classList.add("bac-lang");
+    languageMenu.setAttribute("tooltiptext", S("infoGeneral"));
     const header = this.h("div", { class: "bac-header" },
       icon,
       this.h("div", { class: "bac-head-main" },
@@ -658,7 +647,8 @@ BetterAnnotations.PaneController = class {
       ),
       this.h("div", { class: "bac-head-side" },
         this.updateBtn,
-        this.h("div", { class: "bac-lang-row" }, this.globeIcon(), languageMenu, this.info(this.S("infoGeneral"))),
+        // The explanation is short: a tooltip on the globe and the menu instead of an “i”
+        this.h("div", { class: "bac-lang-row", title: S("infoGeneral") }, this.globeIcon(), languageMenu),
       ),
     );
     this.updateBadge();
@@ -680,7 +670,6 @@ BetterAnnotations.PaneController = class {
     return svg;
   }
 
-  /** Card with title, optional info icon and optional short description. */
   /**
    * Card: a head (light gray) with title, optional “i” and a short
    * description, and a body whose rows are separated by lines across the
@@ -749,9 +738,11 @@ BetterAnnotations.PaneController = class {
   }
 
   /** Part of a card with a thin line above and an optional heading. */
+  /** Part of a card with a heading; title may be [title, text of an “i”]. */
   subsection(title, ...children) {
+    const [text, info] = Array.isArray(title) ? title : [title, null];
     return this.h("div", { class: "bac-subsec" },
-      title ? this.h("h4", { class: "bac-subhead", text: title }) : null,
+      text ? this.h("div", { class: "bac-subhead-row" }, this.h("h4", { class: "bac-subhead", text }), info ? this.info(info) : null) : null,
       ...children);
   }
 
@@ -782,6 +773,54 @@ BetterAnnotations.PaneController = class {
     return this.h("div", { class: "bac-field" },
       this.h("span", { class: "bac-field-label" }, this.h("label", { text: label }), info ? this.info(info) : null),
       control);
+  }
+
+  /**
+   * Number with − and + (instead of the system's spin buttons): a field for
+   * typing, arrow keys and the two buttons.
+   */
+  stepper(value, min, max, label, onChange, fallback) {
+    let current = Number(value);
+    const input = this.h("input", {
+      class: "bac-step-val",
+      type: "text",
+      inputmode: "numeric",
+      role: "spinbutton",
+      "aria-label": String(label || "").replace(/:\s*$/, ""),
+      "aria-valuemin": String(min),
+      "aria-valuemax": String(max),
+    });
+    const dec = this.h("button", { class: "bac-step-btn", tabindex: "-1", "aria-hidden": "true" }, "−");
+    const inc = this.h("button", { class: "bac-step-btn", tabindex: "-1", "aria-hidden": "true" }, "+");
+    const show = () => {
+      input.value = String(current);
+      input.setAttribute("aria-valuenow", String(current));
+      dec.disabled = current <= min;
+      inc.disabled = current >= max;
+    };
+    const commit = (v) => {
+      const next = this.Store.clampInt(v, min, max, fallback !== undefined ? fallback : min);
+      const changed = next !== current;
+      current = next;
+      show();
+      if (changed) {
+        onChange(current);
+      }
+    };
+    dec.addEventListener("click", () => commit(current - 1));
+    inc.addEventListener("click", () => commit(current + 1));
+    input.addEventListener("change", () => commit(input.value));
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        commit(current + (e.key === "ArrowUp" ? 1 : -1));
+      }
+      else if (e.key === "Enter") {
+        commit(input.value);
+      }
+    });
+    show();
+    return this.h("div", { class: "bac-stepper" }, dec, input, inc);
   }
 
   /** One sentence below an option. */
@@ -1175,16 +1214,19 @@ BetterAnnotations.PaneController = class {
     this.fill(this.docProfileBox,
       this.defaultProfileField(),
       this.hint(S("docProfileSummary")),
-      this.checkbox(S("optProfileFilterDefault"), this.SB.setting("profileFilterDefault") === true,
-        v => this.own(() => Store.setSetting("profileFilterDefault", v))),
-      this.hint(S("hintFilterDefault")),
-      this.checkbox(S("optProfileTagColor"), this.SB.setting("profileTagColor") !== false,
-        v => this.own(() => Store.setSetting("profileTagColor", v)).then(() => P.syncTagColors())),
-      this.hint(S("hintTagColor")),
-      this.checkbox(S("optHideProfileTags"), this.SB.setting("hideProfileTags") !== false,
-        v => this.own(() => Store.setSetting("hideProfileTags", v))),
-      this.hint(S("hintHideProfileTags")),
-      this.subsection(S("rulesTitle"),
+      this.h("div", { class: "bac-checks" },
+        this.checkbox(S("optProfileFilterDefault"), this.SB.setting("profileFilterDefault") === true,
+          v => this.own(() => Store.setSetting("profileFilterDefault", v))),
+        this.hint(S("hintFilterDefault")),
+        this.checkbox(S("optProfileTagColor"), this.SB.setting("profileTagColor") !== false,
+          v => this.own(() => Store.setSetting("profileTagColor", v)).then(() => P.syncTagColors())),
+        this.hint(S("hintTagColor")),
+        this.checkbox(S("optHideProfileTags"), this.SB.setting("hideProfileTags") !== false,
+          v => this.own(() => Store.setSetting("hideProfileTags", v))),
+        this.hint(S("hintHideProfileTags")),
+      ),
+      this.subsection([S("rulesTitle"), S("infoRules")],
+        this.hint(S("rulesIntro")),
         rows.length
           ? this.h("div", { class: "bac-rules", role: "list" }, rows)
           : this.h("div", { class: "bac-hint", text: hasCollections ? S("rulesEmpty") : S("rulesNoCollections") }),
@@ -1246,8 +1288,9 @@ BetterAnnotations.PaneController = class {
       on ? this.hint(S("hintSidenavPlacement")) : null,
       on && shared ? this.checkbox(S("optSharedHint"), SB.setting("panelSharedHint") !== false, v => set("panelSharedHint", v)) : null,
       on && shared ? this.hint(S("hintSharedHint")) : null,
-      desc ? this.checkbox(S("optSectionDescriptions"), SB.setting("sectionDescriptions") === true, v => set("sectionDescriptions", v)) : null,
-      desc ? this.checkbox(S("optPopoutDescriptions"), SB.setting("popoutDescriptions") !== false, v => set("popoutDescriptions", v)) : null,
+      desc ? this.h("div", { class: "bac-checks" },
+        this.checkbox(S("optSectionDescriptions"), SB.setting("sectionDescriptions") === true, v => set("sectionDescriptions", v)),
+        this.checkbox(S("optPopoutDescriptions"), SB.setting("popoutDescriptions") !== false, v => set("popoutDescriptions", v))) : null,
       on ? this.h("div", { class: "bac-bar" }, this.button(S("btnOpenPopout"), () => SB.Panel.openPopout())) : null,
     );
   }

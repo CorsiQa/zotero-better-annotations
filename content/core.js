@@ -77,6 +77,7 @@ var BetterAnnotations = {
     sidenavPlacement: "group", // "group": with Zotero's sections; "separate": own group with dividers
     statsSharedHint: true,
     panelSharedHint: true,
+    panelShowOthers: false, // item pane: also list the other profiles of the document
     sectionDescriptions: false,
     popoutDescriptions: true,
     tagsEnabled: false,
@@ -710,7 +711,7 @@ BetterAnnotations.Store = {
     out.settings.recentColors = (Array.isArray(s.recentColors) ? s.recentColors : [])
       .map(c => SB.normalize(c)).filter(Boolean).filter((c, i, a) => a.indexOf(c) === i).slice(0, 12);
     for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "hideProfileTags",
-      "showToolbarButton", "showItemPaneSection", "statsSharedHint", "panelSharedHint",
+      "showToolbarButton", "showItemPaneSection", "statsSharedHint", "panelSharedHint", "panelShowOthers",
       "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled",
       "descriptionsEnabled", "profilesPerDocument", "profileTagColor", "profileFilterDefault",
       "tipProfilesShown", "feedbackDone"]) {

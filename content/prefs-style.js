@@ -106,7 +106,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-actions { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bac-border); }
 #bac-root .bac-savebar:not(.bac-actions-dirty) { display: none; }
 #bac-root .bac-savebar.bac-actions-dirty { position: sticky; bottom: 0; z-index: 4; flex-wrap: nowrap; margin: 4px 0 0; padding: 8px 15px;
-  border-radius: 5px; background: var(--bac-head); border: 1px solid var(--bac-line); box-shadow: 0 -4px 14px rgba(0,0,0,.12); }
+  border-radius: 6px; background: var(--bac-head); border: 1px solid var(--bac-line); box-shadow: 0 -4px 14px rgba(0,0,0,.12); }
 #bac-root .bac-actions-dirty .bac-spacer { min-width: 0; }
 #bac-root .bac-actions-dirty .bac-status { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #bac-root .bac-actions-dirty .bac-save { -moz-appearance: none; appearance: none; background: var(--bac-accent); color: #fff;
@@ -140,7 +140,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-warn { color: #d14; font-size: 11px; }
 #bac-root .bac-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 #bac-root { max-width: 820px; }
-#bac-root .bac-header { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 12px; border-radius: 5px;
+#bac-root .bac-header { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 12px; border-radius: 6px;
   border: 1px solid var(--bac-line);
   background: linear-gradient(135deg, color-mix(in srgb, #ffd400 14%, var(--bac-bg)), color-mix(in srgb, #2ea8e5 12%, var(--bac-bg)) 55%, color-mix(in srgb, #e56eee 12%, var(--bac-bg))); }
 #bac-root .bac-logo { width: 46px; height: 46px; flex: none; }
@@ -170,7 +170,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-panel[hidden] { display: none; }
 /* Cards: framed all around, radius as in Zotero (5px); head in a light gray
    with title, “i” and a short description; rows with lines across the width */
-#bac-root .bac-card { position: relative; margin-bottom: 12px; border-radius: 5px; border: 1px solid var(--bac-line);
+#bac-root .bac-card { position: relative; margin-bottom: 12px; border-radius: 6px; border: 1px solid var(--bac-line);
   background: var(--material-background, #fff); overflow: hidden; }
 #bac-root .bac-card-head { padding: 9px var(--bac-pad); background: var(--bac-head); }
 #bac-root .bac-card-title { display: flex; align-items: center; gap: 6px; min-height: 20px; }
@@ -179,29 +179,46 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-card-body { padding: 0 var(--bac-pad) 2px; }
 #bac-root .bac-card-body[hidden] { display: none; }
 /* Rows: every element of the body (and of boxes and option lists) except hints */
-#bac-root .bac-card-body > :not(.bac-hint):not(.bac-box):not(.bac-checks):not(.bac-notice):not(.bac-library):not(p),
-#bac-root .bac-box > :not(.bac-hint):not(.bac-checks):not(.bac-notice),
-#bac-root .bac-checks > *,
+#bac-root .bac-card-body > :not(.bac-hint):not(.bac-box):not(.bac-notice):not(.bac-library),
+#bac-root .bac-box > :not(.bac-hint):not(.bac-notice),
 #bac-root .bac-hint-row {
   margin: 0 calc(-1 * var(--bac-pad)); padding: 8px var(--bac-pad); border-top: 1px solid var(--bac-line); box-sizing: border-box; }
-#bac-root .bac-box, #bac-root .bac-checks { display: block; margin: 0; padding: 0; }
+#bac-root .bac-box { display: block; margin: 0; padding: 0; }
+/* Options that belong together: one row, no lines between them */
+#bac-root .bac-checks { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+#bac-root .bac-checks > * { margin: 0; }
+#bac-root .bac-checks > .bac-hint { margin: -3px 0 2px; padding-inline-start: 22px; }
+/* A text of several paragraphs: one row */
+#bac-root .bac-prose > p { margin: 0 0 6px; }
+#bac-root .bac-prose > :last-child { margin-bottom: 0; }
 /* A hint explains the row above it */
 #bac-root .bac-card-body > .bac-hint:not(.bac-hint-row), #bac-root .bac-box > .bac-hint:not(.bac-hint-row) { margin: -4px 0 0; padding-bottom: 8px; }
 #bac-root .bac-card .bac-bar { flex-wrap: wrap; }
 #bac-root .bac-card-body .bac-notice { margin: 8px 0; }
 #bac-root .bac-card-body .bac-library { margin: 8px 0; }
-#bac-root .bac-card-body > p { margin: 8px 0; }
-#bac-root .bac-card-body > p + p { margin-top: 0; }
-#bac-root .bac-card-body > p + .bac-hint { margin-top: 0; }
-#bac-root .bac-card-body > .bac-credits { padding-inline-start: calc(var(--bac-pad) + 18px); }
-/* Label left, control right; the same columns in every row */
-#bac-root .bac-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: center; gap: 4px 12px; }
+#bac-root .bac-card-body > .bac-credits { list-style: none; }
+#bac-root .bac-credits > li { margin: 2px 0; }
+/* Label left, control right-aligned with one width for all menus (like the
+   settings of the operating systems) */
+#bac-root .bac-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; --bac-ctl: 220px; }
 #bac-root .bac-field-label { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
-#bac-root .bac-field > menulist, #bac-root .bac-field > .bac-slot, #bac-root .bac-field > .bac-slot > menulist { width: 100%; margin: 0; min-width: 0; }
-#bac-root .bac-field > input { justify-self: start; margin: 0; }
-#bac-root .bac-inline { display: flex; align-items: center; gap: 6px; min-width: 0; }
-#bac-root .bac-inline > menulist { flex: 1; min-width: 0; margin: 0; }
+#bac-root .bac-field > menulist, #bac-root .bac-field > .bac-slot { justify-self: end; width: var(--bac-ctl); max-width: 100%; margin: 0; min-width: 0; }
+#bac-root .bac-field > .bac-slot > menulist { width: 100%; margin: 0; min-width: 0; }
+#bac-root .bac-field > .bac-stepper, #bac-root .bac-field > input { justify-self: end; margin: 0; }
+#bac-root .bac-inline { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+#bac-root .bac-inline > menulist { width: var(--bac-ctl); min-width: 0; margin: 0; }
 #bac-root .bac-inline > button { margin: 0; }
+#bac-root .bac-scope > checkbox { justify-self: end; }
+/* Number with − and +: one framed control in the colors of the cards */
+#bac-root .bac-stepper { display: inline-flex; align-items: stretch; height: 24px; box-sizing: border-box; border-radius: 5px; overflow: hidden;
+  border: 1px solid var(--bac-line); background: var(--material-background, #fff); }
+#bac-root .bac-stepper:focus-within { outline: 2px solid var(--bac-accent); outline-offset: 1px; }
+#bac-root .bac-step-btn { -moz-appearance: none; appearance: none; width: 24px; margin: 0; padding: 0; border: none; border-radius: 0;
+  background: var(--bac-head); color: inherit; font: 14px/1 system-ui, sans-serif; cursor: pointer; }
+#bac-root .bac-step-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--fill-primary, #000) 8%, var(--material-background, #fff)); }
+#bac-root .bac-step-btn:disabled { color: var(--bac-muted); opacity: .45; cursor: default; }
+#bac-root .bac-step-val { -moz-appearance: textfield; appearance: textfield; width: 3.2ch; margin: 0; padding: 0 4px; border: none;
+  border-inline: 1px solid var(--bac-line); text-align: center; font: inherit; font-variant-numeric: tabular-nums; background: transparent; color: inherit; outline: none; }
 #bac-root .bac-scope > checkbox { margin: 0; }
 /* Small, quiet “i”; stronger on hover and focus */
 #bac-root .bac-info { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; flex: none;
@@ -253,7 +270,8 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-recent-hint { margin: 3px 0 0; font-size: 11px; }
 /* Same left edge for everything in a card: text, checkboxes, menus, buttons */
 #bac-root .bac-card checkbox { margin-inline: 0; }
-#bac-root .bac-subhead { margin: 0 0 4px; }
+#bac-root .bac-subhead { margin: 0; }
+#bac-root .bac-subhead-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 #bac-root .bac-subsec > :last-child { margin-bottom: 0; }
 /* On/off switch in the head of a card: light gray track and white knob when
    off (the grays of the cards), accent color when on */

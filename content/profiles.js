@@ -676,12 +676,12 @@ BetterAnnotations.Profiles = {
    * Profile an annotation counts to (statistics, item pane, export, label tags).
    * Returns a profile ID, or null if no profile contains its color.
    *
-   * With “Profile per Document”:
+   * With “Profile per Document” only the tag puts an annotation into a profile
+   * (the filter of the reader shows exactly these):
    *   1. its profile tag
    *   2. without a tag, a color of Zotero: “Standard” (made in Zotero's apps or
    *      before the function was turned on; “Assign” moves it)
-   *   3. the profile of the document, if it contains the color
-   *   4. another profile with the color (default profile first)
+   *   3. without a tag, any other color: no profile (“Assign” gives it a tag)
    * Without the function there are no tags; the active profile comes first:
    *   1. the active profile, if it contains the color
    *   2. a color of Zotero: “Standard”
@@ -694,12 +694,7 @@ BetterAnnotations.Profiles = {
     }
     const stock = this.SB.STOCK_COLORS.includes(color);
     if (enabled) {
-      if (stock) {
-        return "standard";
-      }
-      if (this.hasColor(docId, color)) {
-        return docId;
-      }
+      return stock ? "standard" : null;
     }
     else {
       if (this.hasColor(docId, color)) {
@@ -731,7 +726,10 @@ BetterAnnotations.Profiles = {
     if (this.hasColor(docId, color)) {
       return docId;
     }
-    return this.attribute(color, null, docId) || docId;
+    if (this.SB.STOCK_COLORS.includes(color)) {
+      return "standard";
+    }
+    return this.profileWithColor(color) || docId;
   },
 
   /** Profile (copy) for an ID from attribute(); null: an empty profile “No profile”. */
@@ -826,9 +824,12 @@ BetterAnnotations.Profiles = {
   },
 
   /** Line below the lists: all annotations, or with the filter only the shown ones. */
+  totalLabel(filtered) {
+    return this.SB.S(filtered ? "totalFiltered" : "totalAll");
+  },
+
   totalText(summary, docId, filtered) {
-    const t = this.totals(summary, docId, filtered);
-    return this.SB.S(filtered ? "totalFiltered" : "totalAll", { n: t.shown });
+    return this.totalLabel(filtered) + ": " + this.totals(summary, docId, filtered).shown;
   },
 
   /** “Name (n), …” of the other profiles (and of annotations without a profile). */

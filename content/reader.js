@@ -1257,7 +1257,8 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 [data-bac-panel] .bac-stat-name i { opacity: .6; }
 [data-bac-panel] .bac-stat-n { font-variant-numeric: tabular-nums; opacity: .8; }
 [data-bac-panel] .bac-stat-zero .bac-stat-n, [data-bac-panel] .bac-stat-zero .bac-stat-name { opacity: .55; }
-[data-bac-panel] .bac-total { padding-top: 6px; margin-top: 4px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
+[data-bac-panel] .bac-total { padding-top: 6px; margin-top: 4px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); font-size: 12px; }
+[data-bac-panel] .bac-total .bac-stat-name { color: var(--fill-secondary, GrayText); }
 [data-bac-panel] .bac-bar { grid-column: 2 / 4; height: 3px; border-radius: 1.5px; margin-top: 2px; }
 [data-bac-panel] .bac-stat-desc { grid-column: 2 / 4; margin: 1px 0 3px; font-size: 12px; line-height: 1.3; white-space: pre-line;
   color: var(--fill-secondary, GrayText); }
@@ -1839,9 +1840,16 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       this.appendStatRows(doc, panel, profile, summary.colors.get(id) || new Map(), max, id === activeId);
     }
     // All annotations, or with the filter the shown ones (as in the item pane)
+    // As a row: the number stands in the column of the numbers above
     const total = doc.createElement("div");
-    total.className = "bac-sub bac-total";
-    total.textContent = P.totalText(summary, activeId, filtered);
+    total.className = "bac-stat bac-total";
+    const totalName = doc.createElement("span");
+    totalName.className = "bac-stat-name";
+    totalName.textContent = P.totalLabel(filtered);
+    const totalN = doc.createElement("span");
+    totalN.className = "bac-stat-n";
+    totalN.textContent = String(totals.shown);
+    total.append(doc.createElement("span"), totalName, totalN);
     panel.append(total);
     if (filtered) {
       const line = P.othersText(summary, activeId);
@@ -2409,10 +2417,21 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     if (!p) {
       return [];
     }
-    return rects.map((r) => {
-      const v = p.page.viewport.convertToViewportRectangle(r);
-      return [p.box.left + Math.min(v[0], v[2]), p.box.top + Math.min(v[1], v[3]), p.box.left + Math.max(v[0], v[2]), p.box.top + Math.max(v[1], v[3])];
-    });
+    return rects.map(r => this.toScreenRect(p.page.viewport, p.box, r));
+  },
+
+  /**
+   * PDF rectangle → rectangle on screen. Computed here with the matrix of the
+   * viewport: pdf.js may not read arrays of the plugin (“Permission denied to
+   * access property 0” in convertToViewportRectangle).
+   */
+  toScreenRect(viewport, box, r) {
+    const [a, b, c, d, e, f] = Array.from(viewport.transform).map(Number);
+    const pt = (x, y) => [a * x + c * y + e, b * x + d * y + f];
+    const p1 = pt(Number(r[0]), Number(r[1]));
+    const p2 = pt(Number(r[2]), Number(r[3]));
+    return [box.left + Math.min(p1[0], p2[0]), box.top + Math.min(p1[1], p2[1]),
+      box.left + Math.max(p1[0], p2[0]), box.top + Math.max(p1[1], p2[1])];
   },
 
   /** Annotation of a PDF page under a point of the view (pdf.js), with its rectangles on screen. */
@@ -2432,7 +2451,13 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     }
     const box = pageView.div.getBoundingClientRect();
     const viewport = pageView.viewport;
-    const [px, py] = viewport.convertToPdfPoint(x - box.left, y - box.top);
+    // Inverse of the viewport matrix (no call into pdf.js with values of the plugin)
+    const [ta, tb, tc, td, te, tf] = Array.from(viewport.transform).map(Number);
+    const det = ta * td - tb * tc;
+    const vx = x - box.left - te;
+    const vy = y - box.top - tf;
+    const px = (td * vx - tc * vy) / det;
+    const py = (-tb * vx + ta * vy) / det;
     let best = null;
     for (const a of annotations) {
       const pos = a.position || {};
@@ -2471,10 +2496,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     if (!best) {
       return null;
     }
-    const screen = best.rects.map((r) => {
-      const v = viewport.convertToViewportRectangle(r);
-      return [box.left + Math.min(v[0], v[2]), box.top + Math.min(v[1], v[3]), box.left + Math.max(v[0], v[2]), box.top + Math.max(v[1], v[3])];
-    });
+    const screen = best.rects.map(r => this.toScreenRect(viewport, box, r));
     return { annotation: best.annotation, rects: screen };
   },
 
