@@ -1200,7 +1200,7 @@ header[data-bac-chip] .custom-sections { flex: 0 1 auto; min-width: 0; }
 header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 .bac-chip { display: inline-flex; flex: 0 1 auto; min-width: 2.5em; max-width: 100%; overflow: hidden; white-space: pre; box-sizing: border-box;
   font-size: 10.5px; line-height: 16px; padding: 0 6px; border-radius: 8px; color: #4a3bc2; background: rgba(107, 91, 214, .14);
-  margin-inline-end: 5px; /* with the gap of the container: as far from the next icon as the icons from each other */ }
+  margin-inline-end: 4px; /* with the gap of the container: as far from the next icon as the icons from each other */ }
 .bac-chip-h { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .bac-chip-t { flex: none; }
 @media (prefers-color-scheme: dark) { .bac-chip { color: #cfc8f8; background: rgba(179, 168, 242, .2); } }
@@ -1236,6 +1236,8 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 [data-bac-panel] .bac-head-profile:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 [data-bac-panel] .bac-head-profile:focus-visible { outline: 2px solid var(--color-focus-border, #2e7bd1); outline-offset: -1px; }
 [data-bac-panel] .bac-head-profile-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-bac-panel] .bac-head-profile-dot { flex: none; opacity: .6; }
+[data-bac-panel] .bac-head-profile-n { flex: none; font-variant-numeric: tabular-nums; }
 [data-bac-panel] .bac-head-btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px;
   margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; opacity: .75; cursor: default; }
 [data-bac-panel] .bac-head-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); opacity: 1; }
@@ -1254,6 +1256,8 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 [data-bac-panel] .bac-stat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-bac-panel] .bac-stat-name i { opacity: .6; }
 [data-bac-panel] .bac-stat-n { font-variant-numeric: tabular-nums; opacity: .8; }
+[data-bac-panel] .bac-stat-zero .bac-stat-n, [data-bac-panel] .bac-stat-zero .bac-stat-name { opacity: .55; }
+[data-bac-panel] .bac-total { padding-top: 6px; margin-top: 4px; border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); }
 [data-bac-panel] .bac-bar { grid-column: 2 / 4; height: 3px; border-radius: 1.5px; margin-top: 2px; }
 [data-bac-panel] .bac-stat-desc { grid-column: 2 / 4; margin: 1px 0 3px; font-size: 12px; line-height: 1.3; white-space: pre-line;
   color: var(--fill-secondary, GrayText); }
@@ -1533,13 +1537,10 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       if (!BetterAnnotations.readerState(reader) || !BetterAnnotations.readerState(reader).annotations) {
         return null;
       }
+      // Annotations of the document's profile (“Name · n”); all of them are in the statistics
       const P = this.SB.Profiles;
-      const list = P.readerList(reader);
-      if (!P.enabled() || !P.filterActive(reader)) {
-        return list.length;
-      }
       const id = P.forReader(reader);
-      return list.filter(a => a.profile === id).length;
+      return P.readerList(reader).filter(a => a.profile === id).length;
     }
     catch (e) {
       return null;
@@ -1573,7 +1574,15 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     const n = this.annotationCount(rec.reader);
     rec.count.textContent = n === null ? "" : String(n);
     rec.wrap.classList.toggle("bac-tb-nocount", n === null);
-    const tip = SB.S("tbStatsTip") + (n === null ? "" : ": " + n) + "\n" + SB.S("chipTip", { profile: profileName }) + (source ? "\n" + source : "");
+    let total = "";
+    try {
+      const P = SB.Profiles;
+      const id = P.forReader(rec.reader);
+      total = n === null ? "" : P.totalText(P.summarize(P.readerList(rec.reader)), id, P.enabled() && P.filterActive(rec.reader));
+    }
+    catch (e) {}
+    const tip = SB.S("tbStatsTip") + "\n" + SB.S("chipTip", { profile: profileName }) + (n === null ? "" : " · " + n)
+      + (total ? "\n" + total : "") + (source ? "\n" + source : "");
     // No tooltip: hovering shows the statistics, which name the profile
     rec.statsBtn.setAttribute("aria-label", tip.replace(/\n/g, ". "));
     rec.wrap.style.display = SB.setting("showToolbarButton") ? "" : "none";
@@ -1757,26 +1766,33 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     const activeId = P.forReader(reader);
     const summary = P.summarize(P.readerList(reader));
     const filtered = P.enabled() && P.filterActive(reader);
-    const total = [...summary.byProfile.values()].reduce((a, b) => a + b, 0);
+    const totals = P.totals(summary, activeId, filtered);
     const others = [...summary.byProfile.keys()].filter(id => id !== activeId);
+    others.sort((a, b) => (a === null) - (b === null));
     const head = doc.createElement("div");
     head.className = "bac-head";
     const title = doc.createElement("span");
     title.className = "bac-head-title";
     title.textContent = SB.S("statsTitle");
     head.append(title);
-    // Profile of the document: the same menu as in the item pane
+    // Profile of the document with its number: the same button as in the item pane
     const profBtn = doc.createElement("button");
     profBtn.className = "bac-head-profile";
     profBtn.setAttribute("aria-haspopup", "menu");
     const profName = P.profileForReader(reader).name;
     const source = this.sourceText(reader);
     profBtn.setAttribute("title", SB.S("tbProfileMenu") + (source ? "\n" + source : ""));
-    profBtn.setAttribute("aria-label", SB.S("tbProfileMenu") + ": " + profName);
+    profBtn.setAttribute("aria-label", SB.S("tbProfileMenu") + ": " + profName + ", " + totals.own);
     const profLabel = doc.createElement("span");
     profLabel.className = "bac-head-profile-name";
     profLabel.textContent = profName;
-    profBtn.append(profLabel, this.makeIcon(doc, "chevron"));
+    const profDot = doc.createElement("span");
+    profDot.className = "bac-head-profile-dot";
+    profDot.textContent = "·";
+    const profN = doc.createElement("span");
+    profN.className = "bac-head-profile-n";
+    profN.textContent = String(totals.own);
+    profBtn.append(profLabel, profDot, profN, this.makeIcon(doc, "chevron"));
     profBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -1787,7 +1803,8 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       });
     });
     head.append(profBtn);
-    if (P.enabled() && (others.length || filtered)) {
+    // Filter “only this profile”: always there with the function, as in the item pane
+    if (P.enabled()) {
       const label = SB.S(filtered ? "panelFilterOff" : "panelFilterOn");
       const btn = doc.createElement("button");
       btn.className = "bac-head-btn";
@@ -1804,40 +1821,36 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       head.append(btn);
     }
     panel.append(head);
-    // One heading per profile: name · number; the document's profile first,
-    // with the reason for it in the tooltip. No line with the total: the
-    // toolbar shows it.
-    const ids = filtered
-      ? [activeId]
-      : [activeId, ...others].filter(id => id === activeId || summary.byProfile.get(id));
+    // The document's profile with all its labels (as in the item pane), then
+    // the other profiles with the colors they use, then “No profile”
+    const ids = filtered ? [activeId] : [activeId, ...others.filter(id => summary.byProfile.get(id))];
     const max = Math.max(1, ...ids.map(id => Math.max(0, ...(summary.colors.get(id) || new Map()).values())));
     for (const id of ids) {
-      // One profile: the head names it already
-      if (ids.length === 1) {
-        this.appendStatRows(doc, panel, P.profile(id), summary.colors.get(id) || new Map(), max);
-        continue;
+      const profile = P.profileOrNone(id);
+      if (ids.length > 1) {
+        const g = doc.createElement("div");
+        g.className = "bac-group";
+        g.textContent = P.nameOrNone(id) + " · " + (summary.byProfile.get(id) || 0);
+        if (id === activeId && source) {
+          g.setAttribute("title", source);
+        }
+        panel.append(g);
       }
-      const g = doc.createElement("div");
-      g.className = "bac-group";
-      g.textContent = (P.name(id) || P.profileForReader(reader).name) + " · " + (summary.byProfile.get(id) || 0);
-      if (id === activeId && source) {
-        g.setAttribute("title", source);
+      this.appendStatRows(doc, panel, profile, summary.colors.get(id) || new Map(), max, id === activeId);
+    }
+    // All annotations, or with the filter the shown ones (as in the item pane)
+    const total = doc.createElement("div");
+    total.className = "bac-sub bac-total";
+    total.textContent = P.totalText(summary, activeId, filtered);
+    panel.append(total);
+    if (filtered) {
+      const line = P.othersText(summary, activeId);
+      if (line) {
+        const el = doc.createElement("div");
+        el.className = "bac-sub bac-others";
+        el.textContent = line;
+        panel.append(el);
       }
-      panel.append(g);
-      this.appendStatRows(doc, panel, P.profile(id), summary.colors.get(id) || new Map(), max);
-    }
-    if (!total) {
-      const empty = doc.createElement("div");
-      empty.className = "bac-sub";
-      empty.textContent = SB.S("statsEmpty");
-      panel.append(empty);
-    }
-    // Hidden profiles: a line with their numbers
-    if (filtered && others.length) {
-      const line = doc.createElement("div");
-      line.className = "bac-sub bac-others";
-      line.textContent = SB.S("statsOthers", { list: others.map(id => P.name(id) + " (" + summary.byProfile.get(id) + ")").join(", ") });
-      panel.append(line);
     }
     const hint = SB.setting("statsSharedHint") !== false ? P.sharedColorsText(summary) : "";
     if (hint) {
@@ -1848,12 +1861,23 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     }
   },
 
-  /** Rows of the statistics for one profile: color, name, number, bar. */
-  appendStatRows(doc, panel, profile, counts, max) {
+  /**
+   * Rows of the statistics for one profile: color, name, number, bar.
+   * all: also labels without annotations (the document's profile).
+   */
+  appendStatRows(doc, panel, profile, counts, max, all) {
     const SB = this.SB;
     const showDesc = SB.descriptionsOn() && SB.setting("statsDescriptions") !== false;
     const order = profile.colors.map(c => c.color);
-    const rows = [...counts.entries()].sort((a, b) => {
+    const list = new Map(counts);
+    if (all) {
+      for (const entry of profile.standard ? profile.colors : SB.visibleColors(profile)) {
+        if (!list.has(entry.color)) {
+          list.set(entry.color, 0);
+        }
+      }
+    }
+    const rows = [...list.entries()].sort((a, b) => {
       const ia = order.indexOf(a[0]);
       const ib = order.indexOf(b[0]);
       if (ia >= 0 && ib >= 0) {
@@ -1867,13 +1891,14 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     for (const [color, n] of rows) {
       const entry = profile.colors.find(c => c.color === color);
       const row = doc.createElement("div");
-      row.className = "bac-stat";
+      row.className = "bac-stat" + (n ? "" : " bac-stat-zero");
       const dot = doc.createElement("span");
       dot.className = "bac-dot";
       dot.style.background = color;
       const name = doc.createElement("span");
       name.className = "bac-stat-name";
-      name.textContent = SB.displayName(color, profile);
+      const label = SB.listName(color, profile);
+      name.textContent = label;
       if (entry && !SB.isVisible(entry)) {
         const hidden = doc.createElement("i");
         hidden.textContent = " (" + SB.S("statsHidden") + ")";
@@ -1885,7 +1910,7 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       const bar = doc.createElement("span");
       bar.className = "bac-bar";
       bar.style.background = color;
-      bar.style.width = Math.max(4, Math.round(n / max * 100)) + "%";
+      bar.style.width = (n ? Math.max(4, Math.round(n / max * 100)) : 0) + "%";
       // Whole device pixels: with display scaling (e.g. 125 %) all bars keep the same height
       const dpr = doc.defaultView.devicePixelRatio || 1;
       bar.style.height = Math.max(2, Math.round(3 * dpr)) / dpr + "px";
@@ -1898,7 +1923,11 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
         row.insertBefore(d, bar);
       }
       else if (desc) {
-        row.setAttribute("title", SB.tooltipText(SB.displayName(color, profile), entry.description));
+        row.setAttribute("title", SB.tooltipText(label, entry.description));
+      }
+      else if (!entry && !SB.stockName(color)) {
+        // Color code only here, not in the list
+        row.setAttribute("title", label + " (" + color + ")");
       }
       panel.append(row);
     }
@@ -2130,14 +2159,19 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     }
     const source = event.target.ownerDocument;
     const docs = this.outsideDocs(doc).filter(d => d !== source);
-    const drag = { reader, color, label: label || color, docs, target: null, overlay: null, listeners: [], ghosts: new Map() };
+    const drag = { reader, color, label: label || color, docs, target: null, overlay: null, listeners: [], ghosts: new Map(), last: Date.now() };
     const on = (d, type, fn) => {
       d.addEventListener(type, fn, true);
       drag.listeners.push(() => d.removeEventListener(type, fn, true));
     };
     // Own picture under the pointer, opaque, in whichever document the pointer is
     for (const d of [source, ...docs]) {
-      on(d, "dragover", e => this._safe(() => this.moveGhost(drag, d, e.clientX, e.clientY)));
+      on(d, "dragover", e => this._safe(() => {
+        drag.last = Date.now();
+        this.moveGhost(drag, d, e.clientX, e.clientY);
+      }));
+      // Ends the drag even if the dragged row was rebuilt meanwhile
+      on(d, "dragend", () => this.SB.setTimeout(() => this._drag === drag && this.endColorDrag(), 0));
     }
     for (const d of docs) {
       on(d, "dragover", e => this._safe(() => this.onColorDragOver(drag, e)));
@@ -2184,12 +2218,19 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     }
   },
 
+  /** Is a color being dragged right now? (Ends by itself if the drag got lost.) */
+  dragging() {
+    return !!this._drag && Date.now() - this._drag.last < 4000;
+  },
+
   endColorDrag() {
     const drag = this._drag;
     this._drag = null;
     if (!drag) {
       return;
     }
+    // The lists skipped rebuilding during the drag
+    this.SB.setTimeout(() => this.SB.Panel?.refreshAll?.(), 50);
     for (const g of drag.ghosts.values()) {
       try {
         g.remove();
@@ -2234,8 +2275,12 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     if (!this.isColorDrag(e)) {
       return;
     }
-    const target = this.dropTargetAt(drag.reader, e);
+    // What was marked during the drag: the PDF view handles “drop” before
+    // the plugin and may clear the text selection or change the state
+    const target = drag.target || this.dropTargetAt(drag.reader, e);
     this.setDropTarget(drag, null);
+    this.SB.log("drop: " + (target ? (target.ids ? "annotations " + target.ids.join(",") : "selected text") : "no target"));
+    this.SB.setTimeout(() => this._drag === drag && this.endColorDrag(), 0);
     if (!target) {
       return;
     }
@@ -2247,7 +2292,6 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     else if (target.ids) {
       this.setAnnotationColor(drag.reader, target.ids, drag.color);
     }
-    this.SB.Panel?.refreshAll?.();
   },
 
   /**
@@ -2288,7 +2332,17 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       const inside = rects.some(r => e.clientX >= r.left - 2 && e.clientX <= r.right + 2 && e.clientY >= r.top - 2 && e.clientY <= r.bottom + 2);
       const snap = inside ? this.selectionSnapshot(reader) : null;
       if (snap && snap.annotation) {
-        return { annotation: snap.annotation, rects: rects.map(r => [r.left, r.top, r.right, r.bottom]), doc };
+        // Mark it like a highlight: the rectangles the reader would save (the
+        // rectangles of the text layer do not match the glyphs)
+        const pos = snap.annotation.position || {};
+        let marks = [];
+        if (Array.isArray(pos.rects) && Number.isInteger(pos.pageIndex)) {
+          marks = this.pdfScreenRects(doc, pos.pageIndex, pos.rects);
+          if (Array.isArray(pos.nextPageRects)) {
+            marks = marks.concat(this.pdfScreenRects(doc, pos.pageIndex + 1, pos.nextPageRects));
+          }
+        }
+        return { annotation: snap.annotation, rects: marks.length ? marks : rects.map(r => [r.left, r.top, r.right, r.bottom]), doc };
       }
     }
     return null;
@@ -2326,7 +2380,20 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
     }
     const pos = annotation.position || {};
     const rects = Array.from(pos.rects || []).map(r => Array.from(r));
-    return { annotation, rects: this.pdfScreenRects(doc, pos.pageIndex, rects) };
+    let marks = this.pdfScreenRects(doc, pos.pageIndex, rects);
+    if (pos.nextPageRects) {
+      marks = marks.concat(this.pdfScreenRects(doc, pos.pageIndex + 1, Array.from(pos.nextPageRects).map(r => Array.from(r))));
+    }
+    if (!marks.length && pos.paths) {
+      // Ink: frame of the paths
+      const pts = Array.from(pos.paths).flatMap(p => Array.from(p));
+      const xs = pts.filter((v, i) => i % 2 === 0);
+      const ys = pts.filter((v, i) => i % 2 === 1);
+      if (xs.length) {
+        marks = this.pdfScreenRects(doc, pos.pageIndex, [[Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]]);
+      }
+    }
+    return { annotation, rects: marks };
   },
 
   /** Page of pdf.js: its view and the rectangle of its div on screen. */

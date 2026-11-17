@@ -18,7 +18,7 @@
  * reader's annotation manager before the reader saves the annotation, so it
  * is part of the same save and of the same undo step. If that is not
  * possible (e.g. after a Zotero update), the tag is added afterwards.
- * Annotations without a profile tag belong to the profile of their document.
+ * Annotations without a profile tag: see attribute().
  */
 
 /* global Zotero, Components, BetterAnnotations */
@@ -666,30 +666,105 @@ BetterAnnotations.Profiles = {
     }
   },
 
-  /** Profile of an annotation from the reader: its tag, else the profile of the document. */
-  ofReaderAnnotation(a, docId) {
-    if (!this.enabled()) {
+  /** Does the profile contain the color? */
+  hasColor(id, color) {
+    const p = id && this.Store.getProfile(id);
+    return !!p && p.colors.some(c => c.color === color);
+  },
+
+  /**
+   * Profile an annotation counts to (statistics, item pane, export, label tags).
+   * Returns a profile ID, or null if no profile contains its color.
+   *
+   * With “Profile per Document”:
+   *   1. its profile tag
+   *   2. without a tag, a color of Zotero: “Standard” (made in Zotero's apps or
+   *      before the function was turned on; “Assign” moves it)
+   *   3. the profile of the document, if it contains the color
+   *   4. another profile with the color (default profile first)
+   * Without the function there are no tags; the active profile comes first:
+   *   1. the active profile, if it contains the color
+   *   2. a color of Zotero: “Standard”
+   *   3. another profile with the color (as above)
+   */
+  attribute(color, tagId, docId) {
+    const enabled = this.enabled();
+    if (enabled && tagId && this.Store.getProfile(tagId)) {
+      return tagId;
+    }
+    const stock = this.SB.STOCK_COLORS.includes(color);
+    if (enabled) {
+      if (stock) {
+        return "standard";
+      }
+      if (this.hasColor(docId, color)) {
+        return docId;
+      }
+    }
+    else {
+      if (this.hasColor(docId, color)) {
+        return docId;
+      }
+      if (stock) {
+        return "standard";
+      }
+    }
+    return this.profileWithColor(color);
+  },
+
+  /** First profile with a color: the default profile, then in the order of the menus; else null. */
+  profileWithColor(color) {
+    const def = this.defaultId();
+    if (this.hasColor(def, color)) {
+      return def;
+    }
+    const p = this.Store.listForMenu().find(x => this.hasColor(x.id, color));
+    return p ? p.id : null;
+  },
+
+  /**
+   * Tag that “Assign” gives an annotation without a profile tag: the
+   * document's profile if it contains the color, else the profile the
+   * annotation counts to, else the document's profile.
+   */
+  assignTarget(color, docId) {
+    if (this.hasColor(docId, color)) {
       return docId;
     }
+    return this.attribute(color, null, docId) || docId;
+  },
+
+  /** Profile (copy) for an ID from attribute(); null: an empty profile “No profile”. */
+  profileOrNone(id) {
+    if (id && this.Store.getProfile(id)) {
+      return this.profile(id);
+    }
+    return { id: null, name: this.SB.S("noProfile"), colors: [], none: true };
+  },
+
+  /** Name for an ID from attribute(), also for null. */
+  nameOrNone(id) {
+    return id ? this.name(id) : this.SB.S("noProfile");
+  },
+
+  /** Profile of an annotation from the reader (see attribute()). */
+  ofReaderAnnotation(a, docId) {
     let tags = [];
     try {
       tags = Array.from(a.tags || []);
     }
     catch (e) {}
-    return this.idForTags(tags) || docId;
+    return this.attribute(this.SB.normalize(a.color), this.idForTags(tags), docId);
   },
 
-  /** Profile of an annotation item: its tag, else the given profile of the document. */
+  /** Profile of an annotation item (see attribute()). */
   ofItem(item, docId) {
-    if (!this.enabled()) {
-      return docId;
-    }
     let tags = [];
     try {
       tags = item.getTags().map(t => t.tag);
     }
     catch (e) {}
-    return this.idForTags(tags) || docId;
+    return this.attribute(this.SB.normalize(item.annotationColor), this.idForTags(tags), docId);
   },
 
   /**
@@ -741,11 +816,37 @@ BetterAnnotations.Profiles = {
   },
 
   /**
+   * Numbers for “profile · n”: own = annotations of the document's profile,
+   * all = all annotations, shown = what Zotero shows (own with the filter).
+   */
+  totals(summary, docId, filtered) {
+    const all = [...summary.byProfile.values()].reduce((a, b) => a + b, 0);
+    const own = summary.byProfile.get(docId) || 0;
+    return { own, all, shown: filtered ? own : all };
+  },
+
+  /** Line below the lists: all annotations, or with the filter only the shown ones. */
+  totalText(summary, docId, filtered) {
+    const t = this.totals(summary, docId, filtered);
+    return this.SB.S(filtered ? "totalFiltered" : "totalAll", { n: t.shown });
+  },
+
+  /** “Name (n), …” of the other profiles (and of annotations without a profile). */
+  othersText(summary, docId) {
+    const ids = [...summary.byProfile.keys()].filter(id => id !== docId);
+    ids.sort((a, b) => (a === null) - (b === null));
+    return ids.length ? this.SB.S("statsOthers", {
+      list: ids.map(id => this.nameOrNone(id) + " (" + summary.byProfile.get(id) + ")").join(", "),
+    }) : "";
+  },
+
+  /**
    * Profiles of a document that use the same color: [[nameA, nameB], …]
    * Only profiles that have annotations in the document count.
    */
   sharedColors(summary) {
-    const ids = [...summary.byProfile.keys()];
+    // “Standard” only collects annotations without a profile in Zotero's colors
+    const ids = [...summary.byProfile.keys()].filter(id => id && id !== "standard");
     const pairs = [];
     for (let i = 0; i < ids.length; i++) {
       for (let j = i + 1; j < ids.length; j++) {
@@ -1336,10 +1437,12 @@ BetterAnnotations.Profiles = {
       files.set(att, id);
       return id;
     };
+    const enabled = this.enabled();
     return {
       tagged,
       fileProfile,
-      of: this.enabled() ? (r => tagged.get(r.id) || fileProfile(r.att, r.top)) : (() => fallback),
+      // r: row of Library.index() (id, att, top, c)
+      of: r => this.attribute(r.c, enabled ? tagged.get(r.id) : null, enabled ? fileProfile(r.att, r.top) : fallback),
     };
   },
 };

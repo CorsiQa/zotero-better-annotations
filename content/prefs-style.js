@@ -9,6 +9,11 @@
 BetterAnnotations.PREFS_CSS = `
 #bac-root { position: relative; max-width: 760px;
   --bac-border: var(--fill-quinary, rgba(127,127,127,.28));
+  /* Lines of cards and rows: visible in light and dark mode */
+  --bac-line: color-mix(in srgb, var(--fill-primary, #000) 15%, transparent);
+  /* Head of a card: a lighter gray than the window, darker than the body */
+  --bac-head: color-mix(in srgb, var(--fill-primary, #000) 2.5%, var(--material-background, #fff));
+  --bac-pad: 14px;
   --bac-muted: var(--fill-secondary, #777);
   --bac-bg: var(--material-background, #fff);
   --bac-raise: var(--material-sidepane, #f6f6f6);
@@ -20,7 +25,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-end { justify-content: flex-end; }
 #bac-root .bac-text { width: 12em; font: inherit; padding: 2px 5px; }
 #bac-root.bac-busy, #bac-root.bac-busy * { cursor: progress !important; }
-#bac-root .bac-logrow { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--bac-border); }
+#bac-root .bac-logrow { display: flex; align-items: center; gap: 8px; }
 #bac-root .bac-logtext { flex: 1; min-width: 0; line-height: 1.4; }
 #bac-root .bac-undone .bac-logtext { opacity: .55; text-decoration: line-through; }
 #bac-root .bac-undone-label { margin: 0; }
@@ -101,7 +106,7 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-actions { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bac-border); }
 #bac-root .bac-savebar:not(.bac-actions-dirty) { display: none; }
 #bac-root .bac-savebar.bac-actions-dirty { position: sticky; bottom: 0; z-index: 4; flex-wrap: nowrap; margin: 4px 0 0; padding: 8px 15px;
-  border-radius: 8px; background: var(--bac-raise); border: 1px solid var(--bac-border); box-shadow: 0 -4px 14px rgba(0,0,0,.12); }
+  border-radius: 5px; background: var(--bac-head); border: 1px solid var(--bac-line); box-shadow: 0 -4px 14px rgba(0,0,0,.12); }
 #bac-root .bac-actions-dirty .bac-spacer { min-width: 0; }
 #bac-root .bac-actions-dirty .bac-status { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #bac-root .bac-actions-dirty .bac-save { -moz-appearance: none; appearance: none; background: var(--bac-accent); color: #fff;
@@ -135,8 +140,8 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-warn { color: #d14; font-size: 11px; }
 #bac-root .bac-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 #bac-root { max-width: 820px; }
-#bac-root .bac-header { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 12px; border-radius: 12px;
-  border: 1px solid var(--bac-border);
+#bac-root .bac-header { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 12px; border-radius: 5px;
+  border: 1px solid var(--bac-line);
   background: linear-gradient(135deg, color-mix(in srgb, #ffd400 14%, var(--bac-bg)), color-mix(in srgb, #2ea8e5 12%, var(--bac-bg)) 55%, color-mix(in srgb, #e56eee 12%, var(--bac-bg))); }
 #bac-root .bac-logo { width: 46px; height: 46px; flex: none; }
 #bac-root .bac-head-main { flex: 1; min-width: 0; }
@@ -155,24 +160,55 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-head-side > button { margin: 0; }
 #bac-root .bac-lang-row { display: flex; align-items: center; gap: 4px; color: var(--bac-muted); }
 #bac-root .bac-lang { margin: 0; min-width: 0; }
-#bac-root .bac-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 12px; border-radius: 10px; background: var(--bac-raise);
-  border: 1px solid var(--bac-border); }
-#bac-root .bac-tab { -moz-appearance: none; appearance: none; flex: 1; margin: 0; min-width: 0; padding: 6px 10px; border: none; border-radius: 7px;
+#bac-root .bac-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 12px; border-radius: 6px; background: var(--bac-head);
+  border: 1px solid var(--bac-line); }
+#bac-root .bac-tab { -moz-appearance: none; appearance: none; flex: 1; margin: 0; min-width: 0; padding: 6px 10px; border: none; border-radius: 4px;
   background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #bac-root .bac-tab:hover { background: color-mix(in srgb, var(--bac-accent) 10%, transparent); }
 #bac-root .bac-tab-on { background: var(--bac-bg); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 #bac-root .bac-tab-dirty::after { content: " ●"; color: #c77700; }
 #bac-root .bac-panel[hidden] { display: none; }
-#bac-root .bac-card { position: relative; padding: 0 14px 12px; margin-bottom: 12px; border-radius: 10px; border: 1px solid var(--bac-border);
-  background: var(--bac-bg); }
-/* Head as a grey band with a line below, like the panes of Zotero's settings */
-#bac-root .bac-card-head { display: flex; align-items: center; gap: 8px; min-height: 20px; margin: 0 -14px 10px; padding: 8px 14px;
-  border-radius: 9px 9px 0 0; background: var(--bac-raise); border-bottom: 1px solid var(--bac-border); }
-#bac-root .bac-card-head h3 { margin: 0; font-size: 13px; font-weight: 700; }
-#bac-root .bac-card > .bac-hint { margin-bottom: 8px; }
-#bac-root .bac-info { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; flex: none;
-  border-radius: 50%; border: 1px solid var(--bac-muted); color: var(--bac-muted); font: italic 700 10px/1 Georgia, serif; cursor: help; user-select: none; }
-#bac-root .bac-info:hover, #bac-root .bac-info:focus { border-color: var(--bac-accent); color: var(--bac-accent); outline: none; }
+/* Cards: framed all around, radius as in Zotero (5px); head in a light gray
+   with title, “i” and a short description; rows with lines across the width */
+#bac-root .bac-card { position: relative; margin-bottom: 12px; border-radius: 5px; border: 1px solid var(--bac-line);
+  background: var(--material-background, #fff); overflow: hidden; }
+#bac-root .bac-card-head { padding: 9px var(--bac-pad); background: var(--bac-head); }
+#bac-root .bac-card-title { display: flex; align-items: center; gap: 6px; min-height: 20px; }
+#bac-root .bac-card-title h3 { margin: 0; font-size: 13px; font-weight: 700; }
+#bac-root .bac-card-desc { margin-top: 2px; color: var(--bac-muted); font-size: 12px; line-height: 1.4; }
+#bac-root .bac-card-body { padding: 0 var(--bac-pad) 2px; }
+#bac-root .bac-card-body[hidden] { display: none; }
+/* Rows: every element of the body (and of boxes and option lists) except hints */
+#bac-root .bac-card-body > :not(.bac-hint):not(.bac-box):not(.bac-checks):not(.bac-notice):not(.bac-library):not(p),
+#bac-root .bac-box > :not(.bac-hint):not(.bac-checks):not(.bac-notice),
+#bac-root .bac-checks > *,
+#bac-root .bac-hint-row {
+  margin: 0 calc(-1 * var(--bac-pad)); padding: 8px var(--bac-pad); border-top: 1px solid var(--bac-line); box-sizing: border-box; }
+#bac-root .bac-box, #bac-root .bac-checks { display: block; margin: 0; padding: 0; }
+/* A hint explains the row above it */
+#bac-root .bac-card-body > .bac-hint:not(.bac-hint-row), #bac-root .bac-box > .bac-hint:not(.bac-hint-row) { margin: -4px 0 0; padding-bottom: 8px; }
+#bac-root .bac-card .bac-bar { flex-wrap: wrap; }
+#bac-root .bac-card-body .bac-notice { margin: 8px 0; }
+#bac-root .bac-card-body .bac-library { margin: 8px 0; }
+#bac-root .bac-card-body > p { margin: 8px 0; }
+#bac-root .bac-card-body > p + p { margin-top: 0; }
+#bac-root .bac-card-body > p + .bac-hint { margin-top: 0; }
+#bac-root .bac-card-body > .bac-credits { padding-inline-start: calc(var(--bac-pad) + 18px); }
+/* Label left, control right; the same columns in every row */
+#bac-root .bac-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: center; gap: 4px 12px; }
+#bac-root .bac-field-label { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+#bac-root .bac-field > menulist, #bac-root .bac-field > .bac-slot, #bac-root .bac-field > .bac-slot > menulist { width: 100%; margin: 0; min-width: 0; }
+#bac-root .bac-field > input { justify-self: start; margin: 0; }
+#bac-root .bac-inline { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#bac-root .bac-inline > menulist { flex: 1; min-width: 0; margin: 0; }
+#bac-root .bac-inline > button { margin: 0; }
+#bac-root .bac-scope > checkbox { margin: 0; }
+/* Small, quiet “i”; stronger on hover and focus */
+#bac-root .bac-info { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; flex: none;
+  box-sizing: border-box; border-radius: 50%; border: 1px solid currentColor; color: var(--bac-muted); opacity: .6;
+  font: italic 700 8.5px/1 Georgia, serif; cursor: help; user-select: none; }
+#bac-root .bac-info:hover, #bac-root .bac-info:focus { opacity: 1; color: var(--bac-accent); outline: none; }
+#bac-root .bac-info:focus-visible { outline: 2px solid var(--bac-accent); outline-offset: 1px; }
 #bac-root .bac-info-pop { display: none; position: fixed; z-index: 1000; width: 330px; padding: 10px 12px;
   border-radius: 8px; background: var(--bac-raise); color: var(--fill-primary, CanvasText); border: 1px solid var(--bac-border);
   box-shadow: 0 8px 24px rgba(0,0,0,.22); font: 12px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; font-style: normal; font-weight: normal;
@@ -217,34 +253,30 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-recent-hint { margin: 3px 0 0; font-size: 11px; }
 /* Same left edge for everything in a card: text, checkboxes, menus, buttons */
 #bac-root .bac-card checkbox { margin-inline: 0; }
-/* Options one per row, with a thin line between the rows */
-#bac-root .bac-checks { display: flex; flex-direction: column; align-items: stretch; gap: 0; margin: 2px 0 6px; }
-#bac-root .bac-checks > * { margin-block: 0; padding-block: 5px; }
-#bac-root .bac-checks > * + * { border-top: 1px solid var(--bac-border); }
-#bac-root .bac-checks + .bac-bar, #bac-root .bac-recolor-grid + .bac-checks { border-top: 1px solid var(--bac-border); padding-top: 6px; }
-#bac-root .bac-subsec { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bac-border); }
+#bac-root .bac-subhead { margin: 0 0 4px; }
 #bac-root .bac-subsec > :last-child { margin-bottom: 0; }
-/* On/off switch in the head of a card */
+/* On/off switch in the head of a card: light gray track and white knob when
+   off (the grays of the cards), accent color when on */
 #bac-root .bac-switch { -moz-appearance: none; appearance: none; position: relative; flex: none; margin: 0; margin-inline-start: auto;
-  width: 32px; height: 18px; padding: 0; border-radius: 9px; box-sizing: border-box; cursor: pointer;
-  border: 1px solid var(--fill-secondary, #777); background: var(--bac-bg); }
-#bac-root .bac-switch-knob { position: absolute; top: 2px; inset-inline-start: 2px; width: 12px; height: 12px; border-radius: 50%;
-  background: var(--fill-secondary, #777); transition: inset-inline-start .12s ease; }
+  width: 30px; height: 17px; padding: 0; border-radius: 9px; box-sizing: border-box; cursor: pointer;
+  border: 1px solid var(--bac-line); background: color-mix(in srgb, var(--fill-primary, #000) 10%, var(--material-background, #fff));
+  transition: background-color .12s ease; }
+#bac-root .bac-switch:hover { background: color-mix(in srgb, var(--fill-primary, #000) 16%, var(--material-background, #fff)); }
+#bac-root .bac-switch-knob { position: absolute; top: 1px; inset-inline-start: 1px; width: 13px; height: 13px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: inset-inline-start .12s ease; }
 #bac-root .bac-switch[aria-checked="true"] { background: var(--bac-accent); border-color: var(--bac-accent); }
-#bac-root .bac-switch[aria-checked="true"] .bac-switch-knob { inset-inline-start: 16px; background: #fff; }
+#bac-root .bac-switch[aria-checked="true"]:hover { background: color-mix(in srgb, var(--bac-accent) 88%, #000); }
+#bac-root .bac-switch[aria-checked="true"] .bac-switch-knob { inset-inline-start: 14px; }
 #bac-root .bac-switch:focus-visible { outline: 2px solid var(--bac-accent); outline-offset: 2px; }
-/* A card that is off: muted, only its short description */
-#bac-root .bac-card-off { background: var(--bac-raise); }
-#bac-root .bac-card-off .bac-card-head h3 { color: var(--bac-muted); }
-#bac-root .bac-card-off .bac-card-head { background: transparent; }
-#bac-root .bac-card-off > :last-child > .bac-hint:last-child { margin-bottom: 0; }
+/* A card that is off: only head and description, the title muted */
+#bac-root .bac-card-off .bac-card-title h3 { color: var(--bac-muted); }
 @media (prefers-reduced-motion: reduce) { #bac-root * { transition: none !important; } }
 #bac-root .bac-steps { margin: 4px 0 8px; padding-inline-start: 22px; color: var(--bac-muted); line-height: 1.45; }
 #bac-root .bac-subhead { margin: 0 0 6px; font-size: 1em; font-weight: 600; }
 #bac-root .bac-rules { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px; }
 /* Rule: number, collection → profile, ↑ ↓ ✕ in one line; “with subcollections” below. Fixed columns, so nothing wraps */
 #bac-root .bac-rule { display: grid; grid-template-columns: 1.4em minmax(0, 3fr) auto minmax(0, 2fr) 24px 24px 24px;
-  align-items: center; gap: 2px 6px; padding: 6px 0; border-bottom: 1px solid var(--bac-border); }
+  align-items: center; gap: 2px 6px; padding: 6px 0; border-bottom: 1px solid var(--bac-line); }
 #bac-root .bac-rule menulist { margin: 0; min-width: 0; }
 #bac-root .bac-rule-sub { grid-column: 2 / -1; justify-self: start; }
 #bac-root .bac-rule-no { color: var(--bac-muted); font-variant-numeric: tabular-nums; }

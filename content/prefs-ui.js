@@ -352,7 +352,7 @@ BetterAnnotations.PaneController = class {
     this.notice = null;
     // Buttons wrap only in groups that belong together
     const group = (...items) => this.h("span", { class: "bac-group" }, ...items);
-    colors.append(this.card(S("secProfile"), S(perDocument ? "infoProfilePerDoc" : "infoProfile"), null,
+    colors.append(this.card(S("secProfile"), S(perDocument ? "infoProfilePerDoc" : "infoProfile"), S(perDocument ? "cardProfilePerDoc" : "cardProfile"),
       this.h("div", { class: "bac-bar bac-profile-row" },
         this.profileMenu,
         group(
@@ -372,7 +372,7 @@ BetterAnnotations.PaneController = class {
         ),
       ),
       perDocument ? this.defaultProfileField() : null,
-      perDocument ? this.h("div", { class: "bac-hint", text: S("profilePerDocHint") }) : null,
+      perDocument ? this.hint(S("profilePerDocHint")) : null,
       this.libraryOpen ? this.renderLibrary() : null,
       ...notices.map(n => this.h("div", { class: "bac-notice", text: n })),
     ));
@@ -385,7 +385,7 @@ BetterAnnotations.PaneController = class {
     this.saveBtn.classList.add("bac-save");
     this.discardBtn = this.button(S("btnDiscard"), () => this.discard());
     const paletteBtn = this.button(S("btnApplyPalette"), () => this.openPaletteMenu(paletteBtn), { tooltip: S("applyPaletteHint") });
-    colors.append(this.card(S("secColors"), S("infoColors") + (SB.descriptionsOn() ? "\n\n" + S("infoDescriptions") : ""), null,
+    colors.append(this.card(S("secColors"), S("infoColors") + (SB.descriptionsOn() ? "\n\n" + S("infoDescriptions") : ""), S("cardColors"),
       this.listEl,
       this.h("div", { class: "bac-bar bac-end" }, this.addBtn),
       this.h("div", { class: "bac-bar bac-actions" },
@@ -417,17 +417,19 @@ BetterAnnotations.PaneController = class {
       v => set("popupLayout", v, () => this.render()), // the number field depends on the layout
     );
     display.append(
-      this.card(S("secContextMenu"), S("infoContextMenu"), null,
-        this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optMenuLimit") }), number("menuLimit", 1, 20)),
-        this.h("div", { class: "bac-hint", text: S("optMenuLimitHint") }),
+      this.card(S("secContextMenu"), S("infoContextMenu"), S("cardContextMenu"),
+        this.field(S("optMenuLimit"), number("menuLimit", 1, 20)),
+        this.hint(S("optMenuLimitHint")),
         this.h("div", { class: "bac-checks" },
           this.checkbox(S("optShowMenuEntry"), settings.showMenuEntry !== false, v => set("showMenuEntry", v))),
       ),
-      this.card(S("secPopup"), S("infoPopup"), null,
-        this.h("div", { class: "bac-opt" }, this.h("label", { text: S("optPopupLayout") }), layoutMenu),
-        this.h("div", { class: "bac-opt" }, this.h("label", { text: S(fixedLayout ? "optPopupFixedColumns" : "optPopupColumns") }),
-          fixedLayout ? number("popupFixedColumns", 4, 17) : number("popupColumns", 4, 16)),
-        this.h("div", { class: "bac-hint", text: S(fixedLayout ? "optPopupFixedHint" : "optPopupColumnsHint") }),
+      this.card(S("secPopup"), S("infoPopup"), S("cardPopup"),
+        this.field(S("optPopupLayout"), layoutMenu),
+        // The fixed number needs more explanation: an “i” instead of a sentence
+        fixedLayout
+          ? this.field(S("optPopupFixedColumns"), number("popupFixedColumns", 4, 17), S("optPopupFixedHint"))
+          : this.field(S("optPopupColumns"), number("popupColumns", 4, 16)),
+        fixedLayout ? null : this.hint(S("optPopupColumnsHint")),
         this.h("div", { class: "bac-checks" },
           this.checkbox(S("optShowPopupButton"), settings.showPopupButton !== false, v => set("showPopupButton", v)),
           this.checkbox(S("optInstantTip"), settings.instantTooltip !== false, v => set("instantTooltip", v))),
@@ -436,8 +438,8 @@ BetterAnnotations.PaneController = class {
     this.toolbarBox = this.h("div");
     this.sectionBox = this.h("div");
     display.append(
-      this.card(S("secToolbar"), S("infoToolbar"), null, this.toolbarBox),
-      this.card(S("secSidebar"), S("infoItemPane"), null, this.sectionBox),
+      this.card(S("secToolbar"), S("infoToolbar"), S("cardToolbar"), this.toolbarBox),
+      this.card(S("secSidebar"), S("infoItemPane"), S("cardSidebar"), this.sectionBox),
     );
     this.renderToolbarCard();
     this.renderSectionCard();
@@ -448,9 +450,9 @@ BetterAnnotations.PaneController = class {
     this.backupBox = this.h("div");
     this.historyBox = this.h("div");
     library.append(
-      this.card(S("secRecolor"), S("infoRecolor"), null, this.recolorBox),
-      this.card(S("secBackups"), S("infoBackups"), null, this.backupBox),
-      this.card(S("secHistory"), S("infoHistory"), null, this.historyBox),
+      this.card(S("secRecolor"), S("infoRecolor"), S("cardRecolor"), this.recolorBox),
+      this.card(S("secBackups"), S("infoBackups"), S("backupIntro"), this.backupBox),
+      this.card(S("secHistory"), S("infoHistory"), S("historyIntro"), this.historyBox),
     );
     this.renderRecolor();
     this.renderBackups();
@@ -458,7 +460,7 @@ BetterAnnotations.PaneController = class {
 
     // --- Tab “Export” ----------------------------------------------------
     this.exportBox = this.h("div");
-    this.panels.get("export").append(this.card(S("secExport"), S("infoExport"), null, this.exportBox));
+    this.panels.get("export").append(this.card(S("secExport"), S("infoExport"), S("exportIntro"), this.exportBox));
     this.renderExport();
 
     // --- Tab “Advanced”: functions that are off by default ----------------
@@ -467,9 +469,9 @@ BetterAnnotations.PaneController = class {
     this.docProfileBox = this.h("div");
     this.panels.get("advanced").append(
       this.h("div", { class: "bac-hint bac-tab-intro", text: S("advancedIntro") }),
-      this.card(S("secDescriptions"), S("infoDescriptionsCard"), null, this.descBox),
-      this.card(S("secTags"), S("infoTags"), null, this.tagsBox),
-      this.card(S("secDocProfile"), S("infoDocProfile"), null, this.docProfileBox),
+      this.card(S("secDescriptions"), S("infoDescriptionsCard"), S("descriptionsIntro"), this.descBox),
+      this.card(S("secTags"), S("infoTags"), S("tagsIntro"), this.tagsBox),
+      this.card(S("secDocProfile"), S("infoDocProfile"), S("docProfileIntro"), this.docProfileBox),
     );
     this.renderDescriptionsCard();
     this.renderTags();
@@ -507,12 +509,13 @@ BetterAnnotations.PaneController = class {
           }, name),
           " (" + author + "): " + S(key)))),
       ),
-      this.card(S("secData"), S("infoData"), null,
-        this.h("div", { class: "bac-hint" }, S("storageLocation") + " ", this.h("code", { class: "bac-path", text: this.Store.dir })),
-        this.h("div", { class: "bac-bar" }, this.button(S("btnShowFolder"), () => this.showFolder())),
+      // One sentence is enough here: no “i”
+      this.card(S("secData"), null, S("infoData"),
+        this.h("div", { class: "bac-bar" },
+          this.h("span", { class: "bac-hint bac-grow" }, S("storageLocation") + " ", this.h("code", { class: "bac-path", text: this.Store.dir })),
+          this.button(S("btnShowFolder"), () => this.showFolder())),
       ),
-      this.card(S("secFullBackup"), S("infoFullBackup"), null,
-        this.h("div", { class: "bac-hint", text: S("fullBackupIntro") }),
+      this.card(S("secFullBackup"), S("infoFullBackup"), S("fullBackupIntro"),
         this.h("div", { class: "bac-bar" },
           this.button(S("btnFullBackup"), () => this.saveFullBackup()),
           this.button(S("btnFullRestore"), () => this.loadFullBackup()),
@@ -678,17 +681,37 @@ BetterAnnotations.PaneController = class {
   }
 
   /** Card with title, optional info icon and optional short description. */
+  /**
+   * Card: a head (light gray) with title, optional “i” and a short
+   * description, and a body whose rows are separated by lines across the
+   * whole width. Hints (.bac-hint) belong to the row above them.
+   */
   card(title, infoText, description, ...children) {
-    const head = this.h("div", { class: "bac-card-head" }, this.h("h3", { text: title }));
-    if (infoText) {
-      head.append(this.info(infoText));
+    const titleRow = this.h("div", { class: "bac-card-title" }, this.h("h3", { text: title }), infoText ? this.info(infoText) : null);
+    const head = this.h("div", { class: "bac-card-head" }, titleRow,
+      description ? this.h("div", { class: "bac-card-desc", text: description }) : null);
+    const body = this.h("div", { class: "bac-card-body" });
+    for (const child of children.flat().filter(Boolean)) {
+      // Plain boxes that a render function fills later
+      if (child.localName === "div" && !child.className) {
+        child.classList.add("bac-box");
+      }
+      body.append(child);
     }
-    const card = this.h("section", { class: "bac-card" }, head);
-    if (description) {
-      card.append(this.h("div", { class: "bac-hint", text: description }));
-    }
-    card.append(...children.flat().filter(Boolean));
+    const card = this.h("section", { class: "bac-card" }, head, body);
+    this.syncCardBody(card);
     return card;
+  }
+
+  /** Hide the body of a card that has nothing to show (e.g. a function that is off). */
+  syncCardBody(card) {
+    const body = card && card.querySelector(":scope > .bac-card-body");
+    if (!body) {
+      return;
+    }
+    const empty = ![...body.children].some(c => !c.hidden && !(c.classList.contains("bac-box") && !c.childElementCount));
+    body.hidden = empty;
+    card.classList.toggle("bac-card-nobody", empty);
   }
 
   /**
@@ -700,12 +723,12 @@ BetterAnnotations.PaneController = class {
     if (!card) {
       return;
     }
-    const head = card.querySelector(".bac-card-head");
-    const title = head.querySelector("h3");
+    const titleRow = card.querySelector(".bac-card-title");
+    const title = titleRow.querySelector("h3");
     if (title && !title.id) {
       title.id = this.SB.uid("bac-h");
     }
-    head.querySelector(".bac-switch")?.remove();
+    titleRow.querySelector(".bac-switch")?.remove();
     const sw = this.h("button", {
       class: "bac-switch",
       role: "switch",
@@ -715,13 +738,14 @@ BetterAnnotations.PaneController = class {
       title: label,
       on: { click: () => onChange(!on) },
     }, this.h("span", { class: "bac-switch-knob", "aria-hidden": "true" }));
-    head.append(sw);
+    titleRow.append(sw);
     card.classList.toggle("bac-card-off", !on);
   }
 
   /** Replace the content of a box; empty entries (null, false) are left out. */
   fill(box, ...children) {
     box.replaceChildren(...children.flat().filter(Boolean));
+    this.syncCardBody(box.closest(".bac-card"));
   }
 
   /** Part of a card with a thin line above and an optional heading. */
@@ -753,8 +777,16 @@ BetterAnnotations.PaneController = class {
   }
 
   /** Label and control in two columns. */
-  field(label, control) {
-    return this.h("div", { class: "bac-recolor-grid" }, this.h("label", { text: label }), control);
+  /** Row with a label on the left and its control on the right; info: text of a small “i”. */
+  field(label, control, info) {
+    return this.h("div", { class: "bac-field" },
+      this.h("span", { class: "bac-field-label" }, this.h("label", { text: label }), info ? this.info(info) : null),
+      control);
+  }
+
+  /** One sentence below an option. */
+  hint(text) {
+    return this.h("div", { class: "bac-hint", text });
   }
 
   /** Small “i” that shows an explanation on hover or focus. */
@@ -959,13 +991,11 @@ BetterAnnotations.PaneController = class {
     const enabled = !!this.SB.setting("tagsEnabled");
     const n = this.Library.registry.size;
     this.setCardSwitch(this.tagsBox, enabled, S("optTagsEnabled"), v => this.onTagsToggle(v));
-    const removeBar = this.h("div", { class: "bac-bar" },
-      this.button(S("btnRemoveTags"), () => this.removeTags(), { disabled: !n }));
     if (!enabled) {
       // Tags added earlier can still be removed
       this.fill(this.tagsBox,
-        this.h("div", { class: "bac-hint", text: S("tagsIntro") }),
-        n ? this.subsection(null, this.h("div", { class: "bac-hint", text: S("tagsCount", { n }) }), removeBar) : null,
+        n ? this.h("div", { class: "bac-bar" }, this.h("span", { class: "bac-hint bac-grow", text: S("tagsCount", { n }) }),
+          this.button(S("btnRemoveTags"), () => this.removeTags())) : null,
       );
       return;
     }
@@ -977,15 +1007,12 @@ BetterAnnotations.PaneController = class {
       on: { change: e => this.own(() => this.Store.setSetting("tagPrefix", e.target.value)) },
     });
     this.fill(this.tagsBox,
-      this.h("div", { class: "bac-hint", text: S("tagsIntro") }),
       this.field(S("optTagPrefix"), prefix),
-      this.h("div", { class: "bac-hint", text: S("tagPrefixHint") }),
-      this.subsection(null,
-        this.h("div", { class: "bac-hint", text: S("tagsCount", { n }) }),
-        this.h("div", { class: "bac-bar" },
-          this.button(S("btnApplyTags"), () => this.applyTags()),
-          this.button(S("btnRemoveTags"), () => this.removeTags(), { disabled: !n }),
-        ),
+      this.hint(S("tagPrefixHint")),
+      this.h("div", { class: "bac-bar" },
+        this.h("span", { class: "bac-hint bac-grow", text: S("tagsCount", { n }) }),
+        this.button(S("btnApplyTags"), () => this.applyTags()),
+        this.button(S("btnRemoveTags"), () => this.removeTags(), { disabled: !n }),
       ),
     );
   }
@@ -1049,7 +1076,7 @@ BetterAnnotations.PaneController = class {
     const P = this.SB.Profiles;
     this.setCardSwitch(this.docProfileBox, P.enabled(), S("optProfilesPerDocument"), v => this.onProfilesToggle(v));
     if (!P.enabled()) {
-      this.fill(this.docProfileBox, this.h("div", { class: "bac-hint", text: S("docProfileIntro") }));
+      this.fill(this.docProfileBox);
       return;
     }
     const profiles = Store.listForMenu();
@@ -1146,16 +1173,17 @@ BetterAnnotations.PaneController = class {
     });
     const count = this.h("div", { class: "bac-hint" });
     this.fill(this.docProfileBox,
-      this.h("div", { class: "bac-hint", text: S("docProfileSummary") }),
       this.defaultProfileField(),
-      this.h("div", { class: "bac-checks" },
-        this.checkbox(S("optProfileFilterDefault"), this.SB.setting("profileFilterDefault") === true,
-          v => this.own(() => Store.setSetting("profileFilterDefault", v))),
-        this.checkbox(S("optProfileTagColor"), this.SB.setting("profileTagColor") !== false,
-          v => this.own(() => Store.setSetting("profileTagColor", v)).then(() => P.syncTagColors())),
-        this.checkbox(S("optHideProfileTags"), this.SB.setting("hideProfileTags") !== false,
-          v => this.own(() => Store.setSetting("hideProfileTags", v))),
-      ),
+      this.hint(S("docProfileSummary")),
+      this.checkbox(S("optProfileFilterDefault"), this.SB.setting("profileFilterDefault") === true,
+        v => this.own(() => Store.setSetting("profileFilterDefault", v))),
+      this.hint(S("hintFilterDefault")),
+      this.checkbox(S("optProfileTagColor"), this.SB.setting("profileTagColor") !== false,
+        v => this.own(() => Store.setSetting("profileTagColor", v)).then(() => P.syncTagColors())),
+      this.hint(S("hintTagColor")),
+      this.checkbox(S("optHideProfileTags"), this.SB.setting("hideProfileTags") !== false,
+        v => this.own(() => Store.setSetting("hideProfileTags", v))),
+      this.hint(S("hintHideProfileTags")),
       this.subsection(S("rulesTitle"),
         rows.length
           ? this.h("div", { class: "bac-rules", role: "list" }, rows)
@@ -1163,7 +1191,7 @@ BetterAnnotations.PaneController = class {
         this.h("div", { class: "bac-bar" }, addBtn),
       ),
       this.subsection(S("assignTitle"),
-        this.h("div", { class: "bac-hint", text: S("assignIntro") }),
+        this.hint(S("assignIntro")),
         count,
         scope.el,
         this.field(S("assignTo"), assignTarget),
@@ -1185,14 +1213,14 @@ BetterAnnotations.PaneController = class {
       await set("showToolbarButton", v);
       this.renderToolbarCard();
     });
+    const shared = SB.Profiles.enabled();
     this.fill(this.toolbarBox,
-      on ? null : this.h("div", { class: "bac-hint", text: S("hintToolbarOff") }),
-      on ? this.h("div", { class: "bac-checks" },
-        this.checkbox(S("optSharedHint"), SB.setting("statsSharedHint") !== false, v => set("statsSharedHint", v)),
-        SB.descriptionsOn()
-          ? this.checkbox(S("optStatsDescriptions"), SB.setting("statsDescriptions") !== false, v => set("statsDescriptions", v))
-          : null,
-      ) : null,
+      // The warning concerns profiles in one document (“Profile per Document”)
+      on && shared ? this.checkbox(S("optSharedHint"), SB.setting("statsSharedHint") !== false, v => set("statsSharedHint", v)) : null,
+      on && shared ? this.hint(S("hintSharedHint")) : null,
+      on && SB.descriptionsOn()
+        ? this.checkbox(S("optStatsDescriptions"), SB.setting("statsDescriptions") !== false, v => set("statsDescriptions", v))
+        : null,
     );
   }
 
@@ -1211,18 +1239,15 @@ BetterAnnotations.PaneController = class {
       SB.setting("sidenavPlacement") === "separate" ? "separate" : "group",
       v => set("sidenavPlacement", v),
     );
+    const shared = SB.Profiles.enabled();
+    const desc = on && SB.descriptionsOn();
     this.fill(this.sectionBox,
-      on ? null : this.h("div", { class: "bac-hint", text: S("hintSectionOff") }),
       on ? this.field(S("optSidenavPlacement"), placement) : null,
-      on ? this.h("div", { class: "bac-checks" },
-        this.checkbox(S("optSharedHint"), SB.setting("panelSharedHint") !== false, v => set("panelSharedHint", v)),
-        SB.descriptionsOn()
-          ? this.checkbox(S("optSectionDescriptions"), SB.setting("sectionDescriptions") === true, v => set("sectionDescriptions", v))
-          : null,
-        SB.descriptionsOn()
-          ? this.checkbox(S("optPopoutDescriptions"), SB.setting("popoutDescriptions") !== false, v => set("popoutDescriptions", v))
-          : null,
-      ) : null,
+      on ? this.hint(S("hintSidenavPlacement")) : null,
+      on && shared ? this.checkbox(S("optSharedHint"), SB.setting("panelSharedHint") !== false, v => set("panelSharedHint", v)) : null,
+      on && shared ? this.hint(S("hintSharedHint")) : null,
+      desc ? this.checkbox(S("optSectionDescriptions"), SB.setting("sectionDescriptions") === true, v => set("sectionDescriptions", v)) : null,
+      desc ? this.checkbox(S("optPopoutDescriptions"), SB.setting("popoutDescriptions") !== false, v => set("popoutDescriptions", v)) : null,
       on ? this.h("div", { class: "bac-bar" }, this.button(S("btnOpenPopout"), () => SB.Panel.openPopout())) : null,
     );
   }
@@ -1238,8 +1263,7 @@ BetterAnnotations.PaneController = class {
       this.render(); // the color list gets or loses its description fields
     });
     this.fill(this.descBox,
-      this.h("div", { class: "bac-hint", text: S("descriptionsIntro") }),
-      on ? this.h("div", { class: "bac-hint", text: S("descriptionsWhere") }) : null,
+      on ? this.h("div", { class: "bac-hint bac-hint-row", text: S("descriptionsWhere") }) : null,
     );
   }
 
@@ -1260,6 +1284,7 @@ BetterAnnotations.PaneController = class {
         return;
       }
       await this.own(() => this.Store.setSetting("profilesPerDocument", true));
+      this.noticeProfilesChanged(true);
       if (choice === 0) {
         const changes = await this.Library.planProfileAssignByDocument();
         if (changes.length) {
@@ -1283,11 +1308,29 @@ BetterAnnotations.PaneController = class {
       remove = choice === 2;
     }
     await this.own(() => this.Store.setSetting("profilesPerDocument", false));
+    this.noticeProfilesChanged(false);
     if (remove) {
       await this.runLibraryTask(() => this.Library.run("profileRemoveAll", {}, changes));
       return;
     }
     this.render();
+  }
+
+  /** Status after turning “Profile per Document” on or off (also about label tags). */
+  noticeProfilesChanged(on) {
+    const SB = this.SB;
+    const P = SB.Profiles;
+    let text = this.S(on ? "noticeProfilesOn" : "noticeProfilesOff", { profile: P.name(P.defaultId()) });
+    // Profiles of annotations change, label tags are not rewritten by themselves
+    if (SB.setting("tagsEnabled") && this.Library.registry.size) {
+      text += " " + this.S("noticeLabelTagsStale");
+    }
+    try {
+      SB.notify(text);
+    }
+    catch (e) {
+      SB.logError(e);
+    }
   }
 
   async assignProfileTags() {
@@ -1342,9 +1385,12 @@ BetterAnnotations.PaneController = class {
     });
     menu.classList.add("bac-scope-menu");
     const refresh = this.button(S("btnRefreshScope"), () => this.refreshScopes(), { tooltip: S("refreshScopeTip") });
-    const el = this.h("div", { class: "bac-scope" },
-      this.h("div", { class: "bac-bar" }, this.h("label", { text: S("scopeLabel") }), menu, refresh),
-      this.h("div", { class: "bac-sub" }, sub),
+    // Label left, menu and “Refresh” right; “with subcollections” below the menu
+    const el = this.h("div", { class: "bac-field bac-scope" },
+      this.h("span", { class: "bac-field-label" }, this.h("label", { text: S("scopeLabel") })),
+      this.h("div", { class: "bac-inline" }, menu, refresh),
+      this.h("span"),
+      sub,
     );
     return { el, resolve };
   }
@@ -1417,16 +1463,13 @@ BetterAnnotations.PaneController = class {
     const profileMenu = this.profileFilter("export", () => this.updateExportCount());
     this.exportCount = this.h("div", { class: "bac-hint bac-count" });
     this.exportBtn = this.button(S("btnExportAnnotations"), () => this.exportAnnotations());
-    this.exportBox.replaceChildren(
-      this.h("div", { class: "bac-hint", text: S("exportIntro") }),
+    this.fill(this.exportBox,
       scope.el,
-      this.h("div", { class: "bac-recolor-grid" },
-        ...(SB.Profiles.enabled() ? [this.h("label", { text: S("filterProfile") }), profileMenu] : []),
-        this.h("label", { text: S("exportFormat") }), formatMenu,
-        this.h("label", { text: S("exportSort") }), sortMenu,
-      ),
+      SB.Profiles.enabled() ? this.field(S("filterProfile"), profileMenu) : null,
+      this.field(S("exportFormat"), formatMenu),
       formatHint,
-      this.h("div", { class: "bac-sub" },
+      this.field(S("exportSort"), sortMenu),
+      this.h("div", { class: "bac-checks" },
         images,
         descriptions,
         this.checkbox(S("optExportLabeled"), SB.setting("exportLabeledOnly") === true, (v) => {
@@ -1545,20 +1588,15 @@ BetterAnnotations.PaneController = class {
     this.recolorTags = this.SB.setting("tagsEnabled") === true;
     this.recolorBtn = this.button(S("btnRecolor"), () => this.manualRecolor(), { disabled: true });
     const profileMenu = this.profileFilter("recolor", () => this.fillRecolor());
-    box.replaceChildren(
-      this.h("div", { class: "bac-hint", text: S("recolorIntro") }),
+    this.fill(box,
       scope.el,
-      this.h("div", { class: "bac-recolor-grid" },
-        ...(this.SB.Profiles.enabled() ? [this.h("label", { text: S("filterProfile") }), profileMenu] : []),
-        this.h("label", { text: S("recolorFrom") }), this.recolorFromSlot,
-        this.h("label", { text: S("recolorTo") }), this.recolorToSlot,
-      ),
-      this.h("div", { class: "bac-hint", text: S("recolorDraftHint"), hidden: !this.isDirty() }),
-      this.h("div", { class: "bac-sub" },
-        this.checkbox(S("optRecolorTags"), this.recolorTags, (v) => {
-          this.recolorTags = v;
-        }),
-      ),
+      this.SB.Profiles.enabled() ? this.field(S("filterProfile"), profileMenu) : null,
+      this.field(S("recolorFrom"), this.recolorFromSlot),
+      this.field(S("recolorTo"), this.recolorToSlot),
+      this.isDirty() ? this.hint(S("recolorDraftHint")) : null,
+      this.checkbox(S("optRecolorTags"), this.recolorTags, (v) => {
+        this.recolorTags = v;
+      }),
       this.h("div", { class: "bac-bar bac-end" }, this.recolorBtn),
     );
     this.fillRecolor();
@@ -1619,9 +1657,8 @@ BetterAnnotations.PaneController = class {
       }),
       this.button(S("btnRestore"), () => this.restoreBackup(b)),
     ));
-    this.backupBox.replaceChildren(
-      this.h("div", { class: "bac-hint", text: S("backupIntro") }),
-      ...(rows.length ? rows : [this.h("div", { class: "bac-hint", text: S("noBackups") })]),
+    this.fill(this.backupBox,
+      ...(rows.length ? rows : [this.h("div", { class: "bac-hint bac-hint-row", text: S("noBackups") })]),
       this.h("div", { class: "bac-bar bac-end" }, this.button(S("btnCreateBackup"), () => this.createBackup())),
     );
   }
@@ -1634,9 +1671,8 @@ BetterAnnotations.PaneController = class {
         ? this.h("span", { class: "bac-hint bac-undone-label", text: S("undone") })
         : this.button(S("btnUndo"), () => this.undoEntry(e)),
     ));
-    this.historyBox.replaceChildren(
-      this.h("div", { class: "bac-hint", text: S("historyIntro") }),
-      ...(rows.length ? rows : [this.h("div", { class: "bac-hint", text: S("historyEmpty") })]),
+    this.fill(this.historyBox,
+      ...(rows.length ? rows : [this.h("div", { class: "bac-hint bac-hint-row", text: S("historyEmpty") })]),
     );
   }
 

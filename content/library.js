@@ -310,6 +310,10 @@ BetterAnnotations.Library = {
 
   /** Tag for a color in the given profile, or null. */
   tagForColor(color, profile) {
+    // “Standard” only names Zotero's colors: no label tags such as “Yellow”
+    if (!profile || profile.standard) {
+      return null;
+    }
     const entry = profile.colors.find(c => c.color === color);
     if (!entry || !this.SB.isVisible(entry) || !entry.label.trim()) {
       return null;
@@ -361,7 +365,7 @@ BetterAnnotations.Library = {
       // Labels from the annotation's profile: its tag, else the profile of its document
       const reader = readers.find(r => r.itemID === item.parentItemID);
       const docId = reader ? Profiles.forReader(reader) : Profiles.forFile(item.parentItemID);
-      const profile = Profiles.profile(Profiles.ofItem(item, docId));
+      const profile = Profiles.profileOrNone(Profiles.ofItem(item, docId));
       const desired = this.tagForColor(color, profile);
       const current = this.registry.get(this.regKey(item.libraryID, item.key)) || null;
       try {
@@ -544,7 +548,7 @@ BetterAnnotations.Library = {
       }
       const id = resolver.of(r);
       if (!profiles.has(id)) {
-        profiles.set(id, Profiles.profile(id));
+        profiles.set(id, Profiles.profileOrNone(id));
       }
       return profiles.get(id);
     };
@@ -588,7 +592,7 @@ BetterAnnotations.Library = {
     for (const r of await this.changeable()) {
       const id = resolver.of(r);
       if (!profiles.has(id)) {
-        profiles.set(id, Profiles.profile(id));
+        profiles.set(id, Profiles.profileOrNone(id));
       }
       const current = this.registry.get(this.regKey(r.l, r.k)) || null;
       const desired = this.tagForColor(r.c, profiles.get(id));
@@ -668,7 +672,11 @@ BetterAnnotations.Library = {
     }
     const resolver = await Profiles.resolver();
     const match = await this.scopeFilter(scope);
-    return (await this.changeable()).filter(r => match(r) && !resolver.tagged.has(r.id)).map(r => ({ l: r.l, k: r.k, add: [tag] }));
+    // The document's profile for its colors; other annotations get the profile they count to
+    return (await this.changeable()).filter(r => match(r) && !resolver.tagged.has(r.id)).map((r) => {
+      const t = Profiles.tagFor(Profiles.assignTarget(r.c, profileId));
+      return t ? { l: r.l, k: r.k, add: [t] } : null;
+    }).filter(Boolean);
   },
 
   /**
@@ -679,7 +687,7 @@ BetterAnnotations.Library = {
     const Profiles = this.SB.Profiles;
     const resolver = await Profiles.resolver();
     return (await this.changeable()).filter(r => !resolver.tagged.has(r.id)).map((r) => {
-      const tag = Profiles.tagFor(resolver.fileProfile(r.att, r.top));
+      const tag = Profiles.tagFor(Profiles.assignTarget(r.c, resolver.fileProfile(r.att, r.top)));
       return tag ? { l: r.l, k: r.k, add: [tag] } : null;
     }).filter(Boolean);
   },

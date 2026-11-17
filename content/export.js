@@ -68,7 +68,8 @@ BetterAnnotations.Export = {
         continue;
       }
       const color = SB.normalize(item.annotationColor) || "";
-      const pid = profileOf.get(item.id) || SB.Profiles.defaultId();
+      // null: no profile contains the color (no label, empty column “Profile”)
+      const pid = profileOf.has(item.id) ? profileOf.get(item.id) : SB.Profiles.defaultId();
       const p = profiles.get(pid);
       const entry = p.profile.colors.find(c => c.color === color);
       const shown = entry && SB.isVisible(entry);
@@ -82,7 +83,7 @@ BetterAnnotations.Export = {
         color,
         label,
         profileId: pid,
-        profile: p.profile.name,
+        profile: pid ? p.profile.name : "",
         profileOrder: p.order,
         description: label && SB.descriptionsOn() ? SB.cleanDescription(entry.description) : "",
         labelOrder: label ? p.profile.colors.indexOf(entry) : 9999,
@@ -122,7 +123,8 @@ BetterAnnotations.Export = {
     const map = new Map();
     SB.Store.listForMenu().forEach((p, i) => map.set(p.id, { profile: SB.Profiles.profile(p.id), order: i }));
     return {
-      get: id => map.get(id) || map.get(SB.Profiles.defaultId()) || { profile: SB.Store.zoteroPreset(), order: 0 },
+      get: id => (id === null ? { profile: SB.Profiles.profileOrNone(null), order: 9999 } : null)
+        || map.get(id) || map.get(SB.Profiles.defaultId()) || { profile: SB.Store.zoteroPreset(), order: 0 },
     };
   },
 

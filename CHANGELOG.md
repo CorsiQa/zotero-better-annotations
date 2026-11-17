@@ -42,7 +42,14 @@ Changes for the next release are collected here. The section is renamed to the v
 - Reader toolbar: a right click on the button hides it; the settings show it again
 - Drag and drop of colors also recolors existing highlights in a PDF. While dragging, the color and its label appear opaque next to the pointer
 - Tooltips of the colors have an opaque background
-- The profile label in the head of an annotation keeps the same distance to the next icon as the icons among themselves
+- “Standard” is the active profile after the installation, so existing annotations count there; “Zotero+” stays as an example profile
+- Which profile an annotation counts to is the same in the statistics, the item pane, exports and label tags. With “Profile per Document”: its profile tag; without a tag, Zotero's colors count to “Standard”, other colors to the document's profile if it contains them, else to another profile with the color. Without the function, the active profile comes first, then “Standard” for Zotero's colors, then another profile with the color. Colors that no profile contains appear as “No profile” with “No label” (the color code only in the tooltip)
+- “Profile · n” in the reader toolbar, the statistics and the item pane counts the annotations of this profile. Below the lists, a line shows all annotations of the document, or with the filter only the shown ones. The statistics list all labels of the document's profile, like the item pane, and always offer the filter with “Profile per Document”
+- “Assign” for annotations without a profile tag gives them the tag of the document's profile for its colors, otherwise the tag of the profile with their color; turning on “Profile per Document” assigns the same way. Notices say what changes when the function is turned on or off
+- “Standard” adds no label tags; the warning about shared colors ignores “Standard” and appears only with “Profile per Document”
+- Drag and drop: the color goes to what was marked during the drag (the PDF view may clear the text selection when the color is dropped). Selected text is marked with the rectangles of the future highlight. The lists are not rebuilt while a color is dragged
+- Settings: cards with a frame, a light gray head with title, a short description and a smaller “i” for longer explanations, and lines across the full width between options. Options have a label on the left and their control on the right, some with a short hint below. Lighter switch colors
+- The profile label in the head of an annotation keeps 4 px more distance to the next icon
 - Norwegian Bokmål and Swedish are no longer available; the plugin then follows Zotero’s language or uses English
 
 ## 1.0.0-beta.1 – 2026-11-13

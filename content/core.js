@@ -515,6 +515,18 @@ var BetterAnnotations = {
     return name + "\n\n" + desc.split("\n").map(l => "› " + l).join("\n");
   },
 
+  /**
+   * Name of a color in lists and statistics: its label, Zotero's name of the
+   * color, else “No label” (the color code only in tooltips).
+   */
+  listName(color, profile) {
+    const entry = profile && profile.colors.find(c => c.color === color);
+    if (entry && entry.label.trim()) {
+      return entry.label.trim();
+    }
+    return this.stockName(color) || this.S("noLabel");
+  },
+
   /** Name under which a color is shown (e.g. in lists and statistics). */
   displayName(color, profile) {
     const p = profile || this.Store.getActive();
@@ -564,7 +576,8 @@ var BetterAnnotations = {
       pw.changeHeadline(this.S("pluginName"));
       pw.addDescription(text);
       pw.show();
-      pw.startCloseTimer(5000);
+      // Long notices stay longer (reading time)
+      pw.startCloseTimer(Math.min(12000, Math.max(5000, String(text).length * 60)));
     }
     catch (e) {
       this.log(text);
@@ -681,9 +694,10 @@ BetterAnnotations.Store = {
       backups: [],
     };
     if (!input || typeof input !== "object") {
-      // First start: “Zotero+” as an example profile, in use
+      // First start: “Standard” in use, so that existing annotations count
+      // there; “Zotero+” as an example profile to switch to
       out.profiles.push(this.plusProfile());
-      out.activeProfileId = "zoteroplus";
+      out.activeProfileId = "standard";
       return out;
     }
     const s = input.settings && typeof input.settings === "object" ? input.settings : {};

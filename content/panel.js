@@ -1121,7 +1121,9 @@ BetterAnnotations.PanelView = class {
     let filter = "";
     try {
       tool = reader ? String(this.SB.Reader.activeToolColor(reader) || "") : "";
-      n = reader ? String(Array.from(BetterAnnotations.readerState(reader)?.annotations || []).length) : "";
+      // Number and colors (and tags): recoloring and assigning change the lists
+      n = reader ? Array.from(BetterAnnotations.readerState(reader)?.annotations || [])
+        .map(a => a.color + (a.tags ? a.tags.length : 0)).join(",") : "";
       filter = reader && this.SB.Profiles.filterActive(reader) ? "f" : "";
     }
     catch (e) {}
@@ -1129,8 +1131,9 @@ BetterAnnotations.PanelView = class {
   }
 
   render() {
-    if (this.editing) {
-      // Do not rebuild while a description is being edited
+    if (this.editing || this.SB.Reader.dragging()) {
+      // Not while a description is edited or a color is dragged from this list
+      // (removing the dragged row could end the drag)
       this.pendingRender = true;
       return;
     }
@@ -1173,7 +1176,8 @@ BetterAnnotations.PanelView = class {
     const S = (k, a) => this.S(k, a);
     const reader = this.Panel.readerOf(this.target);
     const source = reader ? SB.Reader.sourceText(reader) : "";
-    const n = reader ? SB.Reader.annotationCount(reader) : null;
+    // Annotations of this profile; all of them are in the line below the list
+    const n = this.target ? summary.byProfile.get(profile.id) || 0 : null;
     const b = this.h("button", {
       class: "bac-p-menu",
       "data-key": "profile",
@@ -1181,7 +1185,6 @@ BetterAnnotations.PanelView = class {
       "aria-haspopup": "menu",
       "aria-label": S("panelProfile") + ": " + profile.name,
     },
-    // As in the reader toolbar: number · profile
     // As in the reader toolbar: profile · number
     this.h("span", { class: "bac-p-menu-name", text: profile.name }),
     n === null ? null : this.h("span", { class: "bac-p-menu-dot", "aria-hidden": "true", text: "·" }),
@@ -1301,18 +1304,20 @@ BetterAnnotations.PanelView = class {
     }
     parts.push(bar);
 
-    // Rows: visible labels of the profile, then other colors in use
+    // Rows: visible labels of the profile. Annotations of this profile in
+    // other colors (hidden labels, colors changed in Zotero) follow; colors of
+    // other profiles count there (see Profiles.attribute).
     const rows = [];
     const seen = new Set();
     const entries = profile.standard ? profile.colors : SB.visibleColors(profile);
     for (const entry of entries) {
       seen.add(entry.color);
-      rows.push({ color: entry.color, name: entry.label.trim() || SB.stockName(entry.color) || entry.color, n: counts.get(entry.color) || 0, hidden: false, entry });
+      rows.push({ color: entry.color, name: SB.listName(entry.color, profile), n: counts.get(entry.color) || 0, hidden: false, entry });
     }
     for (const [color, n] of counts) {
       if (!seen.has(color)) {
         const entry = profile.colors.find(c => c.color === color);
-        rows.push({ color, name: SB.displayName(color, profile), n, hidden: !!entry, entry });
+        rows.push({ color, name: SB.listName(color, profile), n, hidden: !!entry, entry, foreign: !entry });
       }
     }
     const editable = showDesc && !profile.preset && !!SB.Store.getProfile(profile.id);
@@ -1330,7 +1335,7 @@ BetterAnnotations.PanelView = class {
         this.h("span", { class: "bac-p-n" + (r.n ? "" : " bac-p-zero"), text: String(r.n) }),
       ];
       const description = r.entry ? SB.cleanDescription(r.entry.description) : "";
-      let tip = S("panelRowTip", { label: r.name, n: r.n });
+      let tip = S("panelRowTip", { label: r.name, n: r.n }) + (r.foreign ? " (" + r.color + ")" : "");
       if (description && !showDesc) {
         tip = SB.tooltipText(tip, description);
       }
@@ -1408,23 +1413,26 @@ BetterAnnotations.PanelView = class {
       listEl.append(item);
     }
     parts.push(listEl);
-    const others = [...summary.byProfile.keys()].filter(id => id !== profile.id);
-    if (others.length) {
-      parts.push(this.h("div", { class: "bac-p-hint", text: S("statsOthers", {
-        list: others.map(id => SB.Profiles.name(id) + " (" + summary.byProfile.get(id) + ")").join(", "),
-      }) }));
+    const filtered = !!reader && SB.Profiles.enabled() && SB.Profiles.filterActive(reader);
+    // Other profiles in the document, then the total (with the filter: what is shown)
+    const othersText = filtered ? "" : SB.Profiles.othersText(summary, profile.id);
+    if (othersText) {
+      parts.push(this.h("div", { class: "bac-p-hint", text: othersText }));
+    }
+    if (target) {
+      parts.push(this.h("div", { class: "bac-p-hint bac-p-total", text: SB.Profiles.totalText(summary, profile.id, filtered) }));
     }
     // Annotations without a profile tag (older ones, from Zotero's apps): offer to assign them
     const untagged = reader ? SB.Profiles.untaggedCount(reader) : 0;
     if (untagged) {
-      const filtered = SB.Profiles.filterActive(reader);
       parts.push(this.h("div", { class: "bac-p-hint bac-p-untagged" },
         this.h("span", { text: S(filtered ? "untaggedHidden" : "untaggedHint", { n: untagged }) + " " }),
         this.h("button", {
           class: "bac-p-link",
           "data-key": "assign-untagged",
+          title: S("assignTip", { profile: profile.name }),
           on: { click: () => this.assignUntagged(reader, profile) },
-        }, S("btnAssignHere", { profile: profile.name }))));
+        }, S("btnAssignUntagged"))));
     }
     const shared = SB.setting("panelSharedHint") !== false ? SB.Profiles.sharedColorsText(summary) : "";
     if (shared) {
