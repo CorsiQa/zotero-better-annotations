@@ -35,33 +35,45 @@ BetterAnnotations.Export = {
 
   /**
    * Annotations of an area as rows.
-   * options: { labeledOnly, images, sort: "doc" | "label", profile, descriptions }
+   * options: { labeledOnly, images, sort: "doc" | "label", only }
+   * Labels come from the profile of each annotation (its tag, else the profile
+   * of its document); only: export only annotations of this profile ID.
    */
   async collect(scope, options = {}) {
     const SB = this.SB;
     const Library = SB.Library;
-    const profile = options.profile || SB.Store.getActive();
     const match = await Library.scopeFilter(scope);
-    const index = (await Library.index()).filter(r => !r.del && match(r));
+    const resolver = await SB.Profiles.resolver();
+    const index = (await Library.index()).filter(r => !r.del && match(r) && (!options.only || resolver.of(r) === options.only));
+    const profileOf = new Map(index.map(r => [r.id, resolver.of(r)]));
+    SB.log("export: " + index.length + " annotations in the area");
     const items = await Library.loadItems(index.map(r => r.id));
-    const order = new Map(profile.colors.map((c, i) => [c.color, i]));
-    const labelOf = (color) => {
-      const entry = profile.colors.find(c => c.color === color);
-      return entry && SB.isVisible(entry) && entry.label.trim() ? entry.label.trim() : "";
-    };
-    const descriptionOf = (color) => {
-      const entry = profile.colors.find(c => c.color === color);
-      return entry && SB.isVisible(entry) ? SB.cleanDescription(entry.description) : "";
-    };
+    const profiles = this.profileTable();
     const docs = new Map();
     const rendered = new Set();
     const rows = [];
+    let done = 0;
     for (const item of items) {
+      // Let Zotero breathe: large exports must not block the window
+      if (++done % 100 === 0) {
+        if (options.onProgress) {
+          options.onProgress(done, items.length);
+        }
+        await Zotero.Promise.delay(0);
+        if (options.cancelled && options.cancelled()) {
+          return [];
+        }
+      }
       if (!item || !item.isAnnotation || !item.isAnnotation()) {
         continue;
       }
       const color = SB.normalize(item.annotationColor) || "";
-      const label = labelOf(color);
+      // null: no profile contains the color (no label, empty column “Profile”)
+      const pid = profileOf.has(item.id) ? profileOf.get(item.id) : SB.Profiles.defaultId();
+      const p = profiles.get(pid);
+      const entry = p.profile.colors.find(c => c.color === color);
+      const shown = entry && SB.isVisible(entry);
+      const label = shown && entry.label.trim() ? entry.label.trim() : "";
       if (options.labeledOnly && !label) {
         continue;
       }
@@ -70,12 +82,16 @@ BetterAnnotations.Export = {
       const row = {
         color,
         label,
-        description: label ? descriptionOf(color) : "",
-        labelOrder: order.has(color) && label ? order.get(color) : 9999,
+        profileId: pid,
+        profile: pid ? p.profile.name : "",
+        profileOrder: p.order,
+        description: label && SB.descriptionsOn() ? SB.cleanDescription(entry.description) : "",
+        labelOrder: label ? p.profile.colors.indexOf(entry) : 9999,
         type,
         text: item.annotationText || "",
         comment: item.annotationComment || "",
-        tags: this.safe(() => item.getTags().map(t => t.tag).sort((a, b) => a.localeCompare(b)), []),
+        // Profile tags are in the column “Profile”
+        tags: this.safe(() => item.getTags().map(t => t.tag).filter(t => !SB.Profiles.isProfileTag(t)).sort((a, b) => a.localeCompare(b)), []),
         page: item.annotationPageLabel || "",
         sortIndex: item.annotationSortIndex || "",
         created: this.localDate(item.dateAdded),
@@ -87,18 +103,66 @@ BetterAnnotations.Export = {
         image: null,
       };
       if (options.images && (type === "image" || type === "ink")) {
-        row.image = await this.image(item, rendered);
+        row.image = await this.image(item, rendered, options);
       }
       rows.push(row);
     }
     const byDoc = (a, b) => a.doc.sortKey.localeCompare(b.doc.sortKey) || String(a.sortIndex).localeCompare(String(b.sortIndex));
     rows.sort(options.sort === "label"
-      ? (a, b) => a.labelOrder - b.labelOrder || a.color.localeCompare(b.color) || byDoc(a, b)
+      ? (a, b) => a.profileOrder - b.profileOrder || a.labelOrder - b.labelOrder || a.color.localeCompare(b.color) || byDoc(a, b)
       : byDoc);
     rows.forEach((r, i) => {
       r.no = i + 1;
     });
     return rows;
+  },
+
+  /** All profiles with their order in menus: Map ID -> { profile, order }. */
+  profileTable() {
+    const SB = this.SB;
+    const map = new Map();
+    SB.Store.listForMenu().forEach((p, i) => map.set(p.id, { profile: SB.Profiles.profile(p.id), order: i }));
+    return {
+      get: id => (id === null ? { profile: SB.Profiles.profileOrNone(null), order: 9999 } : null)
+        || map.get(id) || map.get(SB.Profiles.defaultId()) || { profile: SB.Store.zoteroPreset(), order: 0 },
+    };
+  },
+
+  /** Number of annotations that collect() would export (without loading images). */
+  async count(scope, options = {}) {
+    const SB = this.SB;
+    const match = await SB.Library.scopeFilter(scope);
+    const resolver = await SB.Profiles.resolver();
+    const profiles = this.profileTable();
+    let n = 0;
+    for (const r of await SB.Library.index()) {
+      if (r.del || !match(r)) {
+        continue;
+      }
+      const pid = resolver.of(r);
+      if (options.only && pid !== options.only) {
+        continue;
+      }
+      if (options.labeledOnly) {
+        const entry = profiles.get(pid).profile.colors.find(c => c.color === r.c);
+        if (!entry || !SB.isVisible(entry) || !entry.label.trim()) {
+          continue;
+        }
+      }
+      n++;
+    }
+    return n;
+  },
+
+  /** Names of the profiles in the rows, for the info sheet. */
+  profileNames(rows) {
+    const names = [];
+    for (const r of [...rows].sort((a, b) => a.profileOrder - b.profileOrder)) {
+      if (!names.includes(r.profile)) {
+        names.push(r.profile);
+      }
+    }
+    return names.join(", ");
   },
 
   safe(fn, fallback) {
@@ -202,7 +266,11 @@ BetterAnnotations.Export = {
   },
 
   /** Image of an image or ink annotation from Zotero's cache. */
-  async image(item, rendered) {
+  /** Rendering missing images is slow (whole PDF pages); at most this many files per export. */
+  MAX_RENDERED_FILES: 25,
+
+  /** PNG of an image annotation from Zotero's cache; renders it first if requested and missing. */
+  async image(item, rendered, options = {}) {
     const IO = this.IO();
     let path = null;
     try {
@@ -212,8 +280,10 @@ BetterAnnotations.Export = {
       return null;
     }
     try {
-      if (!(await IO.exists(path)) && !rendered.has(item.parentItemID) && Zotero.PDFRenderer?.renderAttachmentAnnotations) {
+      if (!(await IO.exists(path)) && !rendered.has(item.parentItemID) && rendered.size < this.MAX_RENDERED_FILES
+        && Zotero.PDFRenderer?.renderAttachmentAnnotations) {
         rendered.add(item.parentItemID);
+        this.SB.log("export: rendering images of file " + item.parentItemID);
         await Zotero.PDFRenderer.renderAttachmentAnnotations(item.parentItemID);
       }
       if (!(await IO.exists(path))) {
@@ -237,24 +307,38 @@ BetterAnnotations.Export = {
     return { width: u32(16), height: u32(20) };
   },
 
-  /** Summary per label for the “Labels” sheet. */
+  /**
+   * Summary per label for the “Labels” sheet: the labels of every profile
+   * that occurs in the rows (or of `profile` if there are none).
+   */
   codebook(rows, profile) {
-    const counts = new Map();
-    for (const r of rows) {
-      counts.set(r.color, (counts.get(r.color) || 0) + 1);
-    }
-    const out = profile.colors.map(c => ({
-      color: c.color,
-      label: c.label.trim(),
-      description: this.SB.cleanDescription(c.description),
-      shown: this.SB.isVisible(c),
-      n: counts.get(c.color) || 0,
-    }));
-    for (const [color, n] of counts) {
-      if (!out.some(o => o.color === color)) {
-        out.push({ color, label: "", description: "", shown: false, n });
+    const SB = this.SB;
+    const ids = [];
+    for (const r of [...rows].sort((a, b) => a.profileOrder - b.profileOrder)) {
+      if (r.profileId && !ids.includes(r.profileId)) {
+        ids.push(r.profileId);
       }
     }
+    const list = ids.length ? ids.map(id => SB.Profiles.profile(id)) : [profile || SB.Store.getActive()];
+    const out = [];
+    for (const p of list) {
+      const counts = new Map();
+      for (const r of rows) {
+        if (!ids.length || r.profileId === p.id) {
+          counts.set(r.color, (counts.get(r.color) || 0) + 1);
+        }
+      }
+      for (const c of p.colors) {
+        out.push({ profile: p.name, color: c.color, label: c.label.trim(), description: SB.cleanDescription(c.description),
+          shown: SB.isVisible(c), n: counts.get(c.color) || 0 });
+      }
+      for (const [color, n] of counts) {
+        if (!p.colors.some(c => c.color === color)) {
+          out.push({ profile: p.name, color, label: "", description: "", shown: false, n });
+        }
+      }
+    }
+    out.multi = list.length > 1;
     return out;
   },
 
@@ -311,8 +395,11 @@ BetterAnnotations.Export = {
       { key: "extract", head: S("colExtract"), min: 30, max: 70, get: r => this.extractText(r), wrap: true, extract: true },
       { key: "comment", head: S("colComment"), min: 16, max: 50, get: r => r.comment, wrap: true },
     );
-    if (options.descriptions) {
+    if (options.descriptions && this.SB.descriptionsOn()) {
       cols.push({ key: "description", head: S("colDescription"), min: 16, max: 50, get: r => r.description, wrap: true, group: "details" });
+    }
+    if (this.SB.Profiles.enabled()) {
+      cols.push({ key: "profile", head: S("colProfile"), min: 8, max: 24, get: r => r.profile || "", wrap: true, group: "details" });
     }
     cols.push(
       { key: "tags", head: S("colTags"), min: 8, max: 30, get: r => r.tags.join("; "), wrap: true, group: "details" },
@@ -398,6 +485,7 @@ BetterAnnotations.Export = {
     return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   },
 
+  /** A standalone HTML page: rows grouped by document, colors as badges, images embedded. */
   toHTML(rows, meta) {
     const SB = this.SB;
     const S = (k, a) => SB.S(k, a);
@@ -405,7 +493,7 @@ BetterAnnotations.Export = {
     const typeCol = this.columns(rows).find(c => c.key === "type");
     const groups = [];
     for (const r of rows) {
-      const key = meta.sort === "label" ? r.color : r.doc.sortKey;
+      const key = meta.sort === "label" ? r.profileId + r.color : r.doc.sortKey;
       let g = groups[groups.length - 1];
       if (!g || g.key !== key) {
         g = { key, rows: [], first: r };
@@ -413,8 +501,9 @@ BetterAnnotations.Export = {
       }
       g.rows.push(r);
     }
+    const multi = new Set(rows.map(r => r.profileId)).size > 1;
     const chip = r => "<span class=\"chip\"><span class=\"dot\" style=\"background:" + e(r.color) + "\"></span>"
-      + (r.label ? e(r.label) : "<i>" + e(r.color) + "</i>") + "</span>";
+      + (r.label ? e(r.label) : "<i>" + e(r.color) + "</i>") + (multi ? " <span class=\"pf\">· " + e(r.profile) + "</span>" : "") + "</span>";
     const heading = (g) => {
       const r = g.first;
       if (meta.sort === "label") {
@@ -457,12 +546,12 @@ BetterAnnotations.Export = {
     const used = new Map();
     for (const r of rows) {
       if (r.label) {
-        const u = used.get(r.color) || { r, n: 0 };
+        const u = used.get(r.profileId + r.color) || { r, n: 0 };
         u.n++;
-        used.set(r.color, u);
+        used.set(r.profileId + r.color, u);
       }
     }
-    const legendRows = [...used.values()].sort((a, b) => a.r.labelOrder - b.r.labelOrder);
+    const legendRows = [...used.values()].sort((a, b) => a.r.profileOrder - b.r.profileOrder || a.r.labelOrder - b.r.labelOrder);
     const legend = legendRows.length
       ? "<details class=\"legend\" open><summary>" + e(S("sheetLabels")) + "</summary><dl>"
         + legendRows.map(u => "<dt>" + chip(u.r) + " <span class=\"n\">" + u.n + "</span></dt>"
@@ -478,7 +567,7 @@ BetterAnnotations.Export = {
       + ".src{margin:0 0 10px;color:#555;font-style:italic}"
       + "article{border-left:5px solid #ccc;padding:8px 12px;margin:10px 0;background:#fafafa;border-radius:0 6px 6px 0;break-inside:avoid}"
       + ".meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:12px;color:#555}"
-      + ".chip{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:#222}.dot{width:11px;height:11px;border-radius:3px;border:1px solid rgba(0,0,0,.2)}"
+      + ".chip{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:#222}.dot{width:11px;height:11px;border-radius:3px;border:1px solid rgba(0,0,0,.2)}.pf{font-weight:400;color:#666}"
       + "blockquote{margin:6px 0;padding:0}blockquote.ul{text-decoration:underline;text-decoration-color:#999}"
       + "img{max-width:100%;border:1px solid #ddd;margin:6px 0}.comment{margin:6px 0;padding:6px 8px;background:#fff;border:1px solid #e4e4e4;border-radius:5px}"
       + ".tags{margin:6px 0 0;display:flex;flex-wrap:wrap;gap:4px}.tags span{font-size:12px;background:#eee;border-radius:9px;padding:0 8px}"
@@ -713,22 +802,19 @@ BetterAnnotations.Export = {
     });
 
     // --- Sheet 2: labels ---
+    // Columns: profile only with several profiles, description only if descriptions are used
     const cbCols = this.fitWidths([
-      { head: S("colColor"), min: 9, max: 10, get: c => c.color },
-      { head: S("colLabel"), min: 12, max: 32, get: c => c.label },
-      { head: S("colDescription"), min: 16, max: 70, get: c => c.description },
-      { head: S("colCount"), min: 8, max: 14, get: c => String(c.n) },
-      { head: S("colShown"), min: 8, max: 18, get: c => (c.shown ? S("yes") : S("no")) },
+      ...(codebook.multi ? [{ head: S("colProfile"), min: 10, max: 24, get: c => c.profile, style: () => ST.wrap }] : []),
+      { head: S("colColor"), min: 9, max: 10, get: c => c.color, style: c => (colorStyle.get(c.color) ? colorStyle.get(c.color).full : ST.plain) },
+      { head: S("colLabel"), min: 12, max: 32, get: c => c.label, style: c => (colorStyle.get(c.color) ? colorStyle.get(c.color).light : ST.wrap) },
+      ...(this.SB.descriptionsOn() ? [{ head: S("colDescription"), min: 16, max: 70, get: c => c.description, style: () => ST.wrap }] : []),
+      { head: S("colCount"), min: 8, max: 14, get: c => String(c.n), value: c => c.n, num: true, style: () => ST.plain },
+      { head: S("colShown"), min: 8, max: 18, get: c => (c.shown ? S("yes") : S("no")), style: () => ST.plain },
     ], codebook, (c, row) => c.get(row));
     const cbRows = codebook.map((c, idx) => {
       const rowNo = idx + 2;
-      const st = colorStyle.get(c.color);
       return "<row r=\"" + rowNo + "\">"
-        + cell("A" + rowNo, c.color, st ? st.full : ST.plain)
-        + cell("B" + rowNo, c.label, st ? st.light : ST.wrap)
-        + cell("C" + rowNo, c.description, ST.wrap)
-        + cell("D" + rowNo, c.n, ST.plain, true)
-        + cell("E" + rowNo, c.shown ? S("yes") : S("no"), ST.plain)
+        + cbCols.map((col, i) => cell(String.fromCharCode(65 + i) + rowNo, col.value ? col.value(c) : col.get(c), col.style(c), !!col.num)).join("")
         + "</row>";
     });
     const sheet2 = sheet(cbCols, headRow(cbCols), cbRows);
@@ -875,6 +961,7 @@ BetterAnnotations.Export = {
     return (crc ^ 0xffffffff) >>> 0;
   },
 
+  /** A minimal ZIP archive without compression (enough for XLSX). files: [{ name, data: Uint8Array }]. */
   zip(files) {
     const chunks = [];
     const central = [];
@@ -940,9 +1027,13 @@ BetterAnnotations.Export = {
       await Zotero.File.putContentsAsync(path, this.toHTML(rows, meta));
     }
     else {
+      this.SB.log("export: building xlsx with " + rows.length + " rows");
+      await Zotero.Promise.delay(0);
       const bytes = this.toXLSX(rows, this.codebook(rows, meta.profileObj), meta);
+      this.SB.log("export: writing " + bytes.length + " bytes");
       await this.IO().write(path, bytes);
     }
+    this.SB.log("export: done");
     return rows.length;
   },
 };

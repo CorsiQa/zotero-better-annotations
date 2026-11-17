@@ -13,7 +13,9 @@ var BetterAnnotations = {
   PANE_ID: "better-annotations-prefpane",
   DATA_DIR: "better-annotations",
   MAX_COLORS: 40,
-  PRESET_IDS: ["zoteroplus", "standard"],
+  // Built-in, read-only profile. “Zotero+” is an ordinary profile since 1.0.0-beta.2
+  // (created at the first start as an example; its ID stays “zoteroplus”).
+  PRESET_IDS: ["standard"],
 
   /** Zotero's eight default colors (in reader order). */
   STOCK_COLORS: ["#ffd400", "#ff6666", "#5fb236", "#2ea8e5", "#a28ae5", "#e56eee", "#f19837", "#aaaaaa"],
@@ -67,13 +69,18 @@ var BetterAnnotations = {
     popupFixedColumns: 9,
     showMenuEntry: true,
     showPopupButton: true,
-    showUsage: true,
-    showToolbarProfile: true,
-    showToolbarStats: true,
+    hideProfileTags: true,
+    showToolbarButton: true,
+    // Zotero's tools in the reader toolbar above the middle of the document
+    centerReaderTools: true,
     statsDescriptions: false,
     keepToolColor: true,
     showItemPaneSection: true,
-    sectionDescriptions: false,
+    sidenavPlacement: "group", // "group": with Zotero's sections; "separate": own group with dividers
+    statsSharedHint: true,
+    panelSharedHint: true,
+    panelShowOthers: false, // item pane: also list the other profiles of the document
+    sectionDescriptions: true,
     popoutDescriptions: true,
     tagsEnabled: false,
     tagPrefix: "",
@@ -84,7 +91,17 @@ var BetterAnnotations = {
     exportSort: "doc",
     exportImages: true,
     exportLabeledOnly: false,
-    exportDescriptions: false,
+    exportDescriptions: true,
+    // Advanced functions, off by default (tab “Advanced”)
+    descriptionsEnabled: false,
+    profilesPerDocument: false,
+    profileTagColor: true,
+    profileFilterDefault: false,
+    tipProfilesShown: false,
+    // Request for feedback (see Feedback): first start, next date, done
+    firstUse: "",
+    feedbackDue: "",
+    feedbackDone: false,
   },
 
   // ---------------------------------------------------------------------
@@ -134,11 +151,9 @@ var BetterAnnotations = {
     ["fr", "Français", "fr-FR"],
     ["it", "Italiano", "it-IT"],
     ["ja", "日本語", "ja-JP"],
-    ["nb", "Norsk bokmål", "nb-NO"],
     ["pl", "Polski", "pl-PL"],
     ["pt", "Português", "pt-BR"],
     ["ru", "Русский", "ru-RU"],
-    ["sv", "Svenska", "sv-SE"],
     ["zh", "简体中文", "zh-CN"],
     ["zh-TW", "繁體中文", "zh-TW"],
   ],
@@ -149,11 +164,17 @@ var BetterAnnotations = {
     if (/^zh-(tw|hk|mo|hant)/.test(l)) {
       return "zh-TW";
     }
-    const base = l.split("-")[0];
-    if (base === "no" || base === "nn") {
-      return "nb";
+    return l.split("-")[0];
+  },
+
+  /** A list in the language of the plugin: “A, B und C”. */
+  listText(items) {
+    try {
+      return new Intl.ListFormat(this.lang === "zh-TW" ? "zh-TW" : this.lang, { style: "long", type: "conjunction" }).format(items.map(String));
     }
-    return base;
+    catch (e) {
+      return items.join(", ");
+    }
   },
 
   get lang() {
@@ -186,6 +207,26 @@ var BetterAnnotations = {
     return text;
   },
 
+  /**
+   * State of a reader (annotations, tool, filter, read-only). Zotero keeps it
+   * in the internal reader; older test setups had it on the reader itself.
+   */
+  readerState(reader) {
+    try {
+      const state = reader && reader._internalReader && reader._internalReader._state;
+      if (state) {
+        return state;
+      }
+    }
+    catch (e) {}
+    return (reader && reader._state) || null;
+  },
+
+  /** Are descriptions of labels used (tab “Advanced”)? */
+  descriptionsOn() {
+    return this.setting("descriptionsEnabled") === true;
+  },
+
   setting(key) {
     const s = this.Store && this.Store.data ? this.Store.data.settings : {};
     return key in s ? s[key] : this.DEFAULT_SETTINGS[key];
@@ -212,6 +253,12 @@ var BetterAnnotations = {
 
     await this.readManifest();
     await this.Store.init();
+    try {
+      await this.Profiles.init();
+    }
+    catch (e) {
+      this.logError(e);
+    }
     // Hook into the reader first: Zotero restores open tabs during startup
     this.Reader.register();
     try {
@@ -235,6 +282,13 @@ var BetterAnnotations = {
         label: this.S("pluginName"),
         image: rootURI + "content/icons/icon.svg",
       });
+    }
+    catch (e) {
+      this.logError(e);
+    }
+
+    try {
+      this.Feedback.init();
     }
     catch (e) {
       this.logError(e);
@@ -268,7 +322,7 @@ var BetterAnnotations = {
   },
 
   shutdown() {
-    for (const part of [this.Panel, this.Reader, this.Library]) {
+    for (const part of [this.Panel, this.Reader, this.Library, this.Profiles, this.Feedback]) {
       try {
         part.shutdown();
       }
@@ -328,6 +382,7 @@ var BetterAnnotations = {
     return null;
   },
 
+  /** "#rrggbb" → { h: 0–360, s: 0–1, v: 0–1 }. */
   hexToHsv(hex) {
     const n = parseInt(hex.slice(1), 16);
     const r = (n >> 16 & 255) / 255;
@@ -457,12 +512,55 @@ var BetterAnnotations = {
    */
   tooltipText(label, description) {
     const name = String(label || "").trim();
-    const desc = this.shortDescription(description);
+    const desc = this.descriptionsOn() ? this.shortDescription(description) : "";
     if (!desc) {
       return name;
     }
     return name + "\n\n" + desc.split("\n").map(l => "› " + l).join("\n");
   },
+
+  /**
+   * Name of a color in lists and statistics: its label, Zotero's name of the
+   * color, else “No label” (the color code only in tooltips).
+   */
+  listName(color, profile) {
+    const entry = profile && profile.colors.find(c => c.color === color);
+    if (entry && entry.label.trim()) {
+      return entry.label.trim();
+    }
+    return this.stockName(color) || this.S("noLabel");
+  },
+
+  /**
+   * “• ✎ n” after a name: separator dot and number of annotations with the
+   * icon of the color list (UI guidelines 7.5). Returns one element; numEl is
+   * the text of the number, for updates.
+   */
+  countLabel(doc, n) {
+    const box = doc.createElement("span");
+    box.className = "bac-count";
+    const dot = doc.createElement("span");
+    dot.className = "bac-sepdot";
+    dot.setAttribute("aria-hidden", "true");
+    const num = doc.createElement("span");
+    num.className = "bac-count-n";
+    num.textContent = n === null || n === undefined ? "" : String(n);
+    box.append(dot, this.Icons.make(doc, "marker", 14), num);
+    return box;
+  },
+
+  /**
+   * CSS for countLabel(), in em so it fits every font size. The dot and the
+   * icon sit on the baseline and are moved to the middle of the digits
+   * (about .35em above the baseline), not to the middle of the line box.
+   */
+  COUNT_CSS: `
+.bac-count { display: inline-flex; align-items: baseline; flex: none; font-variant-numeric: tabular-nums; }
+.bac-sepdot { flex: none; width: .24em; height: .24em; margin: 0 .35em; border-radius: 50%; background: currentColor; opacity: .75;
+  position: relative; top: -.25em; }
+.bac-count > svg { flex: none; width: 1.1em; height: 1.1em; margin: -.3em .12em 0 0; position: relative; top: .17em;
+  color: var(--fill-secondary, GrayText); }
+`,
 
   /** Name under which a color is shown (e.g. in lists and statistics). */
   displayName(color, profile) {
@@ -513,11 +611,106 @@ var BetterAnnotations = {
       pw.changeHeadline(this.S("pluginName"));
       pw.addDescription(text);
       pw.show();
-      pw.startCloseTimer(5000);
+      // Long notices stay longer (reading time)
+      pw.startCloseTimer(Math.min(12000, Math.max(5000, String(text).length * 60)));
     }
     catch (e) {
       this.log(text);
     }
+  },
+};
+
+// -------------------------------------------------------------------------
+// Icons: one set of line icons for the whole plugin (UI guidelines 7.6)
+// -------------------------------------------------------------------------
+BetterAnnotations.Icons = {
+  // Stroke on the 16-unit grid; 1.1 is the plugin's line weight
+  STROKE: 1.1,
+  // The funnel is the same in every state; badges sit at its lower right
+  FUNNEL: "M2.5 3.5h9l-3.5 4.2v3.8l-2 1V7.7z",
+
+  /**
+   * Line icon in the current text color. kind: funnel, funnel-plus,
+   * funnel-one, keep, describe, tune, edit, marker, profiles, chevron, bars.
+   * size: displayed size in px (the grid is 16 units, chevron 8, bars 20).
+   */
+  make(doc, kind, size) {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = doc.createElementNS(NS, "svg");
+    const grid = kind === "chevron" ? 8 : kind === "bars" ? 20 : 16;
+    const px = size || grid;
+    svg.setAttribute("width", String(px));
+    svg.setAttribute("height", String(px));
+    svg.setAttribute("viewBox", "0 0 " + grid + " " + grid);
+    svg.setAttribute("aria-hidden", "true");
+    // Small icons get a slightly thicker line on the grid, so they look as heavy
+    const stroke = this.STROKE * Math.max(1, 14 / px);
+    const line = (d, w) => {
+      const el = doc.createElementNS(NS, "path");
+      el.setAttribute("d", d);
+      el.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:" + (w || stroke) + ";stroke-linecap:round;stroke-linejoin:round");
+      svg.append(el);
+    };
+    const shape = (tag, attrs, filled) => {
+      const el = doc.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, String(v));
+      }
+      el.setAttribute("style", filled ? "fill:currentColor" : "fill:none;stroke:currentColor;stroke-width:" + stroke);
+      svg.append(el);
+    };
+    switch (kind) {
+      case "funnel":
+        line(this.FUNNEL);
+        break;
+      case "funnel-plus":
+        // All profiles: the funnel with a small “+”
+        line(this.FUNNEL);
+        line("M12.9 10.2v3.4M11.2 11.9h3.4");
+        break;
+      case "funnel-one":
+        // Only this profile: the funnel with a small “1”
+        line(this.FUNNEL);
+        line("M12.3 10.8l1.1-.9v4.2");
+        break;
+      case "keep":
+        // Repeat: the color stays selected for further annotations
+        line("M2.5 7V6.5a2 2 0 0 1 2-2h8.5M11 2.5l2 2-2 2M13.5 9v.5a2 2 0 0 1-2 2H3M5 9.5l-2 2 2 2");
+        break;
+      case "describe":
+        line("M2.5 3.5h11M2.5 6.5h11M2.5 9.5h7M2.5 12.5h5");
+        break;
+      case "tune":
+        line("M2.5 4h7M12.5 4h1M2.5 8h1.5M7.5 8h6M2.5 12h8M14 12h-.5");
+        for (const [cx, cy] of [[11, 4], [5.75, 8], [12, 12]]) {
+          shape("circle", { cx, cy, r: 1.5 });
+        }
+        break;
+      case "edit":
+        line("M10.6 2.4l3 3-8.2 8.2-3.7.7.7-3.7z M9.2 3.8l3 3");
+        break;
+      case "marker":
+        // Annotations: a highlighter over a line of text
+        line("M9.5 2.5l3.5 3.5-5.5 5.5H4v-3.5z");
+        line("M2.5 14h11");
+        break;
+      case "profiles":
+        // Other profiles: two squares
+        shape("rect", { x: 5.5, y: 2.5, width: 8, height: 8, rx: 1.8 });
+        shape("rect", { x: 2.5, y: 5.5, width: 8, height: 8, rx: 1.8 });
+        break;
+      case "chevron":
+        line("M1 2.75 4 5.75 7 2.75", 1.1);
+        break;
+      case "bars":
+        // The four bars of the logo without the card (widths 60/44/52/34 of
+        // the logo). Steps of 0.8 px: whole device pixels at 125 % and 250 %.
+        for (const [y, w] of [[4.4, 14.4], [7.6, 10.4], [10.8, 12.8], [14, 8]]) {
+          shape("rect", { x: 2.8, y, width: w, height: 1.6, rx: 0.8 }, true);
+        }
+        break;
+    }
+    return svg;
   },
 };
 
@@ -622,13 +815,18 @@ BetterAnnotations.Store = {
   sanitize(input) {
     const SB = this.SB;
     const out = {
-      version: 3,
-      activeProfileId: "zoteroplus",
+      version: 4,
+      activeProfileId: "standard",
       settings: Object.assign({}, SB.DEFAULT_SETTINGS),
       profiles: [],
+      collectionRules: [],
       backups: [],
     };
     if (!input || typeof input !== "object") {
+      // First start: “Standard” in use, so that existing annotations count
+      // there; “Zotero+” as an example profile to switch to
+      out.profiles.push(this.plusProfile());
+      out.activeProfileId = "standard";
       return out;
     }
     const s = input.settings && typeof input.settings === "object" ? input.settings : {};
@@ -640,12 +838,26 @@ BetterAnnotations.Store = {
     }
     out.settings.recentColors = (Array.isArray(s.recentColors) ? s.recentColors : [])
       .map(c => SB.normalize(c)).filter(Boolean).filter((c, i, a) => a.indexOf(c) === i).slice(0, 12);
-    for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "showUsage",
-      "showToolbarProfile", "showToolbarStats", "showItemPaneSection",
-      "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled"]) {
+    for (const key of ["instantTooltip", "showMenuEntry", "showPopupButton", "hideProfileTags",
+      "showToolbarButton", "showItemPaneSection", "statsSharedHint", "panelSharedHint", "panelShowOthers",
+      "statsDescriptions", "keepToolColor", "sectionDescriptions", "popoutDescriptions", "tagsEnabled",
+      "descriptionsEnabled", "profilesPerDocument", "profileTagColor", "profileFilterDefault",
+      "tipProfilesShown", "feedbackDone"]) {
       if (typeof s[key] === "boolean") {
         out.settings[key] = s[key];
       }
+    }
+    for (const key of ["firstUse", "feedbackDue"]) {
+      if (typeof s[key] === "string" && /^\d{4}-\d{2}-\d{2}/.test(s[key])) {
+        out.settings[key] = s[key].slice(0, 10);
+      }
+    }
+    // 1.0.0-beta.2: one toolbar button instead of two; hidden only if both were hidden
+    if (typeof s.showToolbarButton !== "boolean" && s.showToolbarProfile === false && s.showToolbarStats === false) {
+      out.settings.showToolbarButton = false;
+    }
+    if (s.sidenavPlacement === "group" || s.sidenavPlacement === "separate") {
+      out.settings.sidenavPlacement = s.sidenavPlacement;
     }
     if (s.popupLayout === "flow" || s.popupLayout === "fixed") {
       out.settings.popupLayout = s.popupLayout;
@@ -689,15 +901,53 @@ BetterAnnotations.Store = {
       names.add(name.toLowerCase());
       out.profiles.push(profile);
     }
+    // Data from 1.0.0-beta.1: “Zotero+” was built in; it becomes an ordinary profile
+    // with the same ID, so document choices, rules and tags keep working
+    if (!(input.version >= 4) && !out.profiles.some(p => p.id === "zoteroplus")) {
+      const plus = this.plusProfile();
+      let name = plus.name;
+      let n = 2;
+      while (names.has(name.toLowerCase())) {
+        name = plus.name + " (" + n++ + ")";
+      }
+      plus.name = name;
+      names.add(name.toLowerCase());
+      out.profiles.unshift(plus);
+    }
     const active = input.activeProfileId;
     if (SB.PRESET_IDS.includes(active) || out.profiles.some(p => p.id === active)) {
       out.activeProfileId = active;
+    }
+    out.collectionRules = this.sanitizeRules(input.collectionRules, out.profiles);
+    // Descriptions stay visible for profiles that already have them
+    if (typeof s.descriptionsEnabled !== "boolean") {
+      out.settings.descriptionsEnabled = out.profiles.some(p => p.colors.some(c => c.description));
     }
     if (Array.isArray(input.backups)) {
       out.backups = input.backups.filter(b => b && typeof b.file === "string" && typeof b.created === "string")
         .map(b => ({ file: b.file, created: b.created, kind: b.kind === "initial" ? "initial" : "manual", count: +b.count || 0 }));
     }
     return out;
+  },
+
+  /** Collection rules: { id, lib, key, profileId, sub }; library and key identify the collection. */
+  sanitizeRules(list, profiles) {
+    const SB = this.SB;
+    const known = new Set([...SB.PRESET_IDS, ...(profiles || this.data.profiles).map(p => p.id)]);
+    const out = [];
+    for (const r of Array.isArray(list) ? list : []) {
+      if (!r || typeof r.key !== "string" || !r.key || !Number.isFinite(+r.lib) || !known.has(r.profileId)) {
+        continue;
+      }
+      out.push({ id: typeof r.id === "string" && r.id ? r.id : SB.uid("r"), lib: +r.lib, key: r.key, profileId: r.profileId, sub: r.sub !== false });
+    }
+    return out.slice(0, 200);
+  },
+
+  async setRules(rules) {
+    this.data.collectionRules = this.sanitizeRules(rules);
+    await this.persist();
+    this.emit("rules");
   },
 
   clampInt(v, min, max, fallback) {
@@ -836,26 +1086,42 @@ BetterAnnotations.Store = {
     return this.data.profiles;
   },
 
+  /** “Zotero+” as an ordinary profile (first start, migration). */
+  plusProfile() {
+    const p = this.plusPreset();
+    delete p.preset;
+    p.modified = new Date().toISOString();
+    return p;
+  },
+
   getProfile(id) {
     if (id === "standard") {
       return this.zoteroPreset();
     }
-    if (id === "zoteroplus") {
-      return this.plusPreset();
-    }
     return this.data.profiles.find(p => p.id === id) || null;
   },
 
-  /** Active profile (copy). */
+  /**
+   * Profile in use (copy): the profile of the document in the selected reader
+   * tab, else the default profile. Code for a specific reader asks
+   * BetterAnnotations.Profiles.profileForReader(reader).
+   */
   getActive() {
-    const p = this.getProfile(this.data.activeProfileId) || this.plusPreset();
+    if (this.SB.Profiles) {
+      return this.SB.Profiles.profile(this.SB.Profiles.currentId());
+    }
+    return this.getDefault();
+  },
+
+  /** Default profile (copy): for documents without choice, profile annotations or matching rule. */
+  getDefault() {
+    const p = this.getProfile(this.data.activeProfileId) || this.zoteroPreset();
     return JSON.parse(JSON.stringify(p));
   },
 
   /** All profiles for menus: presets first. */
   listForMenu() {
     return [
-      { id: "zoteroplus", name: this.SB.S("presetPlus") },
       { id: "standard", name: this.SB.S("presetZotero") },
       ...this.data.profiles.map(p => ({ id: p.id, name: p.name })),
     ];
@@ -864,15 +1130,16 @@ BetterAnnotations.Store = {
   isNameTaken(name, exceptId) {
     const SB = this.SB;
     const n = String(name).trim().toLowerCase();
-    if ([SB.S("presetZotero"), SB.S("presetPlus")].some(x => x.toLowerCase() === n)) {
+    if (SB.S("presetZotero").toLowerCase() === n) {
       return true;
     }
     return this.data.profiles.some(p => p.id !== exceptId && p.name.toLowerCase() === n);
   },
 
-  async setActive(id) {
+  /** Set the default profile (the stored key keeps its old name “activeProfileId”). */
+  async setDefault(id) {
     if (!this.getProfile(id)) {
-      id = "zoteroplus";
+      id = "standard";
     }
     this.data.activeProfileId = id;
     await this.persist();
@@ -904,7 +1171,14 @@ BetterAnnotations.Store = {
   async deleteProfile(id) {
     this.data.profiles = this.data.profiles.filter(p => p.id !== id);
     if (this.data.activeProfileId === id) {
-      this.data.activeProfileId = "zoteroplus";
+      this.data.activeProfileId = "standard";
+    }
+    this.data.collectionRules = (this.data.collectionRules || []).filter(r => r.profileId !== id);
+    try {
+      this.SB.Profiles.forgetProfile(id);
+    }
+    catch (e) {
+      this.SB.logError(e);
     }
     await this.persist();
     this.emit("profiles");
@@ -1047,6 +1321,7 @@ BetterAnnotations.Updates = {
     this.set(Object.assign({}, this.state, { autoUpdate: true }));
   },
 
+  /** Ask Zotero's add-on manager for a newer version; the result goes to this.state. */
   async check() {
     if (this.state.status === "checking" || this.state.status === "installing") {
       return this.state;

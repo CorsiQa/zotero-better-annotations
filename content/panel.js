@@ -54,6 +54,7 @@ BetterAnnotations.Panel = {
       this.onMainWindowLoad(win);
     }
     this.updateSection();
+    this.placeSidenav();
     // The reader reports no event when the tool color changes: check once per second
     const win = Zotero.getMainWindow && Zotero.getMainWindow();
     if (win) {
@@ -80,6 +81,7 @@ BetterAnnotations.Panel = {
       Zotero.Notifier.unregisterObserver(this._observerID);
       this._observerID = null;
     }
+    this.unplaceSidenav();
     this.unregisterSection();
     this.closePopout();
     for (const win of this.mainWindows()) {
@@ -104,6 +106,7 @@ BetterAnnotations.Panel = {
     catch (e) {
       this.SB.logError(e);
     }
+    this.placeSidenav();
   },
 
   onMainWindowUnload(win) {
@@ -127,6 +130,7 @@ BetterAnnotations.Panel = {
     }
   },
 
+  /** Register the section in Zotero's item pane (Zotero 7+). */
   registerSection() {
     const SB = this.SB;
     if (!Zotero.ItemPaneManager?.registerSection) {
@@ -160,6 +164,7 @@ BetterAnnotations.Panel = {
         onInit: ({ body }) => {
           body.bacView = new BetterAnnotations.PanelView(body, "section");
           this._views.add(body.bacView);
+          this.extendHeaderMenu(body);
         },
         onDestroy: ({ body }) => {
           if (body.bacView) {
@@ -188,6 +193,282 @@ BetterAnnotations.Panel = {
       SB.logError(e);
       this._sectionKey = null;
     }
+    this.placeSidenav();
+  },
+
+  // -------------------------------------------------------------------
+  // Context menus of the section header and the side navigation button
+  // -------------------------------------------------------------------
+
+  /** Own entries for the context menu of the section header (below Zotero's). */
+  extendHeaderMenu(body) {
+    const SB = this.SB;
+    const win = body.ownerDocument && body.ownerDocument.defaultView;
+    if (!win) {
+      return;
+    }
+    const tryAdd = (attempt) => {
+      const section = body.closest && body.closest("collapsible-section");
+      const menu = section && section._contextMenu;
+      if (!menu) {
+        if (attempt < 20) {
+          win.setTimeout(() => tryAdd(attempt + 1), 100);
+        }
+        return;
+      }
+      if (menu.querySelector(".bac-menu-own")) {
+        return;
+      }
+      const doc = menu.ownerDocument;
+      const sep = doc.createXULElement("menuseparator");
+      sep.className = "bac-menu-own";
+      menu.append(sep);
+      for (const entry of this.ownMenuEntries()) {
+        const item = doc.createXULElement("menuitem");
+        item.className = "bac-menu-own";
+        item.dataset.bacEntry = entry.id;
+        item.addEventListener("command", () => { try { entry.run(); } catch (err) { SB.logError(err); } });
+        menu.append(item);
+      }
+      menu.addEventListener("popupshowing", (e) => {
+        if (e.target !== menu) {
+          return;
+        }
+        const separate = SB.setting("sidenavPlacement") === "separate";
+        for (const item of menu.querySelectorAll("menuitem.bac-menu-own")) {
+          const entry = this.ownMenuEntries().find(x => x.id === item.dataset.bacEntry);
+          item.setAttribute("label", entry ? entry.label() : "");
+        }
+        if (separate) {
+          // Zotero moves sections only within its own group of buttons
+          for (const cls of ["zotero-menuitem-reorder-up", "zotero-menuitem-reorder-down"]) {
+            const item = menu.querySelector("." + cls);
+            if (item) {
+              item.hidden = true;
+            }
+          }
+        }
+      });
+    };
+    tryAdd(0);
+  },
+
+  /** Entries shared by the header menu and the menu of the side navigation button. */
+  ownMenuEntries() {
+    const SB = this.SB;
+    const S = k => SB.S(k);
+    return [
+      { id: "popout", label: () => S("menuOpenPopout"), run: () => this.openPopout({ collapse: this.inReaderTab() }) },
+      {
+        id: "placement",
+        label: () => S(SB.setting("sidenavPlacement") === "separate" ? "menuSidenavJoin" : "menuSidenavSeparate"),
+        run: () => SB.Store.setSetting("sidenavPlacement", SB.setting("sidenavPlacement") === "separate" ? "group" : "separate"),
+      },
+      {
+        id: "remove",
+        label: () => S("menuRemoveSection"),
+        run: () => {
+          SB.Store.setSetting("showItemPaneSection", false);
+          SB.notify(S("noticeSectionRemoved"));
+        },
+      },
+    ];
+  },
+
+  inReaderTab() {
+    try {
+      const win = Zotero.getMainWindow();
+      return String(win.Zotero_Tabs.selectedType || "").startsWith("reader");
+    }
+    catch (e) {
+      return false;
+    }
+  },
+
+  // -------------------------------------------------------------------
+  // Own group in the side navigation (optional, setting “sidenavPlacement”)
+  // -------------------------------------------------------------------
+
+  _navWatch: new WeakMap(),
+  _navs: new Set(),
+
+  placeSidenav() {
+    for (const win of this.mainWindows()) {
+      let navs = [];
+      try {
+        navs = Array.from(win.document.querySelectorAll("item-pane-sidenav"));
+      }
+      catch (e) {}
+      for (const nav of navs) {
+        try { this.placeIn(nav); } catch (err) { this.SB.logError(err); }
+      }
+    }
+  },
+
+  /**
+   * Moves the button of the section behind its own divider, like the notes
+   * button of Zotero, or back into the group of the other sections.
+   */
+  placeIn(nav) {
+    const SB = this.SB;
+    const separate = !!this._sectionKey && SB.setting("sidenavPlacement") === "separate";
+    const doc = nav.ownerDocument;
+    const HTML = "http://www.w3.org/1999/xhtml";
+    let group = nav.querySelector(".bac-sidenav-group");
+    if (!separate) {
+      if (group) {
+        const hadButton = !!group.querySelector(".btn");
+        nav.querySelector(".bac-sidenav-divider")?.remove();
+        group.remove();
+        if (hadButton && this._sectionKey) {
+          try {
+            nav.render(); // Zotero creates the button again in its group
+          }
+          catch (e) {}
+        }
+      }
+      this.unwatchNav(nav);
+      return;
+    }
+    const main = nav.querySelector(".inherit-flex");
+    const key = this._sectionKey;
+    const btn = nav.querySelector(".btn[data-pane=\"" + key.replace(/["\\]/g, "\\$&") + "\"]");
+    if (!main || !btn) {
+      this.watchNav(nav);
+      return;
+    }
+    if (!group) {
+      const divider = doc.createElementNS(HTML, "div");
+      divider.className = "divider bac-sidenav-divider";
+      group = doc.createElementNS(HTML, "div");
+      group.className = "bac-sidenav-group";
+      group.setAttribute("style", "display:flex;flex-direction:inherit;align-items:inherit;justify-content:inherit;gap:inherit;border-radius:5px;");
+      main.after(divider, group);
+    }
+    const wrapper = btn.parentElement;
+    if (wrapper && wrapper.parentElement !== group) {
+      wrapper.draggable = false;
+      group.append(wrapper);
+    }
+    if (!btn.dataset.bacMenu) {
+      btn.dataset.bacMenu = "1";
+      // Own menu instead of Zotero's: it would move the button within the other group
+      wrapper.addEventListener("contextmenu", e => this.openNavMenu(e), true);
+    }
+    this.syncNavGroup(nav);
+    this.watchNav(nav);
+  },
+
+  /** Divider and group follow the visibility of the button and the highlight of the main group. */
+  syncNavGroup(nav) {
+    const group = nav.querySelector(".bac-sidenav-group");
+    if (!group) {
+      return;
+    }
+    const wrapper = group.querySelector(".pin-wrapper");
+    const hidden = !wrapper || wrapper.hidden;
+    if (group.hidden !== hidden) {
+      group.hidden = hidden;
+    }
+    const divider = nav.querySelector(".bac-sidenav-divider");
+    if (divider && divider.hidden !== hidden) {
+      divider.hidden = hidden;
+    }
+    const main = nav.querySelector(".inherit-flex");
+    const lit = !!main && main.classList.contains("highlight");
+    if (group.classList.contains("highlight") !== lit) {
+      group.classList.toggle("highlight", lit);
+    }
+  },
+
+  watchNav(nav) {
+    if (this._navWatch.has(nav)) {
+      return;
+    }
+    const win = nav.ownerDocument.defaultView;
+    let pending = false;
+    const observer = new win.MutationObserver(() => {
+      if (pending) {
+        return;
+      }
+      pending = true;
+      win.setTimeout(() => {
+        pending = false;
+        if (this._navWatch.has(nav)) {
+          this.placeIn(nav);
+        }
+      }, 0);
+    });
+    observer.observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "class"] });
+    this._navWatch.set(nav, observer);
+    this._navs.add(nav);
+  },
+
+  unwatchNav(nav) {
+    const observer = this._navWatch.get(nav);
+    if (observer) {
+      observer.disconnect();
+      this._navWatch.delete(nav);
+    }
+    this._navs.delete(nav);
+  },
+
+  unplaceSidenav() {
+    for (const nav of [...this._navs]) {
+      this.unwatchNav(nav);
+      const group = nav.querySelector(".bac-sidenav-group");
+      if (group) {
+        nav.querySelector(".bac-sidenav-divider")?.remove();
+        group.remove();
+        try {
+          nav.render();
+        }
+        catch (e) {}
+      }
+    }
+  },
+
+  /** Context menu of the button in its own group: pin like Zotero, plus the own entries. */
+  openNavMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const nav = e.currentTarget.closest("item-pane-sidenav");
+    const doc = e.currentTarget.ownerDocument;
+    let menu = doc.getElementById("bac-sidenav-menu");
+    if (!menu) {
+      menu = doc.createXULElement("menupopup");
+      menu.id = "bac-sidenav-menu";
+      (doc.querySelector("popupset") || doc.documentElement).append(menu);
+    }
+    menu.replaceChildren();
+    const key = this._sectionKey;
+    if (nav && key) {
+      try {
+        if (nav.isPanePinnable(key)) {
+          const pinned = nav.pinnedPane === key;
+          const pin = doc.createXULElement("menuitem");
+          pin.setAttribute("data-l10n-id", pinned ? "unpin-section" : "pin-section");
+          pin.addEventListener("command", () => {
+            if (pinned) {
+              nav.pinnedPane = null;
+            }
+            else {
+              nav.container.scrollToPane(key, "smooth");
+              nav.pinnedPane = key;
+            }
+          });
+          menu.append(pin, doc.createXULElement("menuseparator"));
+        }
+      }
+      catch (err) {}
+    }
+    for (const entry of this.ownMenuEntries()) {
+      const item = doc.createXULElement("menuitem");
+      item.setAttribute("label", entry.label());
+      item.addEventListener("command", () => entry.run());
+      menu.append(item);
+    }
+    menu.openPopupAtScreen(e.screenX, e.screenY, true);
   },
 
   unregisterSection() {
@@ -280,6 +561,59 @@ BetterAnnotations.Panel = {
   },
 
   /** Reader of a target (only in reader tabs). */
+  /**
+   * Profile menu as a native Zotero menu, the same in the item pane, the
+   * separate window and the reader's statistics: all profiles with their
+   * number in the document, the chosen one marked like Zotero's radio items,
+   * then “Manage Profiles…”. Opens at an element of `doc` (anchor) or at a
+   * screen position (screen: { x, y }). Returns false without XUL.
+   */
+  openProfilePopup({ doc, anchor, screen, entries, active, choose, onHidden }) {
+    const SB = BetterAnnotations;
+    let popup = null;
+    try {
+      popup = doc.createXULElement ? doc.createXULElement("menupopup") : null;
+    }
+    catch (e) {}
+    if (!popup || typeof popup.openPopup !== "function") {
+      return false;
+    }
+    for (const p of entries) {
+      const mi = doc.createXULElement("menuitem");
+      mi.setAttribute("type", "radio");
+      mi.setAttribute("label", p.name);
+      if (p.n) {
+        mi.setAttribute("acceltext", String(p.n));
+      }
+      if (p.id === active) {
+        mi.setAttribute("checked", "true");
+      }
+      mi.addEventListener("command", () => choose(p.id));
+      popup.append(mi);
+    }
+    popup.append(doc.createXULElement("menuseparator"));
+    const manage = doc.createXULElement("menuitem");
+    manage.setAttribute("label", SB.S("menuManageProfiles"));
+    manage.addEventListener("command", () => SB.openPrefs());
+    popup.append(manage);
+    popup.addEventListener("popuphidden", (e) => {
+      if (e.target === popup) {
+        popup.remove();
+        if (onHidden) {
+          onHidden();
+        }
+      }
+    });
+    (doc.getElementById("mainPopupSet") || doc.documentElement).append(popup);
+    if (screen) {
+      popup.openPopupAtScreen(Math.round(screen.x), Math.round(screen.y), false);
+    }
+    else {
+      popup.openPopup(anchor, "after_start", 0, 2, false, false);
+    }
+    return true;
+  },
+
   readerOf(target) {
     if (!target || target.mode !== "reader") {
       return null;
@@ -292,43 +626,27 @@ BetterAnnotations.Panel = {
     }
   },
 
-  /** Annotation colors of a target: Map color -> number. */
-  countColors(target) {
-    const counts = new Map();
-    const add = (color) => {
-      const c = this.SB.normalize(color);
-      if (c) {
-        counts.set(c, (counts.get(c) || 0) + 1);
-      }
-    };
+  /** Profile ID of a target: of the reader, else of the (first) file in the library. */
+  profileIdOf(target) {
+    const P = this.SB.Profiles;
+    const reader = this.readerOf(target);
+    if (reader) {
+      return P.forReader(reader);
+    }
+    return target && target.attachmentIDs && target.attachmentIDs.length ? P.forFile(target.attachmentIDs[0]) : P.defaultId();
+  },
+
+  /** Annotations of a target by profile (see Profiles.summarize). */
+  summarizeTarget(target) {
+    const P = this.SB.Profiles;
     if (!target) {
-      return counts;
+      return P.summarize([]);
     }
     const reader = this.readerOf(target);
-    let fromReader = false;
-    try {
-      const list = reader && reader._state && reader._state.annotations;
-      if (list) {
-        for (const a of Array.from(list)) {
-          add(a.color);
-        }
-        fromReader = true;
-      }
+    if (reader && BetterAnnotations.readerState(reader) && BetterAnnotations.readerState(reader).annotations) {
+      return P.summarize(P.readerList(reader));
     }
-    catch (e) {}
-    if (!fromReader) {
-      for (const att of Zotero.Items.get(target.attachmentIDs || []).filter(Boolean)) {
-        try {
-          for (const a of att.getAnnotations()) {
-            add(a.annotationColor);
-          }
-        }
-        catch (e) {
-          this.SB.logError(e);
-        }
-      }
-    }
-    return counts;
+    return P.summarize(P.fileList(target.attachmentIDs));
   },
 
   /** Title of the item a target belongs to. */
@@ -504,6 +822,7 @@ BetterAnnotations.Panel = {
   onStoreChange(what) {
     if (what === "settings") {
       this.updateSection();
+      this.placeSidenav();
     }
     this.refreshAll();
   },
@@ -526,7 +845,7 @@ BetterAnnotations.Panel = {
 
   readerAnnotationCount(reader) {
     try {
-      return Array.from(reader._state?.annotations || []).length;
+      return Array.from(BetterAnnotations.readerState(reader)?.annotations || []).length;
     }
     catch (e) {
       return -1;
@@ -689,6 +1008,7 @@ BetterAnnotations.PanelView = class {
     return this.SB.S(key, args);
   }
 
+  /** Create an HTML element with attributes, event handlers (on…) and children. */
   h(tag, attrs, ...children) {
     const el = this.doc.createElementNS("http://www.w3.org/1999/xhtml", tag);
     for (const [k, v] of Object.entries(attrs || {})) {
@@ -718,42 +1038,12 @@ BetterAnnotations.PanelView = class {
     return el;
   }
 
-  /** Line icons drawn in the current text color (follow light and dark mode). */
+  /** Line icons of the plugin (BetterAnnotations.Icons), in the current text color. */
   icon(kind) {
-    const NS = "http://www.w3.org/2000/svg";
-    const svg = this.doc.createElementNS(NS, "svg");
-    svg.setAttribute("width", "16");
-    svg.setAttribute("height", "16");
-    svg.setAttribute("viewBox", "0 0 16 16");
-    svg.setAttribute("aria-hidden", "true");
-    const path = (d, width) => {
-      const p = this.doc.createElementNS(NS, "path");
-      p.setAttribute("d", d);
-      p.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:" + (width || 1.1) + ";stroke-linecap:round;stroke-linejoin:round");
-      svg.append(p);
-    };
-    if (kind === "keep") {
-      // Repeat: the color stays selected for further annotations
-      path("M2.5 7V6.5a2 2 0 0 1 2-2h8.5M11 2.5l2 2-2 2M13.5 9v.5a2 2 0 0 1-2 2H3M5 9.5l-2 2 2 2");
-    }
-    else if (kind === "describe") {
-      path("M2.5 3.5h11M2.5 6.5h11M2.5 9.5h7M2.5 12.5h5");
-    }
-    else if (kind === "edit") {
-      svg.setAttribute("width", "14");
-      svg.setAttribute("height", "14");
-      path("M10.6 2.4l3 3-8.2 8.2-3.7.7.7-3.7z M9.2 3.8l3 3");
-    }
-    else if (kind === "chevron") {
-      svg.setAttribute("width", "8");
-      svg.setAttribute("height", "8");
-      svg.setAttribute("viewBox", "0 0 8 8");
-      path("M1 2.75 4 5.75 7 2.75");
-    }
-    else {
-      return this.SB.Reader.makeTuneIcon(this.doc, 16);
-    }
-    return svg;
+    const map = { "filter": "funnel", "view-Doc": "funnel", "view-All": "funnel-plus", "view-Only": "funnel-one" };
+    const name = map[kind] || (["keep", "describe", "edit", "chevron", "marker"].includes(kind) ? kind : "tune");
+    const size = name === "edit" ? 14 : name === "chevron" ? 8 : name === "marker" ? 12 : 16;
+    return this.SB.Icons.make(this.doc, name, size);
   }
 
   iconButton(kind, label, onClick, pressed) {
@@ -775,22 +1065,71 @@ BetterAnnotations.PanelView = class {
     return b;
   }
 
+  /** Steps of the view button: “Only” needs Zotero's filter (profile per document, in the reader). */
+  viewSteps(reader) {
+    return reader && this.SB.Profiles.enabled() ? ["Doc", "All", "Only"] : ["Doc", "All"];
+  }
+
+  viewState(reader) {
+    const SB = this.SB;
+    if (reader && SB.Profiles.enabled() && SB.Profiles.filterActive(reader)) {
+      return "Only";
+    }
+    return SB.setting("panelShowOthers") === true ? "All" : "Doc";
+  }
+
+  async setView(reader, next) {
+    const SB = this.SB;
+    try {
+      const filtered = reader && SB.Profiles.enabled() && SB.Profiles.filterActive(reader);
+      if ((next === "Only") !== !!filtered && reader) {
+        SB.Profiles.toggleFilter(reader);
+      }
+      await SB.Store.setSetting("panelShowOthers", next === "All");
+    }
+    catch (e) {
+      SB.logError(e);
+    }
+    this.render();
+  }
+
+  /** Give the annotations of the document without a profile tag the tag of its profile (in the history, can be undone). */
+  async assignUntagged(reader, profile) {
+    const SB = this.SB;
+    try {
+      const scope = { type: "doc", id: reader.itemID, label: this.Panel.targetTitle(this.target) || "" };
+      const changes = await SB.Library.planProfileAssign(scope, profile.id);
+      if (changes.length) {
+        await SB.Library.run("profileAssign", { profile: profile.name, scope: scope.label }, changes);
+      }
+    }
+    catch (e) {
+      SB.logError(e);
+    }
+    this.render();
+  }
+
   /** Changes when something visible changes (tool color, number of annotations). */
   signature() {
     const reader = this.Panel.readerOf(this.target);
     let tool = "";
     let n = "";
+    let filter = "";
     try {
       tool = reader ? String(this.SB.Reader.activeToolColor(reader) || "") : "";
-      n = reader ? String(Array.from(reader._state?.annotations || []).length) : "";
+      // Number and colors (and tags): recoloring and assigning change the lists
+      n = reader ? Array.from(BetterAnnotations.readerState(reader)?.annotations || [])
+        .map(a => a.color + (a.tags ? a.tags.length : 0)).join(",") : "";
+      filter = reader && this.SB.Profiles.filterActive(reader) ? "f" : "";
     }
     catch (e) {}
-    return [this.SB.Store.data.activeProfileId, this.target ? this.target.tabID || this.target.attachmentIDs.join(",") : "", tool, n].join("|");
+    return [this.Panel.profileIdOf(this.target), this.target ? this.target.tabID || this.target.attachmentIDs.join(",") : "", tool, n, filter].join("|");
   }
 
   render() {
-    if (this.editing) {
-      // Do not rebuild while a description is being edited
+    if (this.editing || this.SB.Reader.dragging()) {
+      // Not while a description is edited or a color is dragged from this list
+      // (removing the dragged row could end the drag)
       this.pendingRender = true;
       return;
     }
@@ -828,61 +1167,70 @@ BetterAnnotations.PanelView = class {
   }
 
   /** Profile selection: a flat button like the reader's profile button, with a native menu. */
-  profileButton(profile) {
+  profileButton(profile, summary) {
     const SB = this.SB;
     const S = (k, a) => this.S(k, a);
+    const reader = this.Panel.readerOf(this.target);
+    const source = reader ? SB.Reader.sourceText(reader) : "";
+    // Annotations of this profile; all of them are in the line below the list
+    const n = this.target ? summary.byProfile.get(profile.id) || 0 : null;
     const b = this.h("button", {
       class: "bac-p-menu",
       "data-key": "profile",
-      title: S("panelProfile"),
+      title: S("panelProfile") + (source ? "\n" + source : ""),
       "aria-haspopup": "menu",
       "aria-label": S("panelProfile") + ": " + profile.name,
-    }, this.h("span", { class: "bac-p-menu-name", text: profile.name }), this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
+    },
+    // “Profile: name · number”; the menu lists the names only
+    this.h("span", { class: "bac-p-menu-label", text: S("profilePrefix") }),
+    this.h("span", { class: "bac-p-menu-name", text: profile.name }),
+    // “• ✎ n”: number of annotations with the icon of the color list
+    n === null ? null : SB.countLabel(this.doc, n),
+    this.h("span", { class: "bac-p-caret" }, this.icon("chevron")));
     b.addEventListener("click", (e) => {
       e.preventDefault();
-      this.openProfileMenu(b);
+      this.openProfileMenu(b, profile.id, summary);
     });
     return b;
   }
 
-  openProfileMenu(anchor) {
-    const SB = this.SB;
-    const doc = this.doc;
-    const list = SB.Store.listForMenu();
-    const active = SB.Store.data.activeProfileId;
-    const choose = (id) => {
-      if (id && id !== active) {
-        SB.Store.setActive(id).catch(err => SB.logError(err));
-      }
-    };
-    let popup = null;
+  /**
+   * Empty drag image: the system draws drag images translucent, so the reader
+   * draws its own opaque picture under the pointer (Reader.moveGhost).
+   */
+  dragGhost() {
     try {
-      popup = doc.createXULElement ? doc.createXULElement("menupopup") : null;
+      const canvas = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      canvas.className = "bac-p-ghost";
+      this.doc.documentElement.append(canvas);
+      return canvas;
     }
-    catch (e) {}
-    if (popup && typeof popup.openPopup === "function") {
-      list.forEach((p, i) => {
-        if (i === 2) {
-          popup.append(doc.createXULElement("menuseparator"));
-        }
-        const mi = doc.createXULElement("menuitem");
-        mi.setAttribute("type", "radio");
-        mi.setAttribute("label", p.name);
-        if (p.id === active) {
-          mi.setAttribute("checked", "true");
-        }
-        mi.addEventListener("command", () => choose(p.id));
-        popup.append(mi);
-      });
-      popup.addEventListener("popuphidden", () => popup.remove(), { once: true });
-      (doc.getElementById("mainPopupSet") || doc.documentElement).append(popup);
-      popup.openPopup(anchor, "after_start", 0, 2, false, false);
+    catch (e) {
+      return null;
+    }
+  }
+
+  /** Profile menu: like the reader's: all profiles with their number in the document, “Manage Profiles…”. */
+  openProfileMenu(anchor, active, summary) {
+    const SB = this.SB;
+    const P = SB.Profiles;
+    const doc = this.doc;
+    const target = this.target;
+    const entries = P.menuEntries(summary);
+    const reader = this.Panel.readerOf(target);
+    const choose = (id) => {
+      const task = reader ? P.setForReader(reader, id) : P.setForFiles(target ? target.attachmentIDs : [], id);
+      Promise.resolve(task).catch(err => SB.logError(err));
+    };
+    if (this.Panel.openProfilePopup({ doc, anchor, entries, active, choose })) {
       return;
     }
     // Fallback without XUL (e.g. tests in a browser): a simple list below the button
     this.root.querySelector(".bac-p-fallback")?.remove();
     const menu = this.h("div", { class: "bac-p-fallback", role: "menu" });
-    for (const p of list) {
+    const add = (p) => {
       menu.append(this.h("button", {
         role: "menuitemradio",
         "aria-checked": p.id === active ? "true" : "false",
@@ -892,36 +1240,66 @@ BetterAnnotations.PanelView = class {
             choose(p.id);
           },
         },
-      }, (p.id === active ? "✓ " : "") + p.name));
-    }
+      }, (p.id === active ? "✓ " : "") + p.name + (p.n ? " (" + p.n + ")" : "")));
+    };
+    entries.forEach(add);
+    menu.append(this.h("button", {
+      role: "menuitem",
+      on: {
+        click: () => {
+          menu.remove();
+          SB.openPrefs();
+        },
+      },
+    }, SB.S("menuManageProfiles")));
     anchor.after(menu);
   }
 
+  /** Build the content: profile bar, legend with counts, hints and other profiles. */
   _build() {
     const SB = this.SB;
     const S = (k, a) => this.S(k, a);
     const Panel = this.Panel;
-    const profile = SB.Store.getActive();
     const target = this.target;
     const reader = Panel.readerOf(target);
-    const counts = Panel.countColors(target);
-    const total = [...counts.values()].reduce((a, b) => a + b, 0);
+    const profile = SB.Profiles.profile(Panel.profileIdOf(target));
+    const summary = Panel.summarizeTarget(target);
+    const counts = summary.colors.get(profile.id) || new Map();
+    const total = summary.byProfile.get(profile.id) || 0;
     const toolColor = reader ? SB.Reader.activeToolColor(reader) : null;
     this.lastSignature = this.signature();
 
     // Toolbar: profile, descriptions, settings
     const descKey = this.kind === "section" ? "sectionDescriptions" : "popoutDescriptions";
-    const showDesc = SB.setting(descKey) === true;
+    const descOn = SB.descriptionsOn();
+    const showDesc = descOn && SB.setting(descKey) === true;
     const keep = SB.setting("keepToolColor") !== false;
     const bar = this.h("div", { class: "bac-p-bar" },
-      this.profileButton(profile),
+      this.profileButton(profile, summary),
       this.iconButton("keep", S("panelKeepColor"), () => {
         SB.Store.setSetting("keepToolColor", !keep).catch(err => SB.logError(err));
-      }, keep),
-      this.iconButton("describe", S("panelDescriptions"), () => {
+      }, keep));
+    // View in steps, like the repeat button of a music player:
+    // this profile → also the other profiles → only this profile (Zotero's
+    // filter, also in the document) → back. Without the filter two steps.
+    const view = this.viewState(reader);
+    const steps = this.viewSteps(reader);
+    const next = steps[(steps.indexOf(view) + 1) % steps.length];
+    if (target) {
+      const label = S("viewState" + view) + "\n" + S("viewNext", { action: S("viewAction" + next) });
+      const btn = this.iconButton("view-" + view, label, () => this.setView(reader, next));
+      // A button in steps, not a switch: the label names the state; a gray
+      // background marks the steps after the first (no accent color)
+      btn.classList.toggle("bac-p-step", view !== "Doc");
+      btn.setAttribute("aria-label", S("viewState" + view) + ". " + S("viewNext", { action: S("viewAction" + next) }));
+      bar.append(btn);
+    }
+    if (descOn) {
+      bar.append(this.iconButton("describe", S("panelDescriptions"), () => {
         SB.Store.setSetting(descKey, !showDesc).catch(err => SB.logError(err));
-      }, showDesc),
-      this.iconButton("settings", S("panelSettings"), () => SB.openPrefs()));
+      }, showDesc));
+    }
+    bar.append(this.iconButton("settings", S("panelSettings"), () => SB.openPrefs()));
 
     const parts = [this.style()];
     if (this.kind === "popout") {
@@ -934,23 +1312,26 @@ BetterAnnotations.PanelView = class {
     }
     parts.push(bar);
 
-    // Rows: visible labels of the profile, then other colors in use
+    // Rows: visible labels of the profile. Annotations of this profile in
+    // other colors (hidden labels, colors changed in Zotero) follow; colors of
+    // other profiles count there (see Profiles.attribute).
     const rows = [];
     const seen = new Set();
     const entries = profile.standard ? profile.colors : SB.visibleColors(profile);
     for (const entry of entries) {
       seen.add(entry.color);
-      rows.push({ color: entry.color, name: entry.label.trim() || SB.stockName(entry.color) || entry.color, n: counts.get(entry.color) || 0, hidden: false, entry });
+      rows.push({ color: entry.color, name: SB.listName(entry.color, profile), n: counts.get(entry.color) || 0, hidden: false, entry });
     }
     for (const [color, n] of counts) {
       if (!seen.has(color)) {
         const entry = profile.colors.find(c => c.color === color);
-        rows.push({ color, name: SB.displayName(color, profile), n, hidden: !!entry, entry });
+        rows.push({ color, name: SB.listName(color, profile), n, hidden: !!entry, entry, foreign: !entry });
       }
     }
     const editable = showDesc && !profile.preset && !!SB.Store.getProfile(profile.id);
-    const clickable = !!reader && !reader._state?.readOnly;
+    const clickable = !!reader && !BetterAnnotations.readerState(reader)?.readOnly;
     const listEl = this.h("div", { class: "bac-p-list", role: "list" });
+    let snapshot = null;
     for (const r of rows) {
       const name = this.h("span", { class: "bac-p-name", text: r.name });
       if (r.hidden) {
@@ -962,23 +1343,63 @@ BetterAnnotations.PanelView = class {
         this.h("span", { class: "bac-p-n" + (r.n ? "" : " bac-p-zero"), text: String(r.n) }),
       ];
       const description = r.entry ? SB.cleanDescription(r.entry.description) : "";
-      let tip = S("panelRowTip", { label: r.name, n: r.n });
+      let tip = S("panelRowTip", { label: r.name, n: r.n }) + (r.foreign ? " (" + r.color + ")" : "");
       if (description && !showDesc) {
         tip = SB.tooltipText(tip, description);
       }
       let row;
       if (clickable) {
         const active = toolColor === r.color;
-        row = this.h("button", {
-          class: "bac-p-row" + (active ? " bac-p-active" : ""),
+        // A div, not a button: Firefox does not start drags on buttons
+        row = this.h("div", {
+          class: "bac-p-row bac-p-click" + (active ? " bac-p-active" : ""),
+          role: "button",
+          tabindex: "0",
+          draggable: "true",
           "data-key": "row-" + r.color,
           "aria-pressed": active ? "true" : "false",
           title: tip + "\n" + S(active ? "panelClickHintOff" : "panelClickHint"),
           on: {
+            keydown: (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                row.click();
+              }
+            },
+            // Drag the color onto an annotation in the reader
+            dragstart: (e) => {
+              snapshot = null;
+              // The profile of this list: with “Profile per Document” the annotation moves there
+              if (!SB.Reader.startColorDrag(reader, r.color, e, r.name, profile.id)) {
+                e.preventDefault();
+                return;
+              }
+              e.dataTransfer.setData(SB.Reader.DRAG_TYPE, r.color);
+              e.dataTransfer.effectAllowed = "copy";
+              const ghost = this.dragGhost();
+              if (ghost) {
+                e.dataTransfer.setDragImage(ghost, 0, 0);
+                SB.Reader.moveGhostAt(e);
+                SB.setTimeout(() => ghost.remove(), 0);
+              }
+            },
+            dragend: () => SB.Reader.endColorDrag(),
+            // Selected annotations or selected text: take them before the reader loses the focus
+            mousedown: () => {
+              snapshot = SB.Reader.selectionSnapshot(reader);
+            },
             click: () => {
-              SB.Reader.pickToolColor(reader, r.color);
-              if (SB.Reader.activeToolColor(reader)) {
-                Panel.armOneShot(reader, r.color);
+              const once = snapshot || SB.Reader.selectionSnapshot(reader); // keyboard: no mousedown
+              snapshot = null;
+              if (once) {
+                // Color the selection once; the tool is not changed
+                SB.Reader.colorSnapshot(reader, once, r.color, profile.id);
+              }
+              else {
+                SB.Reader.pickToolColor(reader, r.color);
+                if (SB.Reader.activeToolColor(reader)) {
+                  Panel.armOneShot(reader, r.color);
+                }
               }
               SB.setTimeout(() => this.render(), 30);
             },
@@ -995,11 +1416,73 @@ BetterAnnotations.PanelView = class {
         item.append(this.iconButtonEdit(r));
       }
       if (showDesc && r.entry && (description || this.reveal === r.entry.id)) {
-        item.append(this.descriptionField(profile, r.entry, description, canEdit));
+        // A click on the text selects the color like the rest of the row
+        item.append(this.descriptionField(profile, r.entry, description, canEdit, clickable ? () => row.click() : null));
       }
       listEl.append(item);
     }
-    parts.push(listEl);
+    const filtered = view === "Only";
+    const others = [...summary.byProfile.keys()].filter(id => id !== profile.id && summary.byProfile.get(id));
+    others.sort((a, b) => (a === null) - (b === null));
+    if (view === "All" && others.length) {
+      // Like the statistics: a heading per profile, the colors it uses
+      parts.push(this.groupHeading(profile.name, summary.byProfile.get(profile.id) || 0));
+      parts.push(listEl);
+      for (const id of others) {
+        const other = SB.Profiles.profileOrNone(id);
+        parts.push(this.groupHeading(SB.Profiles.nameOrNone(id), summary.byProfile.get(id)));
+        const list = this.h("div", { class: "bac-p-list", role: "list" });
+        const counts = summary.colors.get(id) || new Map();
+        const order = other.colors.map(c => c.color);
+        const colors = [...counts.keys()].sort((a, b) => {
+          const ia = order.indexOf(a);
+          const ib = order.indexOf(b);
+          return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || counts.get(b) - counts.get(a);
+        });
+        for (const color of colors) {
+          const name = SB.listName(color, other);
+          list.append(this.h("div", { role: "listitem", class: "bac-p-item" },
+            this.h("div", { class: "bac-p-row bac-p-other", title: S("panelRowTip", { label: name, n: counts.get(color) })
+              + (other.colors.some(c => c.color === color) || SB.stockName(color) ? "" : " (" + color + ")") },
+            this.h("span", { class: "bac-p-dot", style: "background:" + color }),
+            this.h("span", { class: "bac-p-name", text: name }),
+            this.h("span", { class: "bac-p-n", text: String(counts.get(color)) }))));
+        }
+        parts.push(list);
+      }
+    }
+    else {
+      parts.push(listEl);
+    }
+    if (target) {
+      // Total as a row: its number in the column of the numbers above, a line above it
+      const t = SB.Profiles.totals(summary, profile.id, filtered);
+      parts.push(this.h("div", { class: "bac-p-row bac-p-total bac-p-line" },
+        this.h("span", { class: "bac-p-name", text: SB.Profiles.totalLabel(filtered) }),
+        this.h("span", { class: "bac-p-n", text: String(t.shown) })));
+    }
+    // Other profiles in one line below the total, as in the statistics
+    // (not when their headings and colors are shown)
+    const othersText = view === "All" && others.length ? "" : SB.Profiles.othersText(summary, profile.id);
+    if (othersText) {
+      parts.push(this.h("div", { class: "bac-p-hint bac-p-others", text: othersText }));
+    }
+    // Annotations without a profile tag (older ones, from Zotero's apps): offer to assign them
+    const untagged = reader ? SB.Profiles.untaggedCount(reader) : 0;
+    if (untagged) {
+      parts.push(this.h("div", { class: "bac-p-hint bac-p-untagged" },
+        this.h("span", { text: S(filtered ? "untaggedHidden" : "untaggedHint", { n: untagged }) + " " }),
+        this.h("button", {
+          class: "bac-p-link",
+          "data-key": "assign-untagged",
+          title: S("assignTip", { profile: profile.name }),
+          on: { click: () => this.assignUntagged(reader, profile) },
+        }, S("btnAssignUntagged"))));
+    }
+    const shared = SB.setting("panelSharedHint") !== false ? SB.Profiles.sharedColorsText(summary) : "";
+    if (shared) {
+      parts.push(this.h("div", { class: "bac-p-hint bac-p-warn bac-p-line", role: "note", text: shared }));
+    }
     if (showDesc && profile.preset) {
       parts.push(this.h("div", { class: "bac-p-hint", text: S("panelPresetDescHint") }));
     }
@@ -1008,12 +1491,54 @@ BetterAnnotations.PanelView = class {
     }
     this.root.replaceChildren(...parts);
     this.root.classList.add("bac-p-root", "bac-p-" + this.kind);
+    this.bleed();
     if (this.setSummary) {
       try {
         this.setSummary(S("sectionSummary", { n: total, profile: profile.name }));
       }
       catch (e) {}
     }
+  }
+
+  /** Heading of a profile in a list: “Name • ✎ n”. */
+  groupHeading(name, n) {
+    return this.h("div", { class: "bac-p-group" },
+      this.h("span", { class: "bac-p-group-name", text: name }),
+      this.SB.countLabel(this.doc, n));
+  }
+
+  /**
+   * Lines across the whole pane: how far the content is inset from the
+   * edges of Zotero's section (or of the window). Measured, because Zotero
+   * sets the padding of its sections.
+   */
+  bleed() {
+    try {
+      const root = this.root;
+      const r = root.getBoundingClientRect();
+      if (!r.width) {
+        // Not laid out yet (section closed or just added): try again a few frames later
+        if ((this._bleedTries = (this._bleedTries || 0) + 1) <= 10) {
+          root.ownerDocument.defaultView.requestAnimationFrame(() => this.bleed());
+        }
+        return;
+      }
+      this._bleedTries = 0;
+      const cs = root.ownerDocument.defaultView.getComputedStyle(root);
+      const left = r.left + parseFloat(cs.paddingLeft || 0) + parseFloat(cs.borderLeftWidth || 0);
+      const right = r.right - parseFloat(cs.paddingRight || 0) - parseFloat(cs.borderRightWidth || 0);
+      // Zotero pads the scrolling item pane (.zotero-view-item, 8 px), not
+      // the section; the window pads our own root. Measured inside the
+      // border and without the scrollbar (clientLeft, clientWidth).
+      const pane = root.closest(".zotero-view-item") || root;
+      const p = pane.getBoundingClientRect();
+      const paneLeft = p.left + pane.clientLeft;
+      const paneRight = paneLeft + (pane.clientWidth || p.width);
+      const clamp = v => Math.max(0, Math.min(32, Math.round(v)));
+      root.style.setProperty("--bac-bleed-l", clamp(left - paneLeft) + "px");
+      root.style.setProperty("--bac-bleed-r", clamp(paneRight - right) + "px");
+    }
+    catch (e) {}
   }
 
   /** Pencil next to a row: edit (or add) the description. Visible on hover and keyboard focus. */
@@ -1027,32 +1552,49 @@ BetterAnnotations.PanelView = class {
       on: {
         click: (e) => {
           e.preventDefault();
+          // Only the pencil opens the field
+          this.unlocked = r.entry.id;
           if (!this.SB.cleanDescription(r.entry.description)) {
             this.reveal = r.entry.id;
-            this._render();
           }
-          this.focusKey("desc-" + r.entry.id);
+          this._render();
+          const area = this.focusKey("desc-" + r.entry.id);
+          if (area && area.setSelectionRange) {
+            area.setSelectionRange(area.value.length, area.value.length);
+          }
         },
       },
     }, this.icon("edit"));
   }
 
   /**
-   * Description as text that turns into a field on click: plain text with line
-   * breaks, saved to the profile when the field loses the focus.
-   * Esc restores the previous text, Ctrl/Cmd+Enter finishes.
+   * Description as text; the pencil turns it into a field. Plain text with
+   * line breaks, saved to the profile when the field loses the focus.
+   * Esc restores the previous text, Enter finishes, Shift+Enter adds a line.
    */
-  descriptionField(profile, entry, description, canEdit) {
+  descriptionField(profile, entry, description, canEdit, onTextClick) {
     const SB = this.SB;
     const S = (k, a) => this.S(k, a);
+    const open = canEdit && this.unlocked === entry.id;
+    if (!open) {
+      // Plain text like the label; only the pencil turns it into a field
+      const text = this.h("div", {
+        class: "bac-p-desc bac-p-desc-text" + (this.kind === "section" ? " bac-p-clamp" : ""),
+        "data-key": "desc-" + entry.id,
+        text: description,
+      });
+      if (onTextClick) {
+        text.addEventListener("click", () => onTextClick());
+      }
+      return text;
+    }
     const area = this.h("textarea", {
-      class: "bac-p-desc" + (this.kind === "section" ? " bac-p-clamp" : ""),
+      class: "bac-p-desc bac-p-desc-field",
       "data-key": "desc-" + entry.id,
       rows: "1",
       maxlength: String(SB.MAX_DESCRIPTION),
       placeholder: S("btnAddDescription"),
       "aria-label": S("ariaDescription", { label: entry.label.trim() || entry.color }),
-      readonly: canEdit ? null : true,
       spellcheck: "true",
     });
     area.value = description;
@@ -1074,7 +1616,8 @@ BetterAnnotations.PanelView = class {
         area.value = original;
         area.blur();
       }
-      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      else if (e.key === "Enter" && !e.shiftKey) {
+        // Enter finishes; Shift+Enter starts a new line
         e.preventDefault();
         area.blur();
       }
@@ -1088,6 +1631,7 @@ BetterAnnotations.PanelView = class {
       cancelled = false;
       this.editing = null;
       this.reveal = null;
+      this.unlocked = null;
       if (changed) {
         try {
           const stored = SB.Store.getProfile(profile.id);
@@ -1110,19 +1654,21 @@ BetterAnnotations.PanelView = class {
 
   style() {
     const st = this.h("style");
-    st.textContent = `
+    st.textContent = `${this.SB.COUNT_CSS}
 .bac-p-root { font: inherit; color: var(--fill-primary, CanvasText); }
-.bac-p-popout { padding: 8px 10px; box-sizing: border-box; }
-.bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; }
+/* Bar with profile and buttons, a line below it (as in the statistics) */
+.bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; padding-bottom: 5px; }
 .bac-p-menu { appearance: none; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px 0 0;
-  padding: 0 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
+  padding: 0 7px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
+
+.bac-p-menu-label { flex: none; color: var(--fill-secondary, GrayText); }
 .bac-p-menu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bac-p-caret { display: flex; align-items: center; color: var(--fill-secondary, GrayText); }
 .bac-p-menu:hover, .bac-p-icon:hover, .bac-p-edit-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 .bac-p-menu:active, .bac-p-icon:active, .bac-p-edit-btn:active, .bac-p-menu[open] { background: var(--fill-quarternary, rgba(127,127,127,.25)); }
 .bac-p-icon { appearance: none; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px;
   margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--fill-secondary, GrayText); }
-.bac-p-icon[aria-pressed="true"] { background: var(--fill-quinary, rgba(127,127,127,.2)); color: var(--fill-primary, CanvasText); }
+.bac-p-icon[aria-pressed="true"], .bac-p-icon.bac-p-step { background: var(--fill-quinary, rgba(127,127,127,.2)); }
 .bac-p-menu:focus-visible, .bac-p-icon:focus-visible, .bac-p-row:focus-visible, .bac-p-edit-btn:focus-visible {
   outline: var(--width-focus-border, 2px) solid var(--color-focus-border, var(--accent-blue, #2e7bd1)); outline-offset: -1px; }
 .bac-p-fallback { display: flex; flex-direction: column; margin: 0 0 6px; padding: 4px 0; border: 1px solid var(--fill-quinary, #ccc); border-radius: 6px; }
@@ -1133,7 +1679,9 @@ BetterAnnotations.PanelView = class {
 .bac-p-row { appearance: none; display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; column-gap: 8px; align-items: center;
   width: 100%; box-sizing: border-box; margin: 0; padding: 3px 6px; border: 1px solid transparent; border-radius: 5px;
   background: transparent; color: inherit; font: inherit; text-align: start; }
-button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
+.bac-p-click:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
+.bac-p-click { cursor: default; user-select: none; -moz-user-select: none; }
+.bac-p-ghost { position: fixed; top: -10px; left: -10px; width: 1px; height: 1px; pointer-events: none; }
 .bac-p-row.bac-p-active { background: color-mix(in srgb, var(--accent-blue, #2e7bd1) 14%, transparent); border-color: color-mix(in srgb, var(--accent-blue, #2e7bd1) 45%, transparent); }
 .bac-p-dot { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.15); }
 .bac-p-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1144,19 +1692,45 @@ button.bac-p-row:hover { background: var(--fill-quinary, rgba(127,127,127,.15));
 .bac-p-edit-btn { appearance: none; position: absolute; top: 1px; right: 1px; display: inline-flex; align-items: center; justify-content: center;
   width: 24px; height: 24px; margin: 0; padding: 0; border: 0; border-radius: 5px; background: transparent;
   color: var(--fill-secondary, GrayText); opacity: 0; }
-.bac-p-item:hover .bac-p-edit-btn, .bac-p-item:focus-within .bac-p-edit-btn { opacity: 1; }
-.bac-p-editable:hover .bac-p-n, .bac-p-editable:focus-within .bac-p-n { visibility: hidden; }
+/* Only on hover or keyboard focus: a click on the row keeps the focus there,
+   and the pencil must not stay after the pointer has left */
+.bac-p-item:hover .bac-p-edit-btn, .bac-p-row:focus-visible ~ .bac-p-edit-btn, .bac-p-edit-btn:focus-visible { opacity: 1; }
+.bac-p-editable:hover .bac-p-n, .bac-p-editable .bac-p-row:focus-visible .bac-p-n { visibility: hidden; }
+.bac-p-edit-btn:focus-visible { background: var(--material-sidepane, Canvas); }
 .bac-p-desc { display: block; box-sizing: border-box; width: calc(100% - 20px); min-height: 0; margin: 0 0 4px 20px;
-  padding: 3px 7px; resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 5px; background: transparent;
-  color: var(--fill-secondary, GrayText); font: inherit; font-size: 12px; line-height: 1.4; }
-.bac-p-desc::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .75; }
-.bac-p-desc:not([readonly]):hover { border-color: var(--fill-quinary, rgba(127,127,127,.3)); }
-.bac-p-desc:not([readonly]):focus { color: var(--fill-primary, FieldText);
-  background: var(--material-background, Field); border-color: var(--fill-quinary, rgba(127,127,127,.3));
+  padding: 0 7px; color: var(--fill-secondary, GrayText); font: inherit; font-size: 12px; line-height: 1.4; }
+/* Text: no field look, not selectable; a click selects the color like the row */
+.bac-p-desc-text { white-space: pre-line; overflow-wrap: anywhere; user-select: none; -moz-user-select: none; cursor: default; }
+.bac-p-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+/* Field after a click on the pencil */
+textarea.bac-p-desc-field { -moz-appearance: none; appearance: none; padding: 3px 7px; margin-top: 1px; resize: none; overflow: hidden;
+  color: var(--fill-primary, FieldText); background: var(--material-background, Field);
+  border: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); border-radius: 5px;
   outline: 2px solid color-mix(in srgb, var(--accent-blue, #2e7bd1) 55%, transparent); outline-offset: 0; }
-.bac-p-desc[readonly]:focus { outline: none; }
-.bac-p-clamp:not(:focus) { max-height: calc(3 * 1.4em + 8px); }
-.bac-p-hint { margin-top: 6px; color: var(--fill-secondary, GrayText); font-size: .92em; }
+textarea.bac-p-desc-field::placeholder { color: var(--fill-secondary, GrayText); font-style: italic; opacity: .75; }
+/* Below the lists: total (line above), hints 4 px apart, warning (line above) */
+.bac-p-hint { margin-top: 4px; padding-inline: 7px; color: var(--fill-secondary, GrayText); font-size: .92em; line-height: 1.4; }
+.bac-p-total + .bac-p-hint { margin-top: 2px; }
+/* Heading per profile: the size of the rows, bold and muted */
+.bac-p-group { display: flex; align-items: baseline; min-width: 0; margin: 8px 0 2px; padding: 0 7px; font-weight: 600; color: var(--fill-secondary, GrayText); }
+.bac-p-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bac-p-group:first-of-type { margin-top: 2px; }
+.bac-p-other { color: var(--fill-secondary, GrayText); }
+.bac-p-total { margin-top: 6px; padding-top: 6px; border-radius: 0;
+  font-size: .92em; color: var(--fill-secondary, GrayText); }
+.bac-p-total .bac-p-name { grid-column: 1 / 3; }
+/* Warning below a line across the full width, like the total */
+.bac-p-warn { margin-top: 8px; padding: 8px 7px 0; }
+/* Lines from edge to edge of the pane: past the padding of Zotero's section
+   (measured in bleed(): --bac-bleed-l, --bac-bleed-r) */
+.bac-p-line, .bac-p-bar { position: relative; }
+.bac-p-line::after, .bac-p-bar::after { content: ""; position: absolute; left: calc(-1 * var(--bac-bleed-l, 0px)); right: calc(-1 * var(--bac-bleed-r, 0px));
+  border-top: 1px solid var(--fill-quinary, rgba(127,127,127,.3)); pointer-events: none; }
+.bac-p-line::after { top: -1px; }
+.bac-p-bar::after { bottom: 0; }
+.bac-p-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
+.bac-p-link { -moz-appearance: none; appearance: none; border: none; background: none; padding: 0; color: var(--accent-blue, LinkText); font: inherit; cursor: pointer; text-decoration: underline; }
+.bac-p-link:focus-visible { outline: 2px solid var(--color-focus-border, Highlight); outline-offset: 1px; border-radius: 2px; }
 `;
     return st;
   }

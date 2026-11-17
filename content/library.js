@@ -35,6 +35,7 @@ BetterAnnotations.Library = {
     return this.Store.join(this.Store.dir, name);
   },
 
+  /** Load the tag registry and history; make a first backup if none exists. */
   async init() {
     const reg = await this.Store.readJSON(this.path("tags.json"));
     this.registry = new Map(Object.entries(reg.data?.tags || {}).filter(([, v]) => typeof v === "string"));
@@ -107,12 +108,17 @@ BetterAnnotations.Library = {
     return (await this.index()).filter(r => !r.del && !r.ext && this.editableLibrary(r.l));
   },
 
-  async getColorUsage(scope) {
+  /**
+   * Colors in use: Map color -> number. profile: only annotations of this
+   * profile (tag, else profile of the document); null for all.
+   */
+  async getColorUsage(scope, profile) {
     const usage = new Map();
     try {
       const match = await this.scopeFilter(scope);
+      const of = profile ? (await this.SB.Profiles.resolver()).of : null;
       for (const r of await this.index()) {
-        if (!match(r)) {
+        if (!match(r) || (of && of(r) !== profile)) {
           continue;
         }
         if (!r.del && r.c) {
@@ -199,13 +205,14 @@ BetterAnnotations.Library = {
   /** Menu items for the areas; unavailable areas are disabled. */
   scopeOptions(ctx) {
     const S = (k, a) => this.SB.S(k, a);
+    // From the narrowest to the widest area: selection, document, collection, ...
     return [
-      ctx.doc
-        ? { value: "doc", label: S("scopeDoc", { name: ctx.doc.name }), scope: { type: "doc", id: ctx.doc.id }, name: ctx.doc.name }
-        : { value: "doc", label: S("scopeDocNone"), disabled: true },
       ctx.items
         ? { value: "items", label: S("scopeItems", { n: ctx.items.n, name: ctx.items.name }), scope: { type: "items", ids: ctx.items.ids }, name: ctx.items.name }
         : { value: "items", label: S("scopeItemsNone"), disabled: true },
+      ctx.doc
+        ? { value: "doc", label: S("scopeDoc", { name: ctx.doc.name }), scope: { type: "doc", id: ctx.doc.id }, name: ctx.doc.name }
+        : { value: "doc", label: S("scopeDocNone"), disabled: true },
       ctx.collection
         ? { value: "collection", label: S("scopeCollection", { name: ctx.collection.name }), scope: { type: "collection", id: ctx.collection.id }, name: ctx.collection.name }
         : { value: "collection", label: S("scopeCollectionNone"), disabled: true },
@@ -304,6 +311,10 @@ BetterAnnotations.Library = {
 
   /** Tag for a color in the given profile, or null. */
   tagForColor(color, profile) {
+    // “Standard” only names Zotero's colors: no label tags such as “Yellow”
+    if (!profile || profile.standard) {
+      return null;
+    }
     const entry = profile.colors.find(c => c.color === color);
     if (!entry || !this.SB.isVisible(entry) || !entry.label.trim()) {
       return null;
@@ -330,6 +341,7 @@ BetterAnnotations.Library = {
     }
   },
 
+  /** Keep color tags in step when annotations are added or recolored in Zotero. */
   async onItemsChanged(event, ids) {
     if (!this.SB.setting("tagsEnabled")) {
       return;
@@ -339,7 +351,8 @@ BetterAnnotations.Library = {
     if (!items.length) {
       return;
     }
-    const profile = this.Store.getActive();
+    const Profiles = this.SB.Profiles;
+    const readers = Profiles.openReaders();
     for (const item of items) {
       const color = this.SB.normalize(item.annotationColor);
       const before = this.colorCache.get(item.id);
@@ -351,6 +364,10 @@ BetterAnnotations.Library = {
       if (!this.editableLibrary(item.libraryID) || item.annotationIsExternal) {
         continue;
       }
+      // Labels from the annotation's profile: its tag, else the profile of its document
+      const reader = readers.find(r => r.itemID === item.parentItemID);
+      const docId = reader ? Profiles.forReader(reader) : Profiles.forFile(item.parentItemID);
+      const profile = Profiles.profileOrNone(Profiles.ofItem(item, docId));
       const desired = this.tagForColor(color, profile);
       const current = this.registry.get(this.regKey(item.libraryID, item.key)) || null;
       try {
@@ -471,7 +488,8 @@ BetterAnnotations.Library = {
 
   describe(entry) {
     const key = { recolor: "hRecolor", tagsApply: "hTagsApply", tagsRemove: "hTagsRemove",
-      tagsRename: "hTagsRename", restore: "hRestore" }[entry.type] || "hRecolor";
+      tagsRename: "hTagsRename", restore: "hRestore", profileAssign: "hProfileAssign", profileRename: "hProfileRename",
+      profileRemove: "hProfileRemove", profileAssignAll: "hProfileAssignAll", profileRemoveAll: "hProfileRemoveAll" }[entry.type] || "hRecolor";
     const params = Object.assign({ n: entry.count }, entry.params || {});
     if (entry.type === "restore" && params.created) {
       params.date = this.SB.formatDate(params.created);
@@ -479,10 +497,16 @@ BetterAnnotations.Library = {
     return this.SB.S(key, params);
   },
 
+  PROFILE_TYPES: ["profileAssign", "profileRename", "profileRemove", "profileAssignAll", "profileRemoveAll"],
+
   async run(type, params, changes) {
     const result = await this.execute(changes, false);
     if (result.done) {
       await this.record(type, Object.assign({}, params, { n: result.done }), changes);
+    }
+    if (this.PROFILE_TYPES.includes(type)) {
+      await this.SB.Profiles.syncTagColors();
+      this.SB.Profiles.reresolve();
     }
     return result;
   },
@@ -496,6 +520,9 @@ BetterAnnotations.Library = {
     entry.undone = true;
     entry.undoneTime = new Date().toISOString();
     await this.saveHistory();
+    if (this.PROFILE_TYPES.includes(entry.type)) {
+      await this.SB.Profiles.syncTagColors();
+    }
     return result;
   },
 
@@ -507,22 +534,35 @@ BetterAnnotations.Library = {
    * Recolor: pairs = [[from, to], …]
    * options.scope: area (default: all libraries)
    * options.tags: update the plugin tag to the new color's label (default: if tags are enabled)
-   * options.profile: profile that provides the labels (default: active profile)
+   * options.profile: profile that provides the labels (default: profile of each annotation)
+   * options.only: only annotations of this profile ID (default: all)
    */
   async planRecolor(pairs, options = {}) {
     const map = new Map(pairs.filter(([a, b]) => a && b && a !== b));
     const tags = options.tags ?? this.SB.setting("tagsEnabled");
-    const profile = options.profile || this.Store.getActive();
     const match = await this.scopeFilter(options.scope);
+    const Profiles = this.SB.Profiles;
+    const resolver = (options.only || (tags && !options.profile)) ? await Profiles.resolver() : null;
+    const profiles = new Map();
+    const profileOf = (r) => {
+      if (options.profile) {
+        return options.profile;
+      }
+      const id = resolver.of(r);
+      if (!profiles.has(id)) {
+        profiles.set(id, Profiles.profileOrNone(id));
+      }
+      return profiles.get(id);
+    };
     const changes = [];
     for (const r of await this.changeable()) {
-      if (!map.has(r.c) || !match(r)) {
+      if (!map.has(r.c) || !match(r) || (options.only && resolver.of(r) !== options.only)) {
         continue;
       }
       const ch = { l: r.l, k: r.k, b: r.c, a: map.get(r.c) };
       if (tags) {
         const current = this.registry.get(this.regKey(r.l, r.k)) || null;
-        const desired = this.tagForColor(ch.a, profile);
+        const desired = this.tagForColor(ch.a, profileOf(r));
         if (current !== desired) {
           ch.add = desired ? [desired] : [];
           ch.rem = current ? [current] : [];
@@ -545,13 +585,19 @@ BetterAnnotations.Library = {
     };
   },
 
-  /** Set the tags of all annotations according to the active profile. */
+  /** Set the label tags of all annotations according to the profile of each annotation. */
   async planApplyTags() {
-    const profile = this.Store.getActive();
+    const Profiles = this.SB.Profiles;
+    const resolver = await Profiles.resolver();
+    const profiles = new Map();
     const changes = [];
     for (const r of await this.changeable()) {
+      const id = resolver.of(r);
+      if (!profiles.has(id)) {
+        profiles.set(id, Profiles.profileOrNone(id));
+      }
       const current = this.registry.get(this.regKey(r.l, r.k)) || null;
-      const desired = this.tagForColor(r.c, profile);
+      const desired = this.tagForColor(r.c, profiles.get(id));
       if (current === desired) {
         continue;
       }
@@ -577,6 +623,85 @@ BetterAnnotations.Library = {
       const i = key.indexOf("/");
       return { l: +key.slice(0, i), k: key.slice(i + 1), rem: [fromTag], add: [toTag], reg: true, rb: fromTag, ra: toTag };
     });
+  },
+
+  // -------------------------------------------------------------------
+  // Profile tags
+  // -------------------------------------------------------------------
+
+  /** Annotations with one of the tags: [{ l, k, name }]. */
+  async annotationsWithTags(names) {
+    const out = [];
+    const list = [...new Set(names.filter(Boolean))];
+    for (let i = 0; i < list.length; i += 200) {
+      const part = list.slice(i, i + 200);
+      const rows = await Zotero.DB.queryAsync(
+        "SELECT I.libraryID AS l, I.key AS k, T.name AS name FROM itemAnnotations IA JOIN items I ON I.itemID = IA.itemID "
+        + "JOIN itemTags IT ON IT.itemID = IA.itemID JOIN tags T ON T.tagID = IT.tagID "
+        + "WHERE IA.isExternal = 0 AND IA.itemID NOT IN (SELECT itemID FROM deletedItems) AND T.name IN ("
+        + part.map(() => "?").join(",") + ")", part);
+      for (const r of rows || []) {
+        if (this.editableLibrary(r.l)) {
+          out.push({ l: r.l, k: r.k, name: r.name });
+        }
+      }
+    }
+    return out;
+  },
+
+  /** Replace a profile tag by another (to = null: remove it). */
+  async planRetag(from, to) {
+    return (await this.annotationsWithTags([from])).map(r => ({ l: r.l, k: r.k, rem: [from], add: to ? [to] : [] }));
+  },
+
+  /** Number of annotations with a profile tag (all tags with the prefix that belong to a profile). */
+  async countProfileTags() {
+    const resolver = await this.SB.Profiles.resolver();
+    return resolver.tagged.size;
+  },
+
+  /** Give annotations without a profile tag in an area the tag of a profile. */
+  async planProfileAssign(scope, profileId) {
+    const Profiles = this.SB.Profiles;
+    const tag = Profiles.tagFor(profileId);
+    if (!tag) {
+      return [];
+    }
+    const resolver = await Profiles.resolver();
+    const match = await this.scopeFilter(scope);
+    // The document's profile for its colors; other annotations get the profile they count to
+    return (await this.changeable()).filter(r => match(r) && !resolver.tagged.has(r.id)).map((r) => {
+      const t = Profiles.tagFor(Profiles.assignTarget(r.c, profileId));
+      return t ? { l: r.l, k: r.k, add: [t] } : null;
+    }).filter(Boolean);
+  },
+
+  /**
+   * When “Profile per Document” is turned on: every annotation without a
+   * profile tag gets the tag of the profile its document uses now.
+   */
+  async planProfileAssignByDocument() {
+    const Profiles = this.SB.Profiles;
+    const resolver = await Profiles.resolver();
+    return (await this.changeable()).filter(r => !resolver.tagged.has(r.id)).map((r) => {
+      const tag = Profiles.tagFor(Profiles.assignTarget(r.c, resolver.fileProfile(r.att, r.top)));
+      return tag ? { l: r.l, k: r.k, add: [tag] } : null;
+    }).filter(Boolean);
+  },
+
+  /** All profile tags (to remove them when the function is turned off). */
+  async planRemoveProfileTags() {
+    const Profiles = this.SB.Profiles;
+    const names = [...new Set((await Profiles.tagsInUse()).map(r => r.name).filter(n => Profiles.idForTag(n)))];
+    const byKey = new Map();
+    for (const r of await this.annotationsWithTags(names)) {
+      const key = r.l + "/" + r.k;
+      if (!byKey.has(key)) {
+        byKey.set(key, { l: r.l, k: r.k, rem: [] });
+      }
+      byKey.get(key).rem.push(r.name);
+    }
+    return [...byKey.values()];
   },
 
   countTag(tag) {
@@ -613,6 +738,7 @@ BetterAnnotations.Library = {
     return info;
   },
 
+  /** Changes needed to bring annotations back to the state of a backup. */
   async planRestore(backup) {
     const { data } = await this.Store.readJSON(this.Store.join(this.path("backups"), backup.file));
     if (!data || !Array.isArray(data.annotations)) {
@@ -711,13 +837,16 @@ BetterAnnotations.Library = {
     if (this._regTimer) {
       await this.saveRegistry();
     }
+    const profiles = JSON.parse(JSON.stringify(this.Store.data));
+    profiles.collectionRules = (profiles.collectionRules || []).map(r => Object.assign({}, r, { lib: toPortable(r.lib) }));
     return {
       format: "better-annotations/full-backup",
       formatVersion: 1,
       plugin: this.SB.version,
       created: new Date().toISOString(),
       files: {
-        "profiles.json": JSON.parse(JSON.stringify(this.Store.data)),
+        "profiles.json": profiles,
+        "documents.json": { version: 1, docs: this.mapRegistry(this.SB.Profiles.docs.entries(), toPortable) },
         "tags.json": { version: 1, tags: this.mapRegistry(this.registry.entries(), toPortable) },
         "history.json": {
           version: 1,
@@ -771,14 +900,22 @@ BetterAnnotations.Library = {
       await Zotero.File.putContentsAsync(this.Store.join(this.path("backups"), file),
         JSON.stringify(Object.assign({}, data, { annotations: this.mapChanges(data.annotations, toLocal) })));
     }
-    // Profiles and settings
-    const data = this.Store.sanitize(f["profiles.json"]);
+    // Profiles and settings; collection rules and choices per document with local library IDs
+    const rawProfiles = Object.assign({}, f["profiles.json"]);
+    rawProfiles.collectionRules = (rawProfiles.collectionRules || []).map(r => Object.assign({}, r, { lib: toLocal(r && r.lib) }))
+      .filter(r => r.lib !== null && r.lib !== undefined);
+    const data = this.Store.sanitize(rawProfiles);
     data.backups = data.backups.filter(b => known.has(b.file));
     this.Store.data = data;
     await this.Store.persist();
     // Tags and history
     this.registry = new Map(Object.entries(this.mapRegistry(Object.entries(f["tags.json"]?.tags || {}), toLocal)));
     await this.saveRegistry();
+    if (f["documents.json"]) {
+      this.SB.Profiles.docs = new Map(Object.entries(this.mapRegistry(Object.entries(f["documents.json"].docs || {}), toLocal))
+        .filter(([, v]) => v && typeof v.p === "string"));
+      await this.SB.Profiles.saveDocs();
+    }
     this.history = (f["history.json"]?.entries || []).filter(e => e && Array.isArray(e.changes))
       .map(e => Object.assign({}, e, { changes: this.mapChanges(e.changes, toLocal) })).slice(0, 50);
     await this.saveHistory();

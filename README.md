@@ -11,7 +11,7 @@
 <a href="https://github.com/CorsiQa/zotero-better-annotations/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/CorsiQa/zotero-better-annotations/total?style=flat-square&label=downloads&color=2EA8E5"></a>
 <a href="#compatibility"><img alt="Zotero 7 to 10" src="https://img.shields.io/badge/Zotero-7%E2%80%9310-CC2936?style=flat-square"></a>
 <a href="#compatibility"><img alt="Tested on Zotero 10" src="https://img.shields.io/badge/tested%20on-Zotero%2010-5FB236?style=flat-square"></a>
-<a href="#features"><img alt="13 languages" src="https://img.shields.io/badge/languages-13-F19837?style=flat-square"></a>
+<a href="#features"><img alt="11 languages" src="https://img.shields.io/badge/languages-11-F19837?style=flat-square"></a>
 <a href="LICENSE"><img alt="License AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-A28AE5?style=flat-square"></a>
 </p>
 
@@ -120,10 +120,10 @@ The plugin saves the colors of all annotations when it starts for the first time
 </details>
 
 <details>
-<summary><img src="docs/images/icons/languages.svg" width="20" height="20" align="top" alt=""> <b>13 languages</b> · follows the language of Zotero</summary>
+<summary><img src="docs/images/icons/languages.svg" width="20" height="20" align="top" alt=""> <b>11 languages</b> · follows the language of Zotero</summary>
 <br>
 
-English, Deutsch, Español, Français, Italiano, 日本語, Norsk bokmål, Polski, Português, Русский, Svenska, 简体中文, 繁體中文. The language can be changed in the plugin settings.
+English, Deutsch, Español, Français, Italiano, 日本語, Polski, Português, Русский, 简体中文, 繁體中文. The language can be changed in the plugin settings.
 
 </details>
 
@@ -257,7 +257,7 @@ Some plugins change the same menus or the selection popup. If something looks wr
 | [Just Enough Color](https://github.com/MCXCC303/just-enough-color) | Adds its own colors to the selection popup. Disable it. |
 | [Zotero Style](https://github.com/MuiseDestiny/zotero-style) | Has its own editor for annotation color names and sets. Do not use both for annotation colors. |
 | [Actions & Tags](https://github.com/windingwind/zotero-actions-tags) | Community scripts that rename annotation colors change the same menus, and actions that tag new annotations can add tags twice. Use one of both for these tasks. |
-| [Translate for Zotero](https://github.com/windingwind/zotero-pdf-translate) | No conflict. It adds a translation panel to the selection popup; choose a popup layout under **Menus & Reader**. |
+| [Translate for Zotero](https://github.com/windingwind/zotero-pdf-translate) | No conflict. It adds a translation panel to the selection popup; choose a popup layout under **Appearance**. |
 
 <a name="development"></a>
 

@@ -10,7 +10,7 @@ English: [README.md](README.md)
 2. [Schnellstart](#schnellstart)
 3. [Wo die Farben erscheinen](#wo-die-farben-erscheinen)
 4. [Einstellungen: Farben & Profile](#einstellungen-farben--profile)
-5. [Einstellungen: Menüs & Reader](#einstellungen-menüs--reader)
+5. [Einstellungen: Darstellung](#einstellungen-darstellung)
 6. [Einstellungen: Tags & Bibliothek](#einstellungen-tags--bibliothek)
 7. [Einstellungen: Export](#einstellungen-export)
 8. [Einstellungen: Über](#einstellungen-über)
@@ -110,7 +110,7 @@ Unter der Liste:
 
 Der Farbwähler bietet ein Feld für Sättigung und Helligkeit, einen Farbtonregler, ein Hex-Feld, die Farbauswahl des Betriebssystems und sechs Paletten mit je 12 Farben: Zotero+, Pastell, Hell, Kräftig, Gedeckt und Erdtöne. Darunter zeigt **Zuletzt verwendet** die letzten 12 Farben, die du ausgewählt hast; diese Reihe erscheint auch unter **Palette anwenden…**. **Sortiert** ordnet die Paletten nach Farbton, **Zotero** zeigt sie in der Reihenfolge der Zotero+-Plätze, sodass du siehst, welche Farben einander entsprechen. Zotero+ behält immer seine Reihenfolge. Esc stellt die vorherige Farbe wieder her.
 
-## Einstellungen: Menüs & Reader
+## Einstellungen: Darstellung
 
 | Einstellung | Wirkung |
 |---|---|
@@ -122,7 +122,8 @@ Der Farbwähler bietet ein Feld für Sättigung und Helligkeit, einen Farbtonreg
 | Elemente pro Reihe | Nur bei fester Anzahl (Standard 9). Der Knopf zum Anpassen zählt mit; bei 9 stehen acht Farben und der Knopf in einer Reihe. |
 | Knopf zum Anpassen im Auswahl-Popup anzeigen | Abkürzung zu den Einstellungen am Ende der Farben. |
 | Labels beim Überfahren sofort anzeigen | Sofortiger Tooltip statt des verzögerten System-Tooltips. |
-| Werkzeugleiste des Readers | Profilauswahl und Statistik der Annotationen nach Label lassen sich getrennt ein- und ausschalten. |
+| Werkzeugleiste des Readers | Knopf mit Profil und Zahl der Annotationen; darüber die Statistik nach Label. Ein Rechtsklick auf den Knopf blendet ihn aus. Optional: Warnung zu gemeinsam genutzten Farben, Beschreibungen. |
+| Seitenleiste | Abschnitt „Better Annotations“ im Eintragsbereich. Sein Knopf steht bei den Abschnitten von Zotero oder in einem eigenen Bereich zwischen Trennlinien. Ein Rechtsklick auf die Kopfzeile oder den Knopf öffnet das eigene Fenster, verschiebt den Knopf oder entfernt den Abschnitt. |
 
 Ob eine Farbe hervorhebt oder unterstreicht, legt Zoteros eigener Schalter unter den Farben im Popup fest. Zotero merkt sich die letzte Wahl.
 

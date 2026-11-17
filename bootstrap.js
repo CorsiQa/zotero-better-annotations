@@ -24,7 +24,7 @@ async function startup({ id, version, rootURI }, reason) {
   }
   try {
     Services.scriptloader.loadSubScript(rootURI + "content/core.js");
-    for (const lang of ["en", "de", "es", "fr", "it", "ja", "nb", "pl", "pt", "ru", "sv", "zh", "zh-TW"]) {
+    for (const lang of ["en", "de", "es", "fr", "it", "ja", "pl", "pt", "ru", "zh", "zh-TW"]) {
       try {
         Services.scriptloader.loadSubScript(rootURI + "content/locale/" + lang + ".js");
       }
@@ -34,6 +34,8 @@ async function startup({ id, version, rootURI }, reason) {
     }
     Services.scriptloader.loadSubScript(rootURI + "content/templates.js");
     Services.scriptloader.loadSubScript(rootURI + "content/library.js");
+    Services.scriptloader.loadSubScript(rootURI + "content/profiles.js");
+    Services.scriptloader.loadSubScript(rootURI + "content/feedback.js");
     Services.scriptloader.loadSubScript(rootURI + "content/export.js");
     Services.scriptloader.loadSubScript(rootURI + "content/reader.js");
     Services.scriptloader.loadSubScript(rootURI + "content/panel.js");
