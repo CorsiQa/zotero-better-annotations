@@ -348,7 +348,7 @@ node scripts/build.mjs           # builds dist/better-annotations-<version>.xpi 
 node scripts/check-locales.mjs   # checks that all languages have the same strings
 ```
 
-Releases are built by GitHub Actions when a release is published on GitHub; the action attaches the `.xpi` file and `updates.json`, from which Zotero learns about new versions. A second action raises the supported Zotero version without a new release.
+Releases are published by GitHub Actions as soon as a new version reaches `main`; the action builds the `.xpi` file and `updates.json`, from which Zotero learns about new versions. A second action raises the supported Zotero version without a new release.
 
 <a name="license-and-credits"></a>
 

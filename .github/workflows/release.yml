@@ -1,11 +1,13 @@
-# Builds the plugin when you publish a release on GitHub and attaches
+# Builds the plugin when a release is published by hand on GitHub and attaches
 #   - better-annotations-<version>.xpi  (the file users install)
 #   - updates.json                            (read by Zotero to find updates)
 #
-# How to release: raise "version" in manifest.json, add a section to
-# CHANGELOG.md, then on GitHub choose Releases → Draft a new release, create the
-# tag v<version> (e.g. v1.0.0-beta.1) and publish. Leave "Set as a pre-release"
-# unchecked: Zotero finds updates via releases/latest, which skips pre-releases.
+# Usually not needed: publish.yml creates the release by itself when a new
+# version reaches main. For a release by hand: raise "version" in manifest.json,
+# add a section to CHANGELOG.md, then on GitHub choose Releases → Draft a new
+# release, create the tag v<version> (e.g. v1.0.0-beta.1) and publish. Leave
+# "Set as a pre-release" unchecked: Zotero finds updates via releases/latest,
+# which skips pre-releases.
 name: Release
 
 on:
