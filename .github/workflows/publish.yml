@@ -1,0 +1,75 @@
+# Publishes a release when main contains a version without a release.
+#
+# Raise "version" in manifest.json, add the section "## <version> – <date>" to
+# CHANGELOG.md and merge into main. This workflow then
+#   - checks the translations and builds the plugin,
+#   - creates the release v<version> on this commit (a regular release, not a
+#     pre-release: Zotero finds updates via releases/latest, which skips
+#     pre-releases),
+#   - uses the changelog section as release notes,
+#   - attaches better-annotations-<version>.xpi and updates.json.
+# If the release already exists, it does nothing. A release that is published by
+# hand on GitHub is still built by release.yml.
+name: Publish release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Is there a new version?
+        id: version
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release v$VERSION exists. Nothing to do."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version $VERSION has no release yet."
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Release notes from CHANGELOG.md
+        if: steps.version.outputs.new == 'true'
+        run: node scripts/release-notes.mjs > "$RUNNER_TEMP/notes.md"
+
+      - name: Check translations
+        if: steps.version.outputs.new == 'true'
+        run: node scripts/check-locales.mjs
+
+      - name: Build
+        if: steps.version.outputs.new == 'true'
+        run: node scripts/build.mjs
+
+      - name: Publish the release
+        if: steps.version.outputs.new == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" \
+            "dist/better-annotations-$VERSION.xpi" dist/updates.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --latest

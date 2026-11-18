@@ -57,10 +57,11 @@ The project follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PAT
 
 ## Releasing
 
-1. Raise `version` in `manifest.json` and add a section to `CHANGELOG.md`.
+1. Raise `version` in `manifest.json` and in `CITATION.cff` (also `date-released`). In `CHANGELOG.md`, rename “Unreleased” to `## <version> – <date>` and start a new empty “Unreleased” section above it.
 2. Check `strict_min_version` and `strict_max_version` in `manifest.json`: list only Zotero versions you have tested.
-3. Commit and push.
-4. On GitHub: **Releases → Draft a new release**, create the tag `v<version>` (for example `v1.0.0-beta.2`), use the changelog section as description and publish. Do not tick “Set as a pre-release”, because Zotero looks for updates in the latest regular release.
-5. The workflow `Release` builds the plugin and attaches the `.xpi` file and `updates.json` within a few minutes. Zotero then offers the update to all users.
+3. Merge into `main`.
+4. The workflow `Publish release` notices the new version, checks the translations, builds the plugin and publishes the release `v<version>` with the changelog section as description. It attaches the `.xpi` file and `updates.json`. Zotero then offers the update to all users. If the changelog has no section for the version, the workflow stops without a release.
+
+A release can also be published by hand on GitHub (**Releases → Draft a new release**, tag `v<version>`, not as a pre-release). The workflow `Release` then builds and attaches the files.
 
 When a new Zotero version comes out and the plugin works with it, run the workflow **Update Zotero compatibility** (Actions tab) with the new maximum version, e.g. `10.*`. This updates `updates.json` without a new release.
