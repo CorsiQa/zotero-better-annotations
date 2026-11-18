@@ -4,7 +4,7 @@
  * color dialog, example palettes and recently used colors.
  */
 
-/* global Zotero, BetterAnnotations */
+/* global BetterAnnotations */
 
 // -------------------------------------------------------------------------
 // Color picker (popover with color field, hue, hex input and palettes)
@@ -19,6 +19,7 @@ BetterAnnotations.ColorPicker = class {
     this.cleanup = [];
   }
 
+  /** Build the popover with color field, hue, hex field and palettes, and show it at the anchor. */
   open() {
     const p = this.pane;
     const h = (...a) => p.h(...a);
@@ -148,7 +149,7 @@ BetterAnnotations.ColorPicker = class {
     }
     this.presetButtons = [];
     this.paletteBox.replaceChildren(...SB.PALETTES.map((pal) => {
-      const colors = pal.fixed || order !== "rainbow" ? pal.colors : SB.rainbowSort(pal.colors);
+      const colors = SB.paletteDisplay(pal, order);
       return h("div", {},
         h("div", { class: "bac-pal-name", text: p.S(pal.key) }),
         h("div", { class: "bac-presets" }, colors.map((c) => {
@@ -215,6 +216,7 @@ BetterAnnotations.ColorPicker = class {
     this.el.style.top = (a.bottom - rootRect.top + 6) + "px";
   }
 
+  /** Report pointer positions inside el to onPos while the primary button is held. */
   bindDrag(el, onPos) {
     const handler = (e) => {
       const r = el.getBoundingClientRect();

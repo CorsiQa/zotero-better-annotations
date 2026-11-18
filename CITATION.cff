@@ -7,8 +7,8 @@ authors:
   - alias: "CorsiQa."
 repository-code: "https://github.com/CorsiQa/zotero-better-annotations"
 license: AGPL-3.0-or-later
-version: "1.0.0-beta.1"
-date-released: "2026-11-13"
+version: "1.0.0-beta.2"
+date-released: "2026-11-18"
 keywords:
   - Zotero
   - Zotero plugin

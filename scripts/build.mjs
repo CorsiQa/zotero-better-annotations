@@ -18,7 +18,7 @@ const dist = join(root, "dist");
 mkdirSync(dist, { recursive: true });
 rmSync(join(dist, name), { force: true });
 
-execFileSync("zip", ["-r", "-X", "-q", join(dist, name), "manifest.json", "bootstrap.js", "content", "-x", "*.DS_Store"],
+execFileSync("zip", ["-r", "-X", "-q", join(dist, name), "manifest.json", "bootstrap.js", "content", "locale", "-x", "*.DS_Store"],
   { cwd: root, stdio: "inherit" });
 
 const hash = createHash("sha256").update(readFileSync(join(dist, name))).digest("hex");

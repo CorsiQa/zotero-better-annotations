@@ -124,18 +124,6 @@ BetterAnnotations.TEMPLATES = [
           "今後の研究"
         ]
       },
-      "nb": {
-        "name": "Litteraturgjennomgang: TCCM",
-        "description": "Strukturerer en gjennomgang etter teori, kontekst, kjennetegn og metode. Mye brukt i systematiske litteraturgjennomganger.",
-        "labels": [
-          "Teori",
-          "Kontekst",
-          "Kjennetegn (konstrukter)",
-          "Metode",
-          "Funn",
-          "Videre forskning"
-        ]
-      },
       "pl": {
         "name": "Przegląd literatury: TCCM",
         "description": "Porządkuje przegląd według teorii, kontekstu, cech i metodologii. Często stosowany w systematycznych przeglądach literatury.",
@@ -170,18 +158,6 @@ BetterAnnotations.TEMPLATES = [
           "Методология",
           "Результат",
           "Будущие исследования"
-        ]
-      },
-      "sv": {
-        "name": "Litteraturöversikt: TCCM",
-        "description": "Strukturerar en översikt efter teori, kontext, egenskaper och metod. Används ofta i systematiska litteraturöversikter.",
-        "labels": [
-          "Teori",
-          "Kontext",
-          "Egenskaper (konstrukt)",
-          "Metod",
-          "Resultat",
-          "Framtida forskning"
         ]
       },
       "zh-TW": {
@@ -302,19 +278,6 @@ BetterAnnotations.TEMPLATES = [
           "今後の研究"
         ]
       },
-      "nb": {
-        "name": "Litteraturgjennomgang: ADO",
-        "description": "Fanger opp hva som driver et fenomen (forutsetninger), hva aktørene bestemmer eller gjør (beslutninger) og hva som følger av det (utfall).",
-        "labels": [
-          "Forutsetninger",
-          "Beslutninger",
-          "Utfall",
-          "Moderatorer og mediatorer",
-          "Teori",
-          "Metode",
-          "Videre forskning"
-        ]
-      },
       "pl": {
         "name": "Przegląd literatury: ADO",
         "description": "Ujmuje, co wywołuje zjawisko (uwarunkowania), co aktorzy decydują lub robią (decyzje) i co z tego wynika (rezultaty).",
@@ -352,19 +315,6 @@ BetterAnnotations.TEMPLATES = [
           "Теория",
           "Метод",
           "Будущие исследования"
-        ]
-      },
-      "sv": {
-        "name": "Litteraturöversikt: ADO",
-        "description": "Fångar vad som driver ett fenomen (förutsättningar), vad aktörer beslutar eller gör (beslut) och vad som följer av det (utfall).",
-        "labels": [
-          "Förutsättningar",
-          "Beslut",
-          "Utfall",
-          "Moderatorer och mediatorer",
-          "Teori",
-          "Metod",
-          "Framtida forskning"
         ]
       },
       "zh-TW": {
@@ -478,18 +428,6 @@ BetterAnnotations.TEMPLATES = [
           "反論"
         ]
       },
-      "nb": {
-        "name": "Argumentasjonsanalyse: Toulmin",
-        "description": "Deler argumenter opp i bestanddelene. Nyttig for kritisk lesing og for å analysere hvordan forfattere begrunner konklusjonene sine.",
-        "labels": [
-          "Påstand",
-          "Grunnlag / belegg",
-          "Hjemmel",
-          "Ryggdekning",
-          "Styrkemarkør",
-          "Gjendrivelse"
-        ]
-      },
       "pl": {
         "name": "Analiza argumentacji: Toulmin",
         "description": "Rozkłada argumenty na części. Przydatne w krytycznym czytaniu i w analizie, jak autorzy uzasadniają wnioski.",
@@ -524,18 +462,6 @@ BetterAnnotations.TEMPLATES = [
           "Поддержка",
           "Модальный квалификатор",
           "Опровержение"
-        ]
-      },
-      "sv": {
-        "name": "Argumentationsanalys: Toulmin",
-        "description": "Delar upp argument i sina delar. Användbart för kritisk läsning och för att analysera hur författare motiverar sina slutsatser.",
-        "labels": [
-          "Påstående",
-          "Grund / belägg",
-          "Garanti",
-          "Stöd",
-          "Modalitet",
-          "Motargument"
         ]
       },
       "zh-TW": {
@@ -656,19 +582,6 @@ BetterAnnotations.TEMPLATES = [
           "メモ"
         ]
       },
-      "nb": {
-        "name": "Grounded theory: paradigmemodell",
-        "description": "Aksial koding med kodeparadigmet i grounded theory: hvordan et fenomen oppstår, under hvilke forhold det håndteres og med hvilke konsekvenser.",
-        "labels": [
-          "Fenomen",
-          "Årsaksforhold",
-          "Kontekst",
-          "Mellomliggende forhold",
-          "Handlinger / samhandling",
-          "Konsekvenser",
-          "Notat"
-        ]
-      },
       "pl": {
         "name": "Teoria ugruntowana: model paradygmatyczny",
         "description": "Kodowanie osiowe z paradygmatem kodowania teorii ugruntowanej: jak powstaje zjawisko, w jakich warunkach się z nim radzi i z jakimi konsekwencjami.",
@@ -706,19 +619,6 @@ BetterAnnotations.TEMPLATES = [
           "Действия / взаимодействия",
           "Последствия",
           "Мемо"
-        ]
-      },
-      "sv": {
-        "name": "Grounded theory: paradigmmodell",
-        "description": "Axial kodning med kodparadigmet i grounded theory: hur ett fenomen uppstår, under vilka villkor det hanteras och med vilka konsekvenser.",
-        "labels": [
-          "Fenomen",
-          "Orsaksvillkor",
-          "Kontext",
-          "Mellanliggande villkor",
-          "Handlingar / interaktioner",
-          "Konsekvenser",
-          "Memo"
         ]
       },
       "zh-TW": {
@@ -840,19 +740,6 @@ BetterAnnotations.TEMPLATES = [
           "バイアスのリスク"
         ]
       },
-      "nb": {
-        "name": "Evidensuttrekk: PICO",
-        "description": "Henter ut kjerneelementene i empiriske studier, slik det gjøres i kunnskapsbasert medisin og systematiske oversikter.",
-        "labels": [
-          "Populasjon",
-          "Intervensjon / eksponering",
-          "Sammenligning",
-          "Utfall",
-          "Studiedesign",
-          "Effekt / resultat",
-          "Risiko for skjevhet"
-        ]
-      },
       "pl": {
         "name": "Ekstrakcja danych: PICO",
         "description": "Wydobywa kluczowe elementy badań empirycznych, jak w medycynie opartej na dowodach i przeglądach systematycznych.",
@@ -890,19 +777,6 @@ BetterAnnotations.TEMPLATES = [
           "Дизайн исследования",
           "Эффект / результат",
           "Риск систематической ошибки"
-        ]
-      },
-      "sv": {
-        "name": "Evidensextraktion: PICO",
-        "description": "Tar fram kärnelementen i empiriska studier, som inom evidensbaserad medicin och systematiska översikter.",
-        "labels": [
-          "Population",
-          "Intervention / exponering",
-          "Jämförelse",
-          "Utfall",
-          "Studiedesign",
-          "Effekt / resultat",
-          "Risk för bias"
         ]
       },
       "zh-TW": {
@@ -1032,20 +906,6 @@ BetterAnnotations.TEMPLATES = [
           "自分のアイデア"
         ]
       },
-      "nb": {
-        "name": "Arbeidsflyt for lesing",
-        "description": "Et handlingsrettet skjema for daglig lesing: hva du vil sitere, hva du er enig eller uenig i, hva du må slå opp og hva som gir deg egne ideer.",
-        "labels": [
-          "Hovedpoeng",
-          "Sitat å bruke",
-          "Enig",
-          "Uenig",
-          "Spørsmål / uklart",
-          "Definisjon",
-          "Følg opp (referanse)",
-          "Egen idé"
-        ]
-      },
       "pl": {
         "name": "Przepływ pracy przy czytaniu",
         "description": "Schemat nastawiony na działanie do codziennego czytania: co zacytować, z czym się zgadzasz lub nie, co sprawdzić i co podsuwa własne pomysły.",
@@ -1086,20 +946,6 @@ BetterAnnotations.TEMPLATES = [
           "Определение",
           "Проверить (источник)",
           "Своя идея"
-        ]
-      },
-      "sv": {
-        "name": "Arbetsflöde för läsning",
-        "description": "Ett handlingsinriktat schema för vardaglig läsning: vad du vill citera, vad du håller med om eller inte, vad du ska slå upp och vad som ger egna idéer.",
-        "labels": [
-          "Huvudpoäng",
-          "Att citera",
-          "Håller med",
-          "Håller inte med",
-          "Fråga / oklart",
-          "Definition",
-          "Följ upp (referens)",
-          "Egen idé"
         ]
       },
       "zh-TW": {
