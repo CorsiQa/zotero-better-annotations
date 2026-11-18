@@ -40,7 +40,7 @@ Zotero offers eight annotation colors without names, so it is easy to forget whi
 
 ## <img src="docs/images/icons/features.svg" width="26" height="26" align="top" alt="">&nbsp;Features
 
-<img src="docs/images/feature-labels.png" align="right" width="52%" alt="Context menu of an annotation in Zotero's PDF reader with labeled colors such as Key Point, Quote to Cite and Definition, and the entry Customize Annotations">
+<img src="docs/images/feature-labels.png" align="right" width="46%" alt="Context menu of an annotation in Zotero's PDF reader with labeled colors such as Key Point, Quote to Cite and Definition, and the entry Customize Annotations">
 
 ### 🏷️ Labels where you choose a color
 
@@ -88,7 +88,7 @@ A section next to the reader lists the labels of the document's profile with the
 
 <br clear="all">
 
-<img src="docs/images/feature-toolbar.png" align="left" width="42%" alt="Profile button in the reader toolbar with the statistics: the number of annotations per label with colored bars">
+<img src="docs/images/feature-toolbar.png" align="left" width="46%" alt="Profile button in the reader toolbar with the statistics: the number of annotations per label with colored bars">
 
 ### 📊 Reader toolbar and statistics
 
@@ -104,7 +104,7 @@ One button in the reader toolbar shows the profile of the document and how many 
 
 <br clear="all">
 
-<img src="docs/images/feature-advanced.png" align="right" width="54%" alt="Tab Advanced in the settings with switches for descriptions, labels as tags and profile per document">
+<img src="docs/images/feature-advanced.png" align="right" width="46%" alt="Tab Advanced in the settings with switches for descriptions, labels as tags and profile per document">
 
 ### 🧪 Advanced functions for coding and reviews
 
@@ -118,7 +118,7 @@ Three functions are off by default. They write to your library or need a short e
 
 <br clear="all">
 
-<img src="docs/images/feature-export.png" align="left" width="56%" alt="Exported Excel workbook with one row per annotation, colored cells, labels, extracts, images and citations">
+<img src="docs/images/feature-export.png" align="left" width="46%" alt="Exported Excel workbook with one row per annotation, colored cells, labels, extracts, images and citations">
 
 ### 📤 Export
 
@@ -136,15 +136,15 @@ Export the annotations of a document, a collection or a library with one row per
 
 ### ✨ Everything else, in one line each
 
-| | |
-|---|---|
-| 🎨 **Recolor and merge** | Change the color of existing annotations in a document, the selected items, a collection or a whole library. |
-| 💾 **Backups** | The colors of all annotations are saved when the plugin starts for the first time. |
-| ↩️ **History** | Every change the plugin makes to annotations is listed and can be undone. |
-| 🧳 **Full backup** | Moves all profiles, settings and the history to another computer. |
-| 🎛️ **Appearance** | Choose where labels, descriptions and buttons appear, and how the selection popup is arranged. |
-| 🌍 **11 languages** | English, Deutsch, Español, Français, Italiano, 日本語, Polski, Português, Русский, 简体中文, 繁體中文. |
-| 🔄 **Updates** | Zotero installs new versions automatically; the settings show whether you have the latest one. |
+<table>
+<tr><td>🎨 <b>Recolor and merge</b></td><td>Change the color of existing annotations in a document, the selected items, a collection or a whole library.</td></tr>
+<tr><td>💾 <b>Backups</b></td><td>The colors of all annotations are saved when the plugin starts for the first time.</td></tr>
+<tr><td>↩️ <b>History</b></td><td>Every change the plugin makes to annotations is listed and can be undone.</td></tr>
+<tr><td>🧳 <b>Full backup</b></td><td>Moves all profiles, settings and the history to another computer.</td></tr>
+<tr><td>🎛️ <b>Appearance</b></td><td>Choose where labels, descriptions and buttons appear, and how the selection popup is arranged.</td></tr>
+<tr><td>🌍 <b>11 languages</b></td><td>English, Deutsch, Español, Français, Italiano, 日本語, Polski, Português, Русский, 简体中文, 繁體中文.</td></tr>
+<tr><td>🔄 <b>Updates</b></td><td>Zotero installs new versions automatically; the settings show whether you have the latest one.</td></tr>
+</table>
 
 <a name="installation"></a>
 
