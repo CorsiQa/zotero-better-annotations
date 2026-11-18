@@ -102,6 +102,9 @@ var BetterAnnotations = {
     firstUse: "",
     feedbackDue: "",
     feedbackDone: false,
+    // Other plugins for annotation colors (see Conflicts): warning closed for, dialog shown for
+    conflictDismissed: [],
+    conflictWarned: [],
   },
 
   // ---------------------------------------------------------------------
@@ -293,6 +296,7 @@ var BetterAnnotations = {
     catch (e) {
       this.logError(e);
     }
+    this.Conflicts.init().catch(e => this.logError(e));
 
     this.log("started, version " + version);
   },
@@ -322,7 +326,7 @@ var BetterAnnotations = {
   },
 
   shutdown() {
-    for (const part of [this.Panel, this.Reader, this.Library, this.Profiles, this.Feedback]) {
+    for (const part of [this.Panel, this.Reader, this.Library, this.Profiles, this.Feedback, this.Conflicts]) {
       try {
         part.shutdown();
       }
@@ -542,6 +546,7 @@ var BetterAnnotations = {
     const dot = doc.createElement("span");
     dot.className = "bac-sepdot";
     dot.setAttribute("aria-hidden", "true");
+    dot.textContent = "\u00b7";
     const num = doc.createElement("span");
     num.className = "bac-count-n";
     num.textContent = n === null || n === undefined ? "" : String(n);
@@ -550,14 +555,16 @@ var BetterAnnotations = {
   },
 
   /**
-   * CSS for countLabel(), in em so it fits every font size. The dot and the
-   * icon sit on the baseline and are moved to the middle of the digits
-   * (about .35em above the baseline), not to the middle of the line box.
+   * CSS for countLabel(), in em so it fits every font size. The dot is the
+   * middle dot of the font in bold (a little heavier than in normal weight);
+   * dot and icon have the secondary color like “Profile:”. The icon sits on
+   * the baseline and is moved to the middle of the digits.
    */
   COUNT_CSS: `
 .bac-count { display: inline-flex; align-items: baseline; flex: none; font-variant-numeric: tabular-nums; }
-.bac-sepdot { flex: none; width: .24em; height: .24em; margin: 0 .35em; border-radius: 50%; background: currentColor; opacity: .75;
-  position: relative; top: -.25em; }
+.bac-sepdot { flex: none; margin: 0 .3em; font-weight: 700; color: var(--fill-secondary, GrayText); }
+/* In buttons whose parts already have a gap (4 px), the gap stands before the dot */
+.bac-tb-main .bac-sepdot, .bac-p-menu .bac-sepdot { margin-inline-start: 0; }
 .bac-count > svg { flex: none; width: 1.1em; height: 1.1em; margin: -.3em .12em 0 0; position: relative; top: .17em;
   color: var(--fill-secondary, GrayText); }
 `,
@@ -624,15 +631,18 @@ var BetterAnnotations = {
 // Icons: one set of line icons for the whole plugin (UI guidelines 7.6)
 // -------------------------------------------------------------------------
 BetterAnnotations.Icons = {
-  // Stroke on the 16-unit grid; 1.1 is the plugin's line weight
-  STROKE: 1.1,
-  // The funnel is the same in every state; badges sit at its lower right
-  FUNNEL: "M2.5 3.5h9l-3.5 4.2v3.8l-2 1V7.7z",
+  /**
+   * Drawn like Zotero's own 16 px icons (chrome://zotero/skin/16/universal):
+   * the shapes fill the box from about 1.5 to 14.5, lines are 1 px wide at
+   * every size and sit on the pixel grid (coordinates on .5). Every function
+   * has one icon, wherever it appears (UI guidelines 7.6).
+   */
+  FUNNEL: "M1.5 2.5h13l-5 5.5v5.5l-3 1.5v-7z",
 
   /**
    * Line icon in the current text color. kind: funnel, funnel-plus,
-   * funnel-one, keep, describe, tune, edit, marker, profiles, chevron, bars.
-   * size: displayed size in px (the grid is 16 units, chevron 8, bars 20).
+   * funnel-one, keep, describe, tune, edit, marker, profiles, globe, close, chevron,
+   * bars. size: displayed size in px (the grid is 16 units, chevron 8, bars 20).
    */
   make(doc, kind, size) {
     const NS = "http://www.w3.org/2000/svg";
@@ -643,12 +653,13 @@ BetterAnnotations.Icons = {
     svg.setAttribute("height", String(px));
     svg.setAttribute("viewBox", "0 0 " + grid + " " + grid);
     svg.setAttribute("aria-hidden", "true");
-    // Small icons get a slightly thicker line on the grid, so they look as heavy
-    const stroke = this.STROKE * Math.max(1, 14 / px);
-    const line = (d, w) => {
+    svg.setAttribute("data-bac-icon", kind);
+    // One pixel on screen at every size, as in Zotero's icons
+    const stroke = Math.round((grid / px) * 1000) / 1000;
+    const line = (d) => {
       const el = doc.createElementNS(NS, "path");
       el.setAttribute("d", d);
-      el.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:" + (w || stroke) + ";stroke-linecap:round;stroke-linejoin:round");
+      el.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:" + stroke + ";stroke-linecap:round;stroke-linejoin:round");
       svg.append(el);
     };
     const shape = (tag, attrs, filled) => {
@@ -666,41 +677,48 @@ BetterAnnotations.Icons = {
       case "funnel-plus":
         // All profiles: the funnel with a small “+”
         line(this.FUNNEL);
-        line("M12.9 10.2v3.4M11.2 11.9h3.4");
+        line("M13 10v5M10.5 12.5h5");
         break;
       case "funnel-one":
         // Only this profile: the funnel with a small “1”
         line(this.FUNNEL);
-        line("M12.3 10.8l1.1-.9v4.2");
+        line("M12 11l1.5-1v5");
         break;
       case "keep":
         // Repeat: the color stays selected for further annotations
-        line("M2.5 7V6.5a2 2 0 0 1 2-2h8.5M11 2.5l2 2-2 2M13.5 9v.5a2 2 0 0 1-2 2H3M5 9.5l-2 2 2 2");
+        line("M1.5 7.5V6a2.5 2.5 0 0 1 2.5-2.5h10.5M11.5.5l3 3-3 3M14.5 8.5V10a2.5 2.5 0 0 1-2.5 2.5H1.5M4.5 9.5l-3 3 3 3");
         break;
       case "describe":
-        line("M2.5 3.5h11M2.5 6.5h11M2.5 9.5h7M2.5 12.5h5");
+        line("M1.5 3.5h13M1.5 6.5h13M1.5 9.5h9M1.5 12.5h6");
         break;
       case "tune":
-        line("M2.5 4h7M12.5 4h1M2.5 8h1.5M7.5 8h6M2.5 12h8M14 12h-.5");
-        for (const [cx, cy] of [[11, 4], [5.75, 8], [12, 12]]) {
+        // Settings: three sliders
+        line("M1.5 3.5h7M12.5 3.5h2M1.5 8.5h1.5M7 8.5h7.5M1.5 13.5h8M13.5 13.5h1");
+        for (const [cx, cy] of [[10.5, 3.5], [5, 8.5], [11.5, 13.5]]) {
           shape("circle", { cx, cy, r: 1.5 });
         }
         break;
       case "edit":
-        line("M10.6 2.4l3 3-8.2 8.2-3.7.7.7-3.7z M9.2 3.8l3 3");
+        line("M11.5 1.5l3 3-9 9-4 1 1-4z M10 3l3 3");
         break;
       case "marker":
         // Annotations: a highlighter over a line of text
-        line("M9.5 2.5l3.5 3.5-5.5 5.5H4v-3.5z");
-        line("M2.5 14h11");
+        line("M10.5 1.5l4 4-6 6h-4v-4z");
+        line("M1.5 14.5h13");
         break;
       case "profiles":
         // Other profiles: two squares
-        shape("rect", { x: 5.5, y: 2.5, width: 8, height: 8, rx: 1.8 });
-        shape("rect", { x: 2.5, y: 5.5, width: 8, height: 8, rx: 1.8 });
+        shape("rect", { x: 6.5, y: 1.5, width: 8, height: 8, rx: 2 });
+        shape("rect", { x: 1.5, y: 6.5, width: 8, height: 8, rx: 2 });
+        break;
+      case "globe":
+        line("M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM1.5 8h13M8 1.5c1.8 1.8 2.6 4 2.6 6.5S9.8 12.7 8 14.5M8 1.5C6.2 3.3 5.4 5.5 5.4 8s.8 4.7 2.6 6.5");
+        break;
+      case "close":
+        line("M4.5 4.5l7 7M11.5 4.5l-7 7");
         break;
       case "chevron":
-        line("M1 2.75 4 5.75 7 2.75", 1.1);
+        line("M1 2.75 4 5.75 7 2.75");
         break;
       case "bars":
         // The four bars of the logo without the card (widths 60/44/52/34 of
@@ -789,7 +807,7 @@ BetterAnnotations.Store = {
     }
     // First start: create new data. Existing annotations are not changed.
     this.data = this.sanitize(null);
-    this.importHighlightDescriptions();
+    // Labels of other color plugins are offered, not taken over unasked (see Conflicts)
     await this.persist();
   },
 
@@ -995,41 +1013,6 @@ BetterAnnotations.Store = {
       colors,
       modified: typeof p.modified === "string" ? p.modified : new Date().toISOString(),
     };
-  },
-
-  /** On first start, import existing labels from “Highlight Descriptions” as a profile. */
-  importHighlightDescriptions() {
-    const SB = this.SB;
-    try {
-      const prefix = "extensions.highlightdescriptions.color_";
-      const found = {};
-      let any = false;
-      for (const color of SB.STOCK_COLORS) {
-        const v = Zotero.Prefs.get(prefix + color.slice(1), true);
-        if (typeof v === "string") {
-          found[color] = v;
-          any = true;
-        }
-      }
-      if (!any) {
-        return;
-      }
-      let order = SB.STOCK_COLORS.slice();
-      const stored = Zotero.Prefs.get("extensions.highlightdescriptions.color_order", true);
-      if (typeof stored === "string" && stored) {
-        const parsed = stored.split(",").map(s => SB.normalize(s)).filter(c => c && SB.STOCK_COLORS.includes(c));
-        order = [...new Set([...parsed, ...SB.STOCK_COLORS])];
-      }
-      this.data.profiles.push({
-        id: SB.uid("p"),
-        name: SB.S("importedHD"),
-        colors: order.map(color => ({ id: SB.uid("c"), color, label: found[color] || SB.stockName(color), enabled: true })),
-        modified: new Date().toISOString(),
-      });
-    }
-    catch (e) {
-      SB.logError(e);
-    }
   },
 
   async persist() {

@@ -126,6 +126,10 @@ BetterAnnotations.Reader = {
     if (!el) {
       return null;
     }
+    const own = el.getAttribute && el.getAttribute("data-bac-color");
+    if (own) {
+      return own;
+    }
     try {
       for (const node of el.querySelectorAll("[fill]")) {
         const c = this.SB.normalize(node.getAttribute("fill"));
@@ -165,9 +169,14 @@ BetterAnnotations.Reader = {
     }
   },
 
-  /** “Customize” icon (sliders), drawn in the text color. */
-  makeTuneIcon(doc, size) {
-    return this.SB.Icons.make(doc, "tune", size || 16);
+  /**
+   * “Customize” icon (sliders): the same as the settings button of the item
+   * pane, 16 px in the secondary text color, in the popup and in menus alike.
+   */
+  makeTuneIcon(doc) {
+    const icon = this.SB.Icons.make(doc, "tune", 16);
+    icon.style.color = "var(--fill-secondary, GrayText)";
+    return icon;
   },
 
   /** “More Colors” icon: up to four swatches in a square. */
@@ -362,7 +371,7 @@ BetterAnnotations.Reader = {
 
       const makeSettings = () => {
         const proxy = iconTemplate
-          ? this.makeIconRow(iconTemplate, spec.settingsLabel, (d, s) => this.makeTuneIcon(d, s))
+          ? this.makeIconRow(iconTemplate, spec.settingsLabel, d => this.makeTuneIcon(d))
           : this.makeProxy(settingsRow, null);
         this.attachForward(proxy, settingsRow);
         return proxy;
@@ -385,9 +394,11 @@ BetterAnnotations.Reader = {
       let flyout = null;
       const closeFlyout = () => flyout && flyout.hide(true);
 
+      // The label is set again: another plugin may have renamed the rows already
       for (let i = 0; i < mainCount; i++) {
         const target = stockByColor.get(spec.colors[i].color) || ownRows[i];
         const p = this.makeProxy(ownRows[i], target);
+        this.replaceText(p, spec.colors[i].label);
         this.describeRow(p, spec.colors[i]);
         p.addEventListener("mouseenter", closeFlyout);
         inserts.push(p);
@@ -405,6 +416,7 @@ BetterAnnotations.Reader = {
         for (let i = limit; i < n; i++) {
           const target = stockByColor.get(spec.colors[i].color) || ownRows[i];
           const p = this.makeProxy(ownRows[i], target);
+          this.replaceText(p, spec.colors[i].label);
           this.describeRow(p, spec.colors[i]);
           extra.push(p);
         }
@@ -519,7 +531,45 @@ BetterAnnotations.Reader = {
     p.removeAttribute("id");
     p.removeAttribute("aria-checked");
     p.style.removeProperty("display");
+    this.shield(p);
     return p;
+  },
+
+  /**
+   * Keep other plugins away from the plugin's own rows and buttons. Plugins such
+   * as “Highlight Color Descriptions” find color rows by `path[fill]` and rename,
+   * move or rebuild them. The color moves from the attribute into the style (same
+   * look); `data-bac-color` keeps it for the plugin.
+   */
+  shield(el) {
+    const color = this.colorOf(el);
+    for (const node of el.querySelectorAll("[fill]")) {
+      const value = node.getAttribute("fill");
+      if (this.SB.normalize(value)) {
+        node.style.fill = value;
+        node.removeAttribute("fill");
+      }
+    }
+    if (color) {
+      el.setAttribute("data-bac-color", color);
+    }
+    return el;
+  },
+
+  /**
+   * Template for an own button cloned from Zotero's: only the icon, no inline
+   * style and no class that other plugins look for (`color-button`).
+   */
+  pristine(button) {
+    const svg = button.querySelector("svg");
+    button.textContent = "";
+    if (svg) {
+      button.append(svg);
+    }
+    button.removeAttribute("style");
+    button.classList.remove("color-button", "active");
+    button.classList.add("bac-color-button");
+    return button;
   },
 
   /** Visible copy of a row whose click is forwarded to `target`. */
@@ -534,18 +584,17 @@ BetterAnnotations.Reader = {
   /** Row in the style of a color row with its own icon and text. */
   makeIconRow(template, label, makeIcon) {
     const row = this.cleanClone(template);
+    row.removeAttribute("data-bac-color");
     row.classList.remove("checked", "active", "focused", "selected");
     const icon = this.swapIcon(row, makeIcon);
-    // draw the icon in the menu's text color, not in the color of the template row
+    // not in the color of the template row: the icon sets its own color
     for (let el = icon.parentElement; el && el !== row.parentElement; el = el.parentElement) {
       el.style.removeProperty("color");
       el.style.removeProperty("fill");
     }
-    try {
-      const menu = template.closest(".context-menu") || template;
-      icon.style.color = template.ownerDocument.defaultView.getComputedStyle(menu).color;
+    if (!icon.style.color) {
+      icon.style.color = "var(--fill-secondary, GrayText)";
     }
-    catch (e) {}
     this.replaceText(row, label);
     return row;
   },
@@ -943,14 +992,9 @@ BetterAnnotations.Reader = {
     }
     catch (e) {}
     const template = stockButtons.find(b => this.colorOf(b)) || null;
-    // Measure the width of a color button while the original buttons are still visible
-    let buttonWidth = 24;
-    try {
-      buttonWidth = Math.round(template ? template.getBoundingClientRect().width : 0) || 24;
-    }
-    catch (e) {}
     const gapPx = parseFloat(gap) || 4;
     const fixed = SB.setting("popupLayout") === "fixed";
+    this.ensureReaderStyle(doc);
     grid.style.display = "grid";
     grid.style.justifyContent = "start";
     grid.style.alignItems = "center";
@@ -958,6 +1002,24 @@ BetterAnnotations.Reader = {
 
     const buttons = entries.map(entry => this.makePopupButton(doc, popup, template, entry, stockByColor.get(entry.color), instant));
     const gear = showButton ? this.makeSettingsButton(doc, template, instant) : null;
+    grid.append(...buttons);
+    if (gear) {
+      grid.append(gear);
+    }
+    if (stockWrap && stockWrap.parentNode) {
+      stockWrap.parentNode.insertBefore(grid, stockWrap.nextSibling);
+      this.hide(stockWrap);
+    }
+    else {
+      popup.insertBefore(grid, popup.firstChild);
+    }
+    // Width of an own button, measured in place: Zotero's buttons may already
+    // have been changed by another plugin (e.g. with a label beside the color)
+    let buttonWidth = 20;
+    try {
+      buttonWidth = Math.round((buttons[0] || gear)?.getBoundingClientRect().width || 0) || 20;
+    }
+    catch (e) {}
     if (fixed) {
       // Fixed number of columns; the button comes last, after the last color
       const items = entries.length + (gear ? 1 : 0);
@@ -970,21 +1032,9 @@ BetterAnnotations.Reader = {
       grid.style.gridTemplateColumns = "repeat(auto-fill, " + buttonWidth + "px)";
       grid.style.minWidth = (minCols * buttonWidth + (minCols - 1) * gapPx) + "px";
     }
-    grid.append(...buttons);
-    if (gear) {
-      grid.append(gear);
-    }
-
-    if (stockWrap && stockWrap.parentNode) {
-      stockWrap.parentNode.insertBefore(grid, stockWrap.nextSibling);
-      this.hide(stockWrap);
-    }
-    else {
-      popup.insertBefore(grid, popup.firstChild);
-    }
     popup.style.maxWidth = "none";
+    popup.setAttribute("data-bac-popup", "1");
     if (fixed) {
-      this.ensureReaderStyle(doc);
       popup.setAttribute("data-bac-fixed", "1");
       try {
         const cs = doc.defaultView.getComputedStyle(popup);
@@ -993,7 +1043,8 @@ BetterAnnotations.Reader = {
           width += ["paddingLeft", "paddingRight", "borderLeftWidth", "borderRightWidth"]
             .reduce((sum, k) => sum + (parseFloat(cs[k]) || 0), 0);
         }
-        popup.style.width = Math.ceil(width) + "px";
+        // as a variable: the style sheet keeps the width even if another plugin sets one
+        popup.style.setProperty("--bac-popup-width", Math.ceil(width) + "px");
       }
       catch (e) {}
     }
@@ -1005,7 +1056,7 @@ BetterAnnotations.Reader = {
     const shown = label && label.trim() ? label : "";
     let b;
     if (template) {
-      b = template.cloneNode(true);
+      b = this.pristine(template.cloneNode(true));
       const tColor = this.colorOf(template);
       let replaced = false;
       for (const node of b.querySelectorAll("[fill]")) {
@@ -1018,11 +1069,11 @@ BetterAnnotations.Reader = {
         b.textContent = "";
         b.append(this.makeSwatch(doc, entry.color));
       }
-      b.classList.remove("active");
+      this.shield(b);
     }
     else {
       b = doc.createElement("button");
-      b.className = "toolbar-button color-button";
+      b.className = "toolbar-button bac-color-button";
       b.append(this.makeSwatch(doc, entry.color));
     }
     b.removeAttribute("id");
@@ -1071,14 +1122,13 @@ BetterAnnotations.Reader = {
     const label = SB.S("menuCustomize");
     let b;
     if (template) {
-      b = template.cloneNode(true);
-      b.classList.remove("active");
-      this.swapIcon(b, (d, s) => this.makeTuneIcon(d, s));
+      b = this.pristine(template.cloneNode(true));
+      this.swapIcon(b, d => this.makeTuneIcon(d));
     }
     else {
       b = doc.createElement("button");
       b.className = "toolbar-button";
-      b.append(this.makeTuneIcon(doc, 16));
+      b.append(this.makeTuneIcon(doc));
     }
     b.removeAttribute("id");
     b.removeAttribute("title");
@@ -1197,6 +1247,11 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
 .tags[data-bac-only]::before { content: attr(data-bac-placeholder); }
 .preview.expanded0 .tags[data-bac-only], .preview.read-only .tags[data-bac-only], .preview:not([class*="expanded"]) .tags[data-bac-only] { display: none !important; }
 [data-bac-drop] { outline: 2px solid var(--bac-drop-color, #6B5BD6) !important; outline-offset: -2px; }
+/* Own buttons in the selection popup: the size of Zotero's color buttons */
+.selection-popup .bac-color-button { width: 20px; height: 20px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.selection-popup .bac-color-button > svg { flex: none; }
+.selection-popup[data-bac-popup] { max-width: none !important; }
+.selection-popup[data-bac-fixed] { width: var(--bac-popup-width) !important; }
 .selection-popup[data-bac-fixed] > :not(.bac-colors) { max-width: 100%; min-width: 0; box-sizing: border-box; overflow-wrap: anywhere; }
 .selection-popup[data-bac-fixed] textarea, .selection-popup[data-bac-fixed] input[type="text"] { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
 .selection-popup[data-bac-fixed] pre, .selection-popup[data-bac-fixed] table, .selection-popup[data-bac-fixed] img { max-width: 100%; overflow: auto; }
@@ -1707,10 +1762,10 @@ header[data-bac-chip] .custom-sections > :not(.bac-chip) { flex: none; }
       const pr = panel.getBoundingClientRect();
       let left = Math.min(r.left, win.innerWidth - pr.width - 6);
       left = Math.max(6, left);
-      let top = r.bottom + 4;
-      if (top + pr.height > win.innerHeight - 6) {
-        top = Math.max(6, r.top - pr.height - 4);
-      }
+      // Always below the button, so it never covers the button; a long panel
+      // scrolls inside the space down to the window edge
+      const top = r.bottom + 4;
+      panel.style.maxHeight = Math.max(80, win.innerHeight - top - 6) + "px";
       panel.style.left = left + "px";
       panel.style.top = top + "px";
     };

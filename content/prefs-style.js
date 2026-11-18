@@ -17,7 +17,8 @@ BetterAnnotations.PREFS_CSS = `
   --bac-muted: var(--fill-secondary, #777);
   --bac-bg: var(--material-background, #fff);
   --bac-raise: var(--material-sidepane, #f6f6f6);
-  --bac-accent: var(--accent-blue, #2e7bd1); }
+  --bac-accent: var(--accent-blue, #2e7bd1);
+  --bac-danger: var(--accent-red, #db2c3a); }
 #bac-root .bac-section { margin-bottom: 14px; }
 #bac-root .bac-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
 #bac-root .bac-bar > button, #bac-root .bac-bar > menulist, #bac-root .bac-logrow > button { margin: 0; }
@@ -47,6 +48,16 @@ BetterAnnotations.PREFS_CSS = `
 #bac-root .bac-notice { margin: 4px 0 8px; padding: 7px 10px; border-radius: 6px; line-height: 1.4;
   background: color-mix(in srgb, var(--bac-accent) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--bac-accent) 30%, transparent); }
+/* Warning below the tabs: like the notices, in red; closed with × at the top right */
+#bac-root .bac-warning { position: relative; margin: 0 0 12px; padding: 8px 36px 8px 12px; border-radius: 6px; line-height: 1.4;
+  background: color-mix(in srgb, var(--bac-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bac-danger) 35%, transparent); }
+#bac-root .bac-warning-actions { margin: 6px 0 0; }
+#bac-root .bac-warning-close { -moz-appearance: none; appearance: none; position: absolute; top: 5px; right: 5px; display: inline-flex;
+  align-items: center; justify-content: center; width: 24px; height: 24px; margin: 0; padding: 0; border: 0; border-radius: 5px;
+  background: transparent; color: var(--bac-muted); cursor: default; }
+#bac-root .bac-warning-close:hover { background: color-mix(in srgb, var(--bac-danger) 14%, transparent); }
+#bac-root .bac-warning-close:focus-visible { outline: 2px solid var(--color-focus-border, var(--bac-accent)); outline-offset: -1px; }
 #bac-root .bac-list { position: relative; display: flex; flex-direction: column; gap: 3px; }
 #bac-root .bac-row { position: relative; display: flex; align-items: flex-start; gap: 8px; padding: 3px 6px;
   border-radius: 5px; border: 1px solid transparent; background: var(--bac-bg); box-sizing: border-box;
