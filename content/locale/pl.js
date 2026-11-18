@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS.pl = {
     "Luka badawcza",
     "Tło"
   ],
-  "menuCustomize": "Dostosuj kolory adnotacji…",
+  "menuCustomize": "Dostosuj adnotacje…",
   "menuMore": "Więcej kolorów",
   "importedHD": "Highlight Descriptions (zaimportowane)",
   "unnamed": "(bez etykiety)",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS.pl = {
   "optPopupColumns": "Minimalna liczba kolorów w wierszu:",
   "optPopupColumnsHint": "Jeśli inne wtyczki poszerzą okno, w każdym wierszu zmieści się więcej kolorów.",
   "optInstantTip": "Pokazuj etykiety od razu po najechaniu na kolor",
-  "optShowMenuEntry": "Pokazuj „Dostosuj kolory adnotacji…” w menu kontekstowym",
+  "optShowMenuEntry": "Pokazuj „Dostosuj adnotacje…” w menu kontekstowym",
   "optShowPopupButton": "Pokazuj przycisk dostosowania w oknie zaznaczenia",
   "optStatsDescriptions": "Pokazuj opisy w statystyce",
   "optRestartHint": "Nazwa tej strony ustawień zmieni się po ponownym uruchomieniu Zotero.",

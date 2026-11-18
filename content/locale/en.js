@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS.en = {
     "Research Gap",
     "Background"
   ],
-  "menuCustomize": "Customize Annotation Colors…",
+  "menuCustomize": "Customize Annotations…",
   "menuMore": "More Colors",
   "importedHD": "Highlight Descriptions (imported)",
   "unnamed": "(no label)",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS.en = {
   "optPopupColumns": "Minimum number of colors per row:",
   "optPopupColumnsHint": "If other plugins widen the popup, more colors fit into each row.",
   "optInstantTip": "Show labels immediately when hovering over colors",
-  "optShowMenuEntry": "Show “Customize Annotation Colors…” in the context menu",
+  "optShowMenuEntry": "Show “Customize Annotations…” in the context menu",
   "optShowPopupButton": "Show the customize button in the selection popup",
   "optStatsDescriptions": "Show descriptions in the statistics",
   "optRestartHint": "The name of this settings page changes after restarting Zotero.",

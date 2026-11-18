@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS.es = {
     "Laguna de investigación",
     "Contexto"
   ],
-  "menuCustomize": "Personalizar colores de anotación…",
+  "menuCustomize": "Personalizar anotaciones…",
   "menuMore": "Más colores",
   "importedHD": "Highlight Descriptions (importado)",
   "unnamed": "(sin etiqueta)",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS.es = {
   "optPopupColumns": "Número mínimo de colores por fila:",
   "optPopupColumnsHint": "Si otros complementos ensanchan la ventana emergente, caben más colores en cada fila.",
   "optInstantTip": "Mostrar las etiquetas al instante al pasar el ratón sobre los colores",
-  "optShowMenuEntry": "Mostrar «Personalizar colores de anotación…» en el menú contextual",
+  "optShowMenuEntry": "Mostrar «Personalizar anotaciones…» en el menú contextual",
   "optShowPopupButton": "Mostrar el botón de personalización en la ventana emergente de selección",
   "optStatsDescriptions": "Mostrar descripciones en las estadísticas",
   "optRestartHint": "El nombre de esta página de configuración cambia después de reiniciar Zotero.",

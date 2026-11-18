@@ -12,8 +12,9 @@
  * this color; a second click switches back to the pointer. In the library,
  * the section counts the annotations of all files of the selected item.
  *
- * The icons pin.svg and new-window.svg are Zotero's own icons
- * (AGPL-3.0, Corporation for Digital Scholarship).
+ * Header buttons: “Open in Separate Window” uses Zotero's own icon
+ * (open-link.svg, AGPL-3.0, Corporation for Digital Scholarship), as other
+ * plugins use it for the same action.
  */
 
 /* global Zotero, BetterAnnotations */
@@ -150,7 +151,7 @@ BetterAnnotations.Panel = {
         sectionButtons: [
           {
             type: "bac-popout",
-            icon: "chrome://better-annotations/content/icons/new-window.svg",
+            icon: "chrome://zotero/skin/16/universal/open-link.svg",
             l10nID: "better-annotations-popout",
             onClick: ({ tabType }) => this.openPopout({ collapse: String(tabType || "").startsWith("reader") }),
           },
@@ -1492,6 +1493,7 @@ BetterAnnotations.PanelView = class {
     this.root.replaceChildren(...parts);
     this.root.classList.add("bac-p-root", "bac-p-" + this.kind);
     this.bleed();
+    this.fitBar();
     if (this.setSummary) {
       try {
         this.setSummary(S("sectionSummary", { n: total, profile: profile.name }));
@@ -1539,6 +1541,39 @@ BetterAnnotations.PanelView = class {
       root.style.setProperty("--bac-bleed-r", clamp(paneRight - right) + "px");
     }
     catch (e) {}
+  }
+
+  /**
+   * Keep the buttons of the bar visible when the pane is narrow. The profile
+   * name shortens first (CSS, with “…”); if the profile button is still too
+   * narrow, “Profile:” goes, then the number. Checked again on every resize.
+   */
+  fitBar() {
+    const root = this.root;
+    const win = root.ownerDocument.defaultView;
+    if (!this._fitObserver && win && win.ResizeObserver) {
+      let last = -1;
+      this._fitObserver = new win.ResizeObserver(() => {
+        const w = Math.round(root.clientWidth);
+        if (w !== last) {
+          last = w;
+          this.fitBar();
+        }
+      });
+      this._fitObserver.observe(root);
+    }
+    const menu = root.querySelector(".bac-p-menu");
+    if (!menu) {
+      return;
+    }
+    menu.classList.remove("bac-p-tight", "bac-p-tighter");
+    const overflows = () => menu.scrollWidth > menu.clientWidth + 1;
+    if (overflows()) {
+      menu.classList.add("bac-p-tight");
+      if (overflows()) {
+        menu.classList.add("bac-p-tighter");
+      }
+    }
   }
 
   /** Pencil next to a row: edit (or add) the description. Visible on hover and keyboard focus. */
@@ -1656,13 +1691,19 @@ BetterAnnotations.PanelView = class {
     const st = this.h("style");
     st.textContent = `${this.SB.COUNT_CSS}
 .bac-p-root { font: inherit; color: var(--fill-primary, CanvasText); }
+/* The section takes the width Zotero gives it and adds nothing to the least
+   width of the pane: otherwise a long profile name keeps the pane from getting
+   narrower, and the buttons slip under the side navigation */
+.bac-p-section { contain: inline-size; }
 /* Bar with profile and buttons, a line below it (as in the statistics) */
 .bac-p-bar { display: flex; align-items: center; gap: 2px; margin: 0 0 6px; padding-bottom: 5px; }
 .bac-p-menu { appearance: none; flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px 0 0;
-  padding: 0 7px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; }
+  padding: 0 7px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: start; overflow: hidden; }
 
 .bac-p-menu-label { flex: none; color: var(--fill-secondary, GrayText); }
-.bac-p-menu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bac-p-menu-name { min-width: 1.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Very narrow pane (fitBar): first without “Profile:”, then without the number */
+.bac-p-tight .bac-p-menu-label, .bac-p-tighter .bac-count { display: none; }
 .bac-p-caret { display: flex; align-items: center; color: var(--fill-secondary, GrayText); }
 .bac-p-menu:hover, .bac-p-icon:hover, .bac-p-edit-btn:hover { background: var(--fill-quinary, rgba(127,127,127,.15)); }
 .bac-p-menu:active, .bac-p-icon:active, .bac-p-edit-btn:active, .bac-p-menu[open] { background: var(--fill-quarternary, rgba(127,127,127,.25)); }
@@ -1729,7 +1770,10 @@ textarea.bac-p-desc-field::placeholder { color: var(--fill-secondary, GrayText);
 .bac-p-line::after { top: -1px; }
 .bac-p-bar::after { bottom: 0; }
 .bac-p-warn::before { content: "⚠ "; color: var(--accent-orange, #d97706); }
-.bac-p-link { -moz-appearance: none; appearance: none; border: none; background: none; padding: 0; color: var(--accent-blue, LinkText); font: inherit; cursor: pointer; text-decoration: underline; }
+.bac-p-link { -moz-appearance: none; appearance: none; border: none; background: none; padding: 0; margin: 0; color: var(--accent-blue, LinkText); font: inherit;
+  line-height: inherit; vertical-align: baseline; cursor: pointer; text-decoration: underline; }
+/* Firefox draws an inner focus border in buttons; it would make the line taller */
+.bac-p-link::-moz-focus-inner { border: 0; padding: 0; }
 .bac-p-link:focus-visible { outline: 2px solid var(--color-focus-border, Highlight); outline-offset: 1px; border-radius: 2px; }
 `;
     return st;

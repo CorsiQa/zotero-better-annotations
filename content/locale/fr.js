@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS.fr = {
     "Lacune de recherche",
     "Contexte"
   ],
-  "menuCustomize": "Personnaliser les couleurs d’annotation…",
+  "menuCustomize": "Personnaliser les annotations…",
   "menuMore": "Autres couleurs",
   "importedHD": "Highlight Descriptions (importé)",
   "unnamed": "(sans libellé)",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS.fr = {
   "optPopupColumns": "Nombre minimal de couleurs par ligne :",
   "optPopupColumnsHint": "Si d’autres extensions élargissent la fenêtre contextuelle, davantage de couleurs tiennent sur chaque ligne.",
   "optInstantTip": "Afficher immédiatement les libellés au survol des couleurs",
-  "optShowMenuEntry": "Afficher « Personnaliser les couleurs d’annotation… » dans le menu contextuel",
+  "optShowMenuEntry": "Afficher « Personnaliser les annotations… » dans le menu contextuel",
   "optShowPopupButton": "Afficher le bouton de personnalisation dans la fenêtre de sélection",
   "optStatsDescriptions": "Afficher les descriptions dans les statistiques",
   "optRestartHint": "Le nom de cette page de paramètres change après le redémarrage de Zotero.",

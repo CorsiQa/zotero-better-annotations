@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS.ru = {
     "Пробел в исследованиях",
     "Контекст"
   ],
-  "menuCustomize": "Настроить цвета аннотаций…",
+  "menuCustomize": "Настроить аннотации…",
   "menuMore": "Другие цвета",
   "importedHD": "Highlight Descriptions (импорт)",
   "unnamed": "(без метки)",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS.ru = {
   "optPopupColumns": "Минимальное число цветов в строке:",
   "optPopupColumnsHint": "Если другие плагины расширяют окно, в каждую строку помещается больше цветов.",
   "optInstantTip": "Показывать метки сразу при наведении на цвет",
-  "optShowMenuEntry": "Показывать «Настроить цвета аннотаций…» в контекстном меню",
+  "optShowMenuEntry": "Показывать «Настроить аннотации…» в контекстном меню",
   "optShowPopupButton": "Показывать кнопку настройки во всплывающем окне выделения",
   "optStatsDescriptions": "Показывать описания в статистике",
   "optRestartHint": "Название этой страницы настроек изменится после перезапуска Zotero.",

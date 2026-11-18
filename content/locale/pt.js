@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS.pt = {
     "Lacuna de pesquisa",
     "Contexto"
   ],
-  "menuCustomize": "Personalizar cores das anotações…",
+  "menuCustomize": "Personalizar anotações…",
   "menuMore": "Mais cores",
   "importedHD": "Highlight Descriptions (importado)",
   "unnamed": "(sem rótulo)",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS.pt = {
   "optPopupColumns": "Número mínimo de cores por linha:",
   "optPopupColumnsHint": "Se outros plugins alargarem a janela, cabem mais cores em cada linha.",
   "optInstantTip": "Mostrar os rótulos imediatamente ao passar o cursor sobre as cores",
-  "optShowMenuEntry": "Mostrar “Personalizar cores das anotações…” no menu de contexto",
+  "optShowMenuEntry": "Mostrar “Personalizar anotações…” no menu de contexto",
   "optShowPopupButton": "Mostrar o botão de personalização na janela de seleção",
   "optStatsDescriptions": "Mostrar descrições nas estatísticas",
   "optRestartHint": "O nome desta página de configurações muda após reiniciar o Zotero.",

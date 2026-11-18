@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS.ja = {
     "研究ギャップ",
     "背景"
   ],
-  "menuCustomize": "注釈の色をカスタマイズ…",
+  "menuCustomize": "注釈をカスタマイズ…",
   "menuMore": "その他の色",
   "importedHD": "Highlight Descriptions（インポート）",
   "unnamed": "（ラベルなし）",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS.ja = {
   "optPopupColumns": "1 行あたりの最小の色数：",
   "optPopupColumnsHint": "他のプラグインがポップアップを広げると、各行により多くの色が入ります。",
   "optInstantTip": "色にマウスを重ねたらすぐにラベルを表示",
-  "optShowMenuEntry": "コンテキストメニューに「注釈の色をカスタマイズ…」を表示",
+  "optShowMenuEntry": "コンテキストメニューに「注釈をカスタマイズ…」を表示",
   "optShowPopupButton": "選択時のポップアップにカスタマイズボタンを表示",
   "optStatsDescriptions": "統計に説明を表示",
   "optRestartHint": "この設定ページの名前は Zotero の再起動後に変わります。",

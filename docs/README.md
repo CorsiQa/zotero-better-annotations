@@ -40,7 +40,7 @@ The plugin never changes existing annotations on its own. Your annotations keep 
 
 | Place | What the plugin does |
 |---|---|
-| Right-click on an annotation | Shows your colors with labels. The first 8 colors (configurable) appear directly, all others in the **More Colors** submenu, followed by **Customize Annotation Colors…**. |
+| Right-click on an annotation | Shows your colors with labels. The first 8 colors (configurable) appear directly, all others in the **More Colors** submenu, followed by **Customize Annotations…**. |
 | Color menu of the reader toolbar | Same list, sets the color of the highlight, underline, note, text, image and ink tools. |
 | Popup after selecting text | Shows all visible colors as buttons, the customize button at the end and the label as a tooltip. |
 | Reader toolbar | Profile switcher and the number of annotations in the open document. Hover over the number for a breakdown by label. |
@@ -115,7 +115,7 @@ The picker offers a saturation/brightness field, a hue slider, a hex field, the 
 | Setting | Effect |
 |---|---|
 | Colors shown directly in the context menu | Number of colors before the **More Colors** submenu (default 8). The submenu is arranged in columns of up to 8 entries, so it does not grow out of the window. |
-| Show “Customize Annotation Colors…” in the context menu | Shortcut to the settings. |
+| Show “Customize Annotations…” in the context menu | Shortcut to the settings. |
 | Selection popup: Adapt to the popup width | Colors fill the available width. Useful with plugins that add content to the popup, such as translators. |
 | Selection popup: Fixed number of colors per row | The popup keeps the width of the color grid; wide content of other plugins wraps or scrolls. The customize button is always the last item. |
 | Minimum number of colors per row | Only with “Adapt to the popup width” (default 8). |

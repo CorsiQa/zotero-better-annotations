@@ -542,6 +542,7 @@ var BetterAnnotations = {
     const dot = doc.createElement("span");
     dot.className = "bac-sepdot";
     dot.setAttribute("aria-hidden", "true");
+    dot.textContent = "\u00b7";
     const num = doc.createElement("span");
     num.className = "bac-count-n";
     num.textContent = n === null || n === undefined ? "" : String(n);
@@ -550,14 +551,16 @@ var BetterAnnotations = {
   },
 
   /**
-   * CSS for countLabel(), in em so it fits every font size. The dot and the
-   * icon sit on the baseline and are moved to the middle of the digits
-   * (about .35em above the baseline), not to the middle of the line box.
+   * CSS for countLabel(), in em so it fits every font size. The dot is the
+   * middle dot of the font in bold (a little heavier than in normal weight);
+   * dot and icon have the secondary color like “Profile:”. The icon sits on
+   * the baseline and is moved to the middle of the digits.
    */
   COUNT_CSS: `
 .bac-count { display: inline-flex; align-items: baseline; flex: none; font-variant-numeric: tabular-nums; }
-.bac-sepdot { flex: none; width: .24em; height: .24em; margin: 0 .35em; border-radius: 50%; background: currentColor; opacity: .75;
-  position: relative; top: -.25em; }
+.bac-sepdot { flex: none; margin: 0 .3em; font-weight: 700; color: var(--fill-secondary, GrayText); }
+/* In buttons whose parts already have a gap (4 px), the gap stands before the dot */
+.bac-tb-main .bac-sepdot, .bac-p-menu .bac-sepdot { margin-inline-start: 0; }
 .bac-count > svg { flex: none; width: 1.1em; height: 1.1em; margin: -.3em .12em 0 0; position: relative; top: .17em;
   color: var(--fill-secondary, GrayText); }
 `,

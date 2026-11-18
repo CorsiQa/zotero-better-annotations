@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS.de = {
     "Forschungslücke",
     "Hintergrund"
   ],
-  "menuCustomize": "Annotationsfarben anpassen…",
+  "menuCustomize": "Annotationen anpassen…",
   "menuMore": "Weitere Farben",
   "importedHD": "Highlight Descriptions (importiert)",
   "unnamed": "(ohne Label)",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS.de = {
   "optPopupColumns": "Mindestanzahl Farben pro Reihe:",
   "optPopupColumnsHint": "Verbreitern andere Plugins das Popup, passen mehr Farben in jede Reihe.",
   "optInstantTip": "Labels beim Überfahren der Farben sofort anzeigen",
-  "optShowMenuEntry": "„Annotationsfarben anpassen…“ im Kontextmenü anzeigen",
+  "optShowMenuEntry": "„Annotationen anpassen…“ im Kontextmenü anzeigen",
   "optShowPopupButton": "Knopf zum Anpassen im Auswahl-Popup anzeigen",
   "optStatsDescriptions": "Beschreibungen in der Statistik anzeigen",
   "optRestartHint": "Der Name dieser Einstellungsseite ändert sich nach einem Neustart von Zotero.",

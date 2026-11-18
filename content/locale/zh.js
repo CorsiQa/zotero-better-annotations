@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS.zh = {
     "研究空白",
     "背景"
   ],
-  "menuCustomize": "自定义注释颜色…",
+  "menuCustomize": "自定义注释…",
   "menuMore": "更多颜色",
   "importedHD": "Highlight Descriptions（已导入）",
   "unnamed": "（无名称）",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS.zh = {
   "optPopupColumns": "每行最少颜色数：",
   "optPopupColumnsHint": "如果其他插件加宽了弹出窗口，每行可容纳更多颜色。",
   "optInstantTip": "鼠标悬停在颜色上时立即显示名称",
-  "optShowMenuEntry": "在右键菜单中显示“自定义注释颜色…”",
+  "optShowMenuEntry": "在右键菜单中显示“自定义注释…”",
   "optShowPopupButton": "在选中文本弹窗中显示自定义按钮",
   "optStatsDescriptions": "在统计信息中显示说明",
   "optRestartHint": "重启 Zotero 后，此设置页面的名称才会更改。",

@@ -40,7 +40,7 @@ Das Plugin ändert vorhandene Annotationen nie von selbst. Deine Annotationen be
 
 | Ort | Was das Plugin tut |
 |---|---|
-| Rechtsklick auf eine Annotation | Zeigt deine Farben mit Labels. Die ersten 8 Farben (einstellbar) stehen direkt im Menü, alle weiteren im Untermenü **Weitere Farben**, danach folgt **Annotationsfarben anpassen…**. |
+| Rechtsklick auf eine Annotation | Zeigt deine Farben mit Labels. Die ersten 8 Farben (einstellbar) stehen direkt im Menü, alle weiteren im Untermenü **Weitere Farben**, danach folgt **Annotationen anpassen…**. |
 | Farbmenü der Werkzeugleiste | Dieselbe Liste; legt die Farbe der Werkzeuge für Hervorhebung, Unterstreichung, Notiz, Text, Bild und Freihand fest. |
 | Popup nach dem Markieren | Zeigt alle sichtbaren Farben als Knöpfe, am Ende den Knopf zum Anpassen und das Label als Tooltip. |
 | Werkzeugleiste des Readers | Profilauswahl und Anzahl der Annotationen im geöffneten Dokument. Beim Überfahren der Anzahl erscheint eine Aufschlüsselung nach Labels. |
@@ -115,7 +115,7 @@ Der Farbwähler bietet ein Feld für Sättigung und Helligkeit, einen Farbtonreg
 | Einstellung | Wirkung |
 |---|---|
 | Farben direkt im Kontextmenü | Anzahl der Farben vor dem Untermenü **Weitere Farben** (Standard 8). Das Untermenü ist in Spalten zu höchstens 8 Einträgen angeordnet und wächst daher nicht aus dem Fenster. |
-| „Annotationsfarben anpassen…“ im Kontextmenü anzeigen | Abkürzung zu den Einstellungen. |
+| „Annotationen anpassen…“ im Kontextmenü anzeigen | Abkürzung zu den Einstellungen. |
 | Auswahl-Popup: An die Breite des Popups anpassen | Die Farben füllen die verfügbare Breite. Sinnvoll mit Plugins, die dem Popup Inhalte hinzufügen, etwa Übersetzern. |
 | Auswahl-Popup: Feste Anzahl Farben pro Reihe | Das Popup behält die Breite des Farbrasters; breite Inhalte anderer Plugins brechen um oder werden scrollbar. Der Knopf zum Anpassen ist immer das letzte Element. |
 | Mindestanzahl Farben pro Reihe | Nur bei „An die Breite des Popups anpassen“ (Standard 8). |

@@ -26,7 +26,7 @@ BetterAnnotations.STRINGS["zh-TW"] = {
     "研究缺口",
     "背景"
   ],
-  "menuCustomize": "自訂註解顏色…",
+  "menuCustomize": "自訂註解…",
   "menuMore": "更多顏色",
   "importedHD": "Highlight Descriptions（已匯入）",
   "unnamed": "（無名稱）",
@@ -78,7 +78,7 @@ BetterAnnotations.STRINGS["zh-TW"] = {
   "optPopupColumns": "每列最少顏色數：",
   "optPopupColumnsHint": "若其他外掛加寬了浮動視窗，每列可容納更多顏色。",
   "optInstantTip": "滑鼠移到顏色上時立即顯示名稱",
-  "optShowMenuEntry": "在右鍵選單中顯示「自訂註解顏色…」",
+  "optShowMenuEntry": "在右鍵選單中顯示「自訂註解…」",
   "optShowPopupButton": "在浮動視窗中顯示自訂按鈕",
   "optStatsDescriptions": "在統計中顯示說明",
   "optRestartHint": "此設定頁面的名稱會在重新啟動 Zotero 後變更。",
