@@ -10,34 +10,24 @@ Changes for the next release are collected here. The section is renamed to the v
 The main additions are a section in Zotero's item pane, drag and drop of colors, descriptions for labels and a profile per document.
 
 ### New
-- Item pane section “Better Annotations” in the library and next to the reader: the labels of the profile with their number of annotations. In the reader, a click on a label starts highlighting in its color; with text or annotations selected, it colors them once. Can be turned off under “Appearance”
-- Separate window with the same list that follows the active reader tab, for example on a second screen
-- Drag a color from the section or the window onto an annotation in the sidebar, a highlight in a PDF or selected text
-- Descriptions for labels (off by default, tab “Advanced”): in tooltips, the section, the window, the statistics and as an export column
-- Profile per document (off by default, tab “Advanced”): every document keeps its own profile, chosen by hand, by its annotations, by rules for collections or as the default profile. New annotations get a profile tag “ZBA: Profile name”; the reader shows the profile in the head of the annotation and hides the tag in its tag line. Filter “only this profile” in the section and the statistics. Renaming or deleting a profile updates its tags; annotations without a tag can be assigned
-- Tab “Advanced” for functions that write to the library or need an explanation: descriptions, labels as tags, profile per document
-- Notice in the settings and a one-time dialog while Highlight Color Descriptions, Annotation Color Customizer or Just Enough Color is active, with the offer to take over their labels as a profile
-- Palettes “Pastel Bold” and “Neon” (“Light” was removed; profiles keep their colors)
-- A week after the first start, a one-time request for feedback on GitHub
+- **Item pane section** next to the reader and in the library: the labels of the profile with their number of annotations. A click on a label starts highlighting in its color or colors the selected text or annotations. Also available as a **separate window**, for example on a second screen
+- **Drag and drop** of a color onto an annotation in the sidebar, a highlight in a PDF or selected text
+- **Tab “Advanced”** with three functions that are off by default: **descriptions** for labels (in tooltips, the item pane, the statistics and exports), **labels as tags** (moved from “Tags & Library”) and a **profile per document** with profile tags “ZBA: Profile name”, rules for collections and a filter for one profile
+- **Notice and one-time dialog** while Highlight Color Descriptions, Annotation Color Customizer or Just Enough Color is active, with the offer to take over their labels as a profile
+- Palettes “Pastel Bold” and “Neon”; a one-time request for feedback a week after the first start
 
 ### Changed
-- Reader toolbar: one button with the profile and its number of annotations. A click opens the profile menu; hovering or keyboard focus shows the statistics. Zotero's tools stay above the middle of the document (can be turned off). A right click hides the button
-- Statistics: grouped by profile, with the same filter as the section and optional descriptions; they open below the button
-- The profile menus of the toolbar, the section and the window are the same native Zotero menu
-- Built-in profile “Standard” (formerly “Zotero Default”) is active after the installation and cannot be changed; “Zotero+” is an ordinary example profile
-- Export: one column “Extract” for text and images. Excel colors the number column, groups columns into “Details” and “Source”, fits widths to the content and lists the descriptions in the sheet “Labels”; HTML starts with a legend of the labels; optional columns “Description” and “Profile”. The folder opens after an export; large exports show their progress and no longer block Zotero
-- Areas for export, recoloring and assigning are listed from the narrowest to the widest
-- Settings: cards with a head and explanations, tabs “Appearance” (formerly “Menus & Reader”) and “Library” (formerly “Tags & Library”), a bar to save profile changes in every tab
-- Icons are drawn like Zotero's own, and one function has the same icon everywhere. “Customize Annotation Colors…” is now “Customize Annotations…”
-- The color list shows how many of your other profiles use a color
+- **Reader toolbar:** one button with the profile and its number of annotations; a click opens the profile menu, hovering shows the statistics grouped by profile. Zotero's tools stay above the middle of the document
+- **Profiles:** the built-in profile “Standard” (formerly “Zotero Default”) is active after the installation and cannot be changed; “Zotero+” is an ordinary example profile. All profile menus are the same native Zotero menu
+- **Export:** one column “Extract” for text and images, optional columns “Description” and “Profile”; Excel groups and sizes its columns and colors the number column; HTML starts with a legend; the folder opens afterwards; large exports no longer block Zotero
+- **Look:** settings in cards with explanations and the tabs “Appearance” and “Library”, a save bar for profile changes in every tab, icons drawn like Zotero's own, tooltips in Zotero's light and dark appearance. “Customize Annotation Colors…” is now “Customize Annotations…”
+- Labels of Highlight Color Descriptions are no longer taken over without asking at the first start
 - Profile files and full backups include descriptions, rules for collections and the profile per document; older files remain valid
-- Labels of Highlight Color Descriptions are no longer taken over at the first start without asking; the plugin offers it instead
-- Norwegian Bokmål and Swedish were removed; the plugin is available in 11 languages
+- Norwegian Bokmål and Swedish were removed; 11 languages remain
 
 ### Fixed
 - Colors and labels in the selection popup and the context menu stay correct while another plugin for annotation colors is active
-- With a long profile name, the item pane can be made narrow again: the name is shortened and the buttons stay visible
-- Tooltips follow Zotero's light and dark appearance and have an opaque background
+- With a long profile name, the item pane can be made narrow again
 
 ## 1.0.0-beta.1 – 2026-11-13
 
