@@ -169,9 +169,14 @@ BetterAnnotations.Reader = {
     }
   },
 
-  /** “Customize” icon (sliders), drawn in the text color. */
-  makeTuneIcon(doc, size) {
-    return this.SB.Icons.make(doc, "tune", size || 16);
+  /**
+   * “Customize” icon (sliders): the same as the settings button of the item
+   * pane, 16 px in the secondary text color, in the popup and in menus alike.
+   */
+  makeTuneIcon(doc) {
+    const icon = this.SB.Icons.make(doc, "tune", 16);
+    icon.style.color = "var(--fill-secondary, GrayText)";
+    return icon;
   },
 
   /** “More Colors” icon: up to four swatches in a square. */
@@ -366,7 +371,7 @@ BetterAnnotations.Reader = {
 
       const makeSettings = () => {
         const proxy = iconTemplate
-          ? this.makeIconRow(iconTemplate, spec.settingsLabel, (d, s) => this.makeTuneIcon(d, s))
+          ? this.makeIconRow(iconTemplate, spec.settingsLabel, d => this.makeTuneIcon(d))
           : this.makeProxy(settingsRow, null);
         this.attachForward(proxy, settingsRow);
         return proxy;
@@ -582,16 +587,14 @@ BetterAnnotations.Reader = {
     row.removeAttribute("data-bac-color");
     row.classList.remove("checked", "active", "focused", "selected");
     const icon = this.swapIcon(row, makeIcon);
-    // draw the icon in the menu's text color, not in the color of the template row
+    // not in the color of the template row: the icon sets its own color
     for (let el = icon.parentElement; el && el !== row.parentElement; el = el.parentElement) {
       el.style.removeProperty("color");
       el.style.removeProperty("fill");
     }
-    try {
-      const menu = template.closest(".context-menu") || template;
-      icon.style.color = template.ownerDocument.defaultView.getComputedStyle(menu).color;
+    if (!icon.style.color) {
+      icon.style.color = "var(--fill-secondary, GrayText)";
     }
-    catch (e) {}
     this.replaceText(row, label);
     return row;
   },
@@ -1120,12 +1123,12 @@ BetterAnnotations.Reader = {
     let b;
     if (template) {
       b = this.pristine(template.cloneNode(true));
-      this.swapIcon(b, (d, s) => this.makeTuneIcon(d, s));
+      this.swapIcon(b, d => this.makeTuneIcon(d));
     }
     else {
       b = doc.createElement("button");
       b.className = "toolbar-button";
-      b.append(this.makeTuneIcon(doc, 16));
+      b.append(this.makeTuneIcon(doc));
     }
     b.removeAttribute("id");
     b.removeAttribute("title");

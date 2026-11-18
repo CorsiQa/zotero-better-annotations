@@ -204,6 +204,7 @@ BetterAnnotations.PaneController = class {
     this.loadUsage();
     this._unlisten = this.Store.onChange(what => this.onStoreChange(what));
     this._unlistenUpdates = this.SB.Updates.onChange(() => this.updateBadge());
+    this._unlistenConflicts = this.SB.Conflicts.onChange(() => this.renderConflictWarning());
     this.checkForUpdates();
     // The selection in the main window can change while the settings are open
     let focusTimer = null;
@@ -223,6 +224,7 @@ BetterAnnotations.PaneController = class {
     this.win.addEventListener("unload", () => {
       this._unlisten();
       this._unlistenUpdates();
+      this._unlistenConflicts();
       this.closePicker(false);
       this.closePopover();
       if (this.isDirty()) {
@@ -329,6 +331,9 @@ BetterAnnotations.PaneController = class {
       this.panels.set(id, this.h("div", { class: "bac-panel", role: "tabpanel", "data-tab": id }));
     }
     this.root.append(nav, ...this.panels.values());
+    this.navEl = nav;
+    this.conflictEl = null;
+    this.renderConflictWarning();
 
     // --- Tab “Colors & Profiles” -----------------------------------------
     const colors = this.panels.get("colors");
@@ -664,17 +669,8 @@ BetterAnnotations.PaneController = class {
   }
 
   globeIcon() {
-    const NS = "http://www.w3.org/2000/svg";
-    const svg = this.doc.createElementNS(NS, "svg");
-    svg.setAttribute("width", "14");
-    svg.setAttribute("height", "14");
-    svg.setAttribute("viewBox", "0 0 16 16");
+    const svg = this.SB.Icons.make(this.doc, "globe", 14);
     svg.setAttribute("class", "bac-globe");
-    svg.setAttribute("aria-hidden", "true");
-    const p = this.doc.createElementNS(NS, "path");
-    p.setAttribute("d", "M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM1.5 8h13M8 1.5c1.8 1.8 2.6 4 2.6 6.5S9.8 12.7 8 14.5M8 1.5C6.2 3.3 5.4 5.5 5.4 8s.8 4.7 2.6 6.5");
-    p.setAttribute("style", "fill:none;stroke:currentColor;stroke-width:1.1");
-    svg.append(p);
     return svg;
   }
 
@@ -3067,6 +3063,65 @@ BetterAnnotations.PaneController = class {
     }
     catch (e) {
       SB.logError(e);
+      this.alert(this.S("saveError", { msg: e.message }));
+    }
+  }
+
+  /**
+   * Warning below the tabs while another plugin for annotation colors is
+   * active (see Conflicts); closed with ×, back when such a plugin is
+   * turned on again. Red like a warning, built like the blue notices.
+   */
+  renderConflictWarning() {
+    const C = this.SB.Conflicts;
+    const S = (k, a) => this.S(k, a);
+    const old = this.conflictEl;
+    this.conflictEl = null;
+    if (!this.navEl || !C.warningVisible()) {
+      old?.remove();
+      return;
+    }
+    const plugins = C.activePlugins();
+    const importable = C.importablePlugins();
+    const close = this.h("button", {
+      class: "bac-warning-close",
+      title: S("btnCloseWarning"),
+      "aria-label": S("btnCloseWarning"),
+      on: { click: () => C.dismiss().catch(e => this.SB.logError(e)) },
+    }, this.SB.Icons.make(this.doc, "close", 16));
+    const actions = this.h("div", { class: "bac-bar bac-warning-actions" },
+      this.button(S("btnManagePlugins"), () => C.openPluginManager()),
+      ...importable.map(p => this.button(importable.length > 1 ? S("btnImportFrom", { name: p.name }) : S("btnImportNames"),
+        () => this.importConflictNames(p.id))));
+    const el = this.h("div", { class: "bac-warning", role: "note" },
+      this.h("div", { class: "bac-warning-text", text: C.warningText(plugins) }),
+      actions,
+      close);
+    if (old) {
+      old.replaceWith(el);
+    }
+    else {
+      this.navEl.after(el);
+    }
+    this.conflictEl = el;
+  }
+
+  /** Take over the labels of another plugin as a new profile and show it. */
+  async importConflictNames(id) {
+    try {
+      const profile = await this.SB.Conflicts.importNames(id);
+      if (!profile) {
+        return;
+      }
+      this.notice = this.S("conflictImported", { name: profile.name });
+      this.tab = "colors";
+      await this.onSelectProfile(profile.id); // asks if there are unsaved changes
+      if (this.notice) {
+        this.render();
+      }
+    }
+    catch (e) {
+      this.SB.logError(e);
       this.alert(this.S("saveError", { msg: e.message }));
     }
   }
