@@ -57,13 +57,13 @@ The label of a color appears wherever Zotero lets you pick one, so you always se
 > 🔎 **Sidebar filter.** The color filter of the annotation sidebar names the colors as well.
 
 </td>
-<td width="46%" valign="middle"><img src="docs/images/feature-labels.png" width="100%" alt="Context menu of an annotation in Zotero's PDF reader with labeled colors such as Key Point, Quote to Cite and Definition"></td>
+<td width="46%" valign="middle"><img src="docs/images/feature-labels.png" width="380" alt="Context menu of an annotation in Zotero's PDF reader with labeled colors such as Key Point, Quote to Cite and Definition"></td>
 </tr>
 </table>
 
 <table>
 <tr>
-<td width="46%" valign="middle"><img src="docs/images/feature-itempane.png" width="100%" alt="Section Better Annotations in Zotero's item pane: profile, labels with descriptions and the number of annotations per label"></td>
+<td width="46%" valign="middle"><img src="docs/images/feature-itempane.png" width="380" alt="Section Better Annotations in Zotero's item pane: profile, labels with descriptions and the number of annotations per label"></td>
 <td width="54%" valign="middle">
 
 ## 📌 A section in the item pane
@@ -99,13 +99,13 @@ Drag a label from the item pane onto a passage. Sorting passages into categories
 > ↩️ **Undo as usual.** Ctrl+Z reverts the change in the reader.
 
 </td>
-<td width="46%" valign="middle"><img src="docs/images/feature-drag.png" width="100%" alt="A label is dragged from the item pane onto a passage in the PDF, which is outlined in the label's color"></td>
+<td width="46%" valign="middle"><img src="docs/images/feature-drag.png" width="380" alt="A label is dragged from the item pane onto a passage in the PDF, which is outlined in the label's color"></td>
 </tr>
 </table>
 
 <table>
 <tr>
-<td width="46%" valign="middle"><img src="docs/images/feature-toolbar.png" width="100%" alt="Profile button in the reader toolbar with the statistics: the number of annotations per label with colored bars"></td>
+<td width="46%" valign="middle"><img src="docs/images/feature-toolbar.png" width="380" alt="Profile button in the reader toolbar with the statistics: the number of annotations per label with colored bars"></td>
 <td width="54%" valign="middle">
 
 ## 📊 Reader toolbar and statistics
@@ -141,13 +141,13 @@ Keep different color schemes for different kinds of work, and start from proven 
 > 🧩 **Coming from another plugin?** Better Annotations offers to take over the labels of other color plugins as a profile.
 
 </td>
-<td width="46%" valign="middle"><img src="docs/images/feature-profiles.png" width="100%" alt="Template library with ready-made profiles such as Evidence Extraction: PICO and Reading Workflow"></td>
+<td width="46%" valign="middle"><img src="docs/images/feature-profiles.png" width="380" alt="Template library with ready-made profiles such as Evidence Extraction: PICO and Reading Workflow"></td>
 </tr>
 </table>
 
 <table>
 <tr>
-<td width="46%" valign="middle"><img src="docs/images/feature-advanced.png" width="100%" alt="Annotations in the reader's sidebar: each shows its profile, such as Literature Review or Reading, in its head and its label as a tag"></td>
+<td width="46%" valign="middle"><img src="docs/images/feature-advanced.png" width="380" alt="Annotations in the reader's sidebar: each shows its profile, such as Literature Review or Reading, in its head and its label as a tag"></td>
 <td width="54%" valign="middle">
 
 ## 🧪 Advanced functions for coding and reviews
@@ -183,13 +183,13 @@ Nearly everything can be adjusted, so the plugin fits the way you work.
 > 🌍 **Language.** 11 languages, following Zotero or chosen in the settings.
 
 </td>
-<td width="46%" valign="middle"><img src="docs/images/feature-settings.png" width="100%" alt="Settings of Better Annotations: profile card and the list of colors with labels and descriptions"></td>
+<td width="46%" valign="middle"><img src="docs/images/feature-settings.png" width="380" alt="Settings of Better Annotations: profile card and the list of colors with labels and descriptions"></td>
 </tr>
 </table>
 
 <table>
 <tr>
-<td width="46%" valign="middle"><img src="docs/images/feature-export.png" width="100%" alt="Exported Excel workbook with one row per annotation, colored cells, labels and extracts"></td>
+<td width="46%" valign="middle"><img src="docs/images/feature-export.png" width="380" alt="Exported Excel workbook with one row per annotation, colored cells, labels and extracts"></td>
 <td width="54%" valign="middle">
 
 ## 📤 Export
