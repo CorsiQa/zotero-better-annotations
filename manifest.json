@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Better Annotations",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Name and extend annotation colors, switch color profiles and export annotations.",
   "author": "CorsiQa.",
   "icons": {

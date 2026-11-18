@@ -7,6 +7,8 @@ The project uses [Semantic Versioning](https://semver.org/).
 
 Changes for the next release are collected here. The section is renamed to the version number when the release is published.
 
+## 1.0.0-beta.2 – 2026-11-18
+
 The main additions are a section in Zotero's item pane, drag and drop of colors, descriptions for labels and a profile per document.
 
 ### New
