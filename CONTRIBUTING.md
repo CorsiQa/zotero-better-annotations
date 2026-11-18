@@ -23,14 +23,18 @@ To add a language, copy `en.js`, translate it, add the language code to the list
 | File | Purpose |
 |---|---|
 | `bootstrap.js` | Entry point called by Zotero; loads the other files |
-| `content/core.js` | Constants, strings, profile store (`profiles.json`), update check |
+| `content/core.js` | Constants, strings, shared icons, profile store (`profiles.json`), update check |
 | `content/reader.js` | Menus, selection popup, toolbar buttons and sidebar tooltips in the reader |
+| `content/profiles.js` | Profile per document: choice per document, rules for collections, profile tags, the profile of an annotation |
+| `content/panel.js`, `content/popout.xhtml` | Item pane section and separate window |
+| `content/conflicts.js` | Notice and dialog about other plugins for annotation colors |
+| `content/feedback.js` | One-time request for feedback |
 | `content/library.js` | Changes to annotations: tags, recoloring, backups, history, full backup, areas |
 | `content/export.js` | Export to XLSX, CSV and HTML (including a small ZIP writer) |
 | `content/prefs-ui.js` | Settings page |
 | `content/color-picker.js`, `content/prefs-style.js` | Color picker and styles of the settings page |
 | `content/templates.js` | Template library |
-| `content/locale/*.js` | Translations |
+| `content/locale/*.js`, `locale/*/better-annotations.ftl` | Translations (the Fluent files hold the texts Zotero shows itself, such as the section title) |
 
 The code runs directly in Zotero without a build step. Parts of it use internal Zotero interfaces (for example `reader._internalReader`); check them after every Zotero update.
 
