@@ -42,131 +42,171 @@ Zotero offers eight annotation colors without names, so it is easy to forget whi
 
 ## <img src="docs/images/icons/features.svg" width="26" height="26" align="top" alt="">&nbsp;Features
 
-<img src="docs/images/feature-labels.png" align="right" width="380" alt="Context menu of a highlight in Zotero's PDF reader: colors with labels such as Key Point, Quote to Cite and Agree, the submenu More Colors and the entry Customize Annotations">
+<table>
+<tr>
+<td width="54%" valign="middle">
 
 ## 🏷️ Labels where you choose a color
 
 The label of a color appears wherever Zotero lets you pick one, so you always see what a color means.
 
-> 🖱️ **Context menu and toolbar.** Every color shows its label. Colors beyond the first eight move into a submenu.
->
-> ✨ **Selection popup.** Hover a color to see its label and its description.
->
-> 🔎 **Sidebar filter.** The color filter of the annotation sidebar names the colors as well.
+🖱️ **Context menu and toolbar.** Every color shows its label. Colors beyond the first eight move into a submenu.
 
-<br clear="all">
+✨ **Selection popup.** Hover a color to see its label and its description.
 
-<img src="docs/images/feature-itempane.png" align="left" width="380" alt="Section Better Annotations next to a PDF: the profile Reading Workflow with its labels, their descriptions and the number of annotations per label">
+🔎 **Sidebar filter.** The color filter of the annotation sidebar names the colors as well.
+
+</td>
+<td width="46%" valign="middle"><img src="docs/images/feature-labels.png" width="380" alt="Context menu of a highlight in Zotero's PDF reader: colors with labels such as Key Point, Quote to Cite and Agree, the submenu More Colors and the entry Customize Annotations"></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="46%" valign="middle"><img src="docs/images/feature-itempane.png" width="380" alt="Section Better Annotations next to a PDF: the profile Reading Workflow with its labels, their descriptions and the number of annotations per label"></td>
+<td width="54%" valign="middle">
 
 ## 📌 A section in the item pane
 
 Next to the reader, a section lists the labels of the document's profile with the number of annotations.
 
-> 👆 **Click to annotate.** A click on a label starts highlighting in its color, or colors the selected text once.
->
-> 🔢 **Counts.** See how often each label is used in the document, or in all files of an item in the library.
->
-> 📝 **Descriptions at hand.** What a label stands for appears right below it.
->
-> 🪟 **Separate window.** The same list in its own window, for example on a second screen.
+👆 **Click to annotate.** A click on a label starts highlighting in its color, or colors the selected text once.
 
-<br clear="all">
+🔢 **Counts.** See how often each label is used in the document, or in all files of an item in the library.
 
-<img src="docs/images/feature-drag.png" align="right" width="380" alt="The label Follow Up is dragged from the item pane onto a highlight in the PDF, which is outlined while the label hovers over it">
+📝 **Descriptions at hand.** What a label stands for appears right below it.
+
+🪟 **Separate window.** The same list in its own window, for example on a second screen.
+
+</td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="54%" valign="middle">
 
 ## 🖐️ Annotate by drag and drop
 
 Drag a label from the item pane onto a passage. Sorting passages into categories becomes as quick as sorting cards, for example when you code text in a qualitative content analysis.
 
-> 🎯 **Onto highlights.** Drop a color on a highlight in the PDF to give it this color.
->
-> ✍️ **Onto selected text.** Drop it on selected text to highlight it.
->
-> 🗂️ **Onto the sidebar.** Drop it on an annotation in the sidebar; if several are selected, all of them change.
->
-> ↩️ **Undo as usual.** Ctrl+Z reverts the change in the reader.
+🎯 **Onto highlights.** Drop a color on a highlight in the PDF to give it this color.
 
-<br clear="all">
+✍️ **Onto selected text.** Drop it on selected text to highlight it.
 
-<img src="docs/images/feature-toolbar.png" align="left" width="380" alt="Profile button in the reader toolbar with the statistics: annotations per label with colored bars, grouped by the profiles Reading Workflow and Literature Review">
+🗂️ **Onto the sidebar.** Drop it on an annotation in the sidebar; if several are selected, all of them change.
+
+↩️ **Undo as usual.** Ctrl+Z reverts the change in the reader.
+
+</td>
+<td width="46%" valign="middle"><img src="docs/images/feature-drag.png" width="380" alt="The label Follow Up is dragged from the item pane onto a highlight in the PDF, which is outlined while the label hovers over it"></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="46%" valign="middle"><img src="docs/images/feature-toolbar.png" width="380" alt="Profile button in the reader toolbar with the statistics: annotations per label with colored bars, grouped by the profiles Reading Workflow and Literature Review"></td>
+<td width="54%" valign="middle">
 
 ## 📊 Reader toolbar and statistics
 
 One button in the reader toolbar shows the profile of the document and how many annotations it has.
 
-> 🔀 **Switch profiles.** A click opens the profile menu.
->
-> 📈 **Statistics.** Hover the button to see the annotations per label, grouped by profile.
->
-> 🎯 **One profile at a time.** A filter shows only the annotations of the document's profile, in the list and in the document.
->
-> ↔️ **Tools in the middle.** Zotero's tools stay above the middle of the document, however long the profile name is.
+🔀 **Switch profiles.** A click opens the profile menu.
 
-<br clear="all">
+📈 **Statistics.** Hover the button to see the annotations per label, grouped by profile.
 
-<img src="docs/images/feature-profiles.png" align="right" width="380" alt="Template library in the settings with Zotero+, Literature Review TCCM and ADO and Toulmin's argument analysis, each with its labels">
+🎯 **One profile at a time.** A filter shows only the annotations of the document's profile, in the list and in the document.
+
+↔️ **Tools in the middle.** Zotero's tools stay above the middle of the document, however long the profile name is.
+
+</td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="54%" valign="middle">
 
 ## 🗂️ Profiles and templates
 
 Keep different color schemes for different kinds of work, and start from proven ones.
 
-> 🗂️ **Profiles.** One scheme for reading, another one for a review. Switching changes the labels, never your annotations.
->
-> 📚 **Template library.** Literature Review (TCCM, ADO), Toulmin's argument analysis, the paradigm model of Grounded Theory, PICO and a reading workflow.
->
-> 🔁 **Share.** Export a profile as a file and import the profiles of colleagues.
->
-> 🧩 **Coming from another plugin?** Better Annotations offers to take over the labels of other color plugins as a profile.
+🗂️ **Profiles.** One scheme for reading, another one for a review. Switching changes the labels, never your annotations.
 
-<br clear="all">
+📚 **Template library.** Literature Review (TCCM, ADO), Toulmin's argument analysis, the paradigm model of Grounded Theory, PICO and a reading workflow.
 
-<img src="docs/images/feature-advanced.png" align="left" width="380" alt="Annotations in the reader's sidebar: each shows its profile, such as Reading Workflow or Literature Review TCCM, in its head and its label as a tag">
+🔁 **Share.** Export a profile as a file and import the profiles of colleagues.
+
+🧩 **Coming from another plugin?** Better Annotations offers to take over the labels of other color plugins as a profile.
+
+</td>
+<td width="46%" valign="middle"><img src="docs/images/feature-profiles.png" width="380" alt="Template library in the settings with Zotero+, Literature Review TCCM and ADO and Toulmin's argument analysis, each with its labels"></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="46%" valign="middle"><img src="docs/images/feature-advanced.png" width="380" alt="Annotations in the reader's sidebar: each shows its profile, such as Reading Workflow or Literature Review TCCM, in its head and its label as a tag"></td>
+<td width="54%" valign="middle">
 
 ## 🧪 Advanced functions for coding and reviews
 
 Three functions turn your labels into a coding scheme. They are off by default; you turn them on under **Advanced**.
 
-> 📝 **Descriptions.** Define what each label means and when to use it, like the definition of a code.
->
-> 🏷️ **Labels as tags.** Annotations receive the label of their color as a tag, so coded passages can be searched and filtered across the library.
->
-> 📄 **Profile per document.** Every document keeps its own scheme. Each annotation shows its profile, so several schemes can live in one document.
->
-> 📁 **Rules for collections.** Give all documents of a collection the same scheme.
+📝 **Descriptions.** Define what each label means and when to use it, like the definition of a code.
 
-<br clear="all">
+🏷️ **Labels as tags.** Annotations receive the label of their color as a tag, so coded passages can be searched and filtered across the library.
 
-<img src="docs/images/feature-settings.png" align="right" width="380" alt="Settings of Better Annotations: profile card and the list of colors with labels, descriptions and counters">
+📄 **Profile per document.** Every document keeps its own scheme. Each annotation shows its profile, so several schemes can live in one document.
+
+📁 **Rules for collections.** Give all documents of a collection the same scheme.
+
+</td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="54%" valign="middle">
 
 ## 🎛️ Make it yours
 
 Nearly everything can be adjusted, so the plugin fits the way you work.
 
-> 🎨 **Colors.** Any number of colors, picked freely, from palettes or by hex code, in your order. Hide what you do not need.
->
-> 🧭 **Menus and popup.** How many colors appear directly, how the selection popup is arranged and how fast labels appear.
->
-> 🧱 **Where things appear.** Toolbar button, item pane section, separate window, descriptions: show what you use.
->
-> 🌍 **Language.** 11 languages, following Zotero or chosen in the settings.
+🎨 **Colors.** Any number of colors, picked freely, from palettes or by hex code, in your order. Hide what you do not need.
 
-<br clear="all">
+🧭 **Menus and popup.** How many colors appear directly, how the selection popup is arranged and how fast labels appear.
 
-<img src="docs/images/feature-export.png" align="left" width="380" alt="Exported Excel workbook: one row per annotation with colored number and label cells, type, extract, comment and description, and an image annotation">
+🧱 **Where things appear.** Toolbar button, item pane section, separate window, descriptions: show what you use.
+
+🌍 **Language.** 11 languages, following Zotero or chosen in the settings.
+
+</td>
+<td width="46%" valign="middle"><img src="docs/images/feature-settings.png" width="380" alt="Settings of Better Annotations: profile card and the list of colors with labels, descriptions and counters"></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="46%" valign="middle"><img src="docs/images/feature-export.png" width="380" alt="Exported Excel workbook: one row per annotation with colored number and label cells, type, extract, comment and description, and an image annotation"></td>
+<td width="54%" valign="middle">
 
 ## 📤 Export
 
 Export the annotations of a document, a collection or a library with one row per annotation.
 
-> 📗 **Excel.** Colored cells, images, grouped columns, a sheet with all labels and their descriptions, and links back to Zotero.
->
-> 📄 **CSV.** For R, Python, SPSS and other software, in UTF-8.
->
-> 🌐 **HTML.** A readable report grouped by source or by label, to print or save as PDF.
->
-> 🧭 **Your selection.** Choose the area, the order, the profile and the columns.
+📗 **Excel.** Colored cells, images, grouped columns, a sheet with all labels and their descriptions, and links back to Zotero.
 
-<br clear="all">
+📄 **CSV.** For R, Python, SPSS and other software, in UTF-8.
+
+🌐 **HTML.** A readable report grouped by source or by label, to print or save as PDF.
+
+🧭 **Your selection.** Choose the area, the order, the profile and the columns.
+
+</td>
+</tr>
+</table>
 
 ## ✨ More functions
 
@@ -205,109 +245,67 @@ To give documents their own schemes, turn on **Profile per Document** under **Ad
 
 ## <img src="docs/images/icons/faq.svg" width="26" height="26" align="top" alt="">&nbsp;Frequently asked questions
 
-**Labels and colors**
+### 🏷️ Labels and colors
 
-<details>
-<summary><b>How do I rename or label the highlight colors in Zotero?</b></summary>
-<br>
+#### How do I rename or label the highlight colors in Zotero?
 
-Zotero itself does not offer this. Open the settings of Better Annotations and type a label next to each color. The labels then appear in the reader's menus, in the selection popup, in the sidebar filter and in the item pane section.
-</details>
+> Zotero itself does not offer this. Open the settings of Better Annotations and type a label next to each color. The labels then appear in the reader's menus, in the selection popup, in the sidebar filter and in the item pane section.
 
-<details>
-<summary><b>How do I get more colors or my own colors?</b></summary>
-<br>
+#### How do I get more colors or my own colors?
 
-Click **Add Color** and choose any color with the color picker, from a palette or by hex code. There is no fixed limit. Colors beyond the first eight appear in a submenu of the context menu and in further rows of the selection popup. Colors you do not need right now can be hidden.
-</details>
+> Click **Add Color** and choose any color with the color picker, from a palette or by hex code. There is no fixed limit. Colors beyond the first eight appear in a submenu of the context menu and in further rows of the selection popup. Colors you do not need right now can be hidden.
 
-<details>
-<summary><b>Another plugin for annotation colors is installed. What should I do?</b></summary>
-<br>
+#### Another plugin for annotation colors is installed. What should I do?
 
-Highlight Color Descriptions, Annotation Color Customizer and Just Enough Color change the same menus, so labels can appear twice or wrong. The settings of Better Annotations show a notice while one of them is active and offer to take over its labels as a profile. Then disable the other plugin under **Tools → Plugins**.
-</details>
+> Highlight Color Descriptions, Annotation Color Customizer and Just Enough Color change the same menus, so labels can appear twice or wrong. The settings of Better Annotations show a notice while one of them is active and offer to take over its labels as a profile. Then disable the other plugin under **Tools → Plugins**.
 
-**Profiles and advanced functions**
+### 🗂️ Profiles and advanced functions
 
-<details>
-<summary><b>What is the difference between the active profile and “Profile per Document”?</b></summary>
-<br>
+#### What is the difference between the active profile and “Profile per Document”?
 
-Without “Profile per Document”, one profile applies to all documents. Switching it changes the labels everywhere. With the function turned on, every document keeps its own profile: the one you last chose in it, otherwise the profile of most of its annotations, a rule for its collection or the default profile.
-</details>
+> Without “Profile per Document”, one profile applies to all documents. Switching it changes the labels everywhere. With the function turned on, every document keeps its own profile: the one you last chose in it, otherwise the profile of most of its annotations, a rule for its collection or the default profile.
 
-<details>
-<summary><b>What are the tags “ZBA: …” on my annotations?</b></summary>
-<br>
+#### What are the tags “ZBA: …” on my annotations?
 
-With “Profile per Document”, each new annotation gets a profile tag such as “ZBA: Literature Review”. It records which scheme the annotation belongs to, so the same color can mean different things in different profiles, and it syncs with your library. The reader hides the tag in the annotation and shows the profile name in its head instead. Turning the function off asks whether the tags stay; renaming or deleting a profile updates them.
-</details>
+> With “Profile per Document”, each new annotation gets a profile tag such as “ZBA: Literature Review”. It records which scheme the annotation belongs to, so the same color can mean different things in different profiles, and it syncs with your library. The reader hides the tag in the annotation and shows the profile name in its head instead. Turning the function off asks whether the tags stay; renaming or deleting a profile updates them.
 
-<details>
-<summary><b>Why does an annotation count as “Standard” or “No profile”?</b></summary>
-<br>
+#### Why does an annotation count as “Standard” or “No profile”?
 
-With “Profile per Document”, only the profile tag puts an annotation into a profile. Annotations without a tag count as “Standard” if they have one of Zotero's eight colors, otherwise as “No profile”. **Assign** in the item pane gives them the tag of the document's profile.
-</details>
+> With “Profile per Document”, only the profile tag puts an annotation into a profile. Annotations without a tag count as “Standard” if they have one of Zotero's eight colors, otherwise as “No profile”. **Assign** in the item pane gives them the tag of the document's profile.
 
-<details>
-<summary><b>Can I use the plugin for coding, qualitative analysis or a literature review?</b></summary>
-<br>
+#### Can I use the plugin for coding, qualitative analysis or a literature review?
 
-Yes. A label can stand for any category, including a code; descriptions hold the definition of each code; labels as tags make coded passages searchable across the library; a profile per document lets several schemes live side by side; and the export lists all annotations with their labels, like a list of coded segments. The template library has schemes for reviews and analysis. Better Annotations does not replace software such as MAXQDA or NVivo: it has no code hierarchy, memos or intercoder agreement. Its exports can be processed further in other software.
-</details>
+> Yes. A label can stand for any category, including a code; descriptions hold the definition of each code; labels as tags make coded passages searchable across the library; a profile per document lets several schemes live side by side; and the export lists all annotations with their labels, like a list of coded segments. The template library has schemes for reviews and analysis. Better Annotations does not replace software such as MAXQDA or NVivo: it has no code hierarchy, memos or intercoder agreement. Its exports can be processed further in other software.
 
-<details>
-<summary><b>How can my team use the same labels in a group library?</b></summary>
-<br>
+#### How can my team use the same labels in a group library?
 
-Profiles are stored on each computer. Export your profile and let colleagues import it. Tags (labels as tags, profile tags) are part of the group library, so every member sees them.
-</details>
+> Profiles are stored on each computer. Export your profile and let colleagues import it. Tags (labels as tags, profile tags) are part of the group library, so every member sees them.
 
-**Backup, sync and export**
+### 💾 Backup, sync and export
 
-<details>
-<summary><b>Does the plugin change my existing annotations?</b></summary>
-<br>
+#### Does the plugin change my existing annotations?
 
-Only when you ask it to, for example when you recolor annotations, add tags or assign profiles. It asks first, records the change in the history and can undo it. On first start it saves the colors of all annotations.
-</details>
+> Only when you ask it to, for example when you recolor annotations, add tags or assign profiles. It asks first, records the change in the history and can undo it. On first start it saves the colors of all annotations.
 
-<details>
-<summary><b>How do I undo a change or go back to the state before installation?</b></summary>
-<br>
+#### How do I undo a change or go back to the state before installation?
 
-Under **Library → History**, **Undo…** reverts a single change. Under **Library → Backups**, **Restore…** sets the colors back to a backup, for example the one “before installation”, and removes the plugin's tags. Annotations created later and your own tags stay unchanged.
-</details>
+> Under **Library → History**, **Undo…** reverts a single change. Under **Library → Backups**, **Restore…** sets the colors back to a backup, for example the one “before installation”, and removes the plugin's tags. Annotations created later and your own tags stay unchanged.
 
-<details>
-<summary><b>Are my profiles synced between computers?</b></summary>
-<br>
+#### Are my profiles synced between computers?
 
-Not by Zotero sync. Annotations and their tags sync as usual, but profiles and settings stay on the computer. Use **Create Full Backup…** on one computer and **Load Full Backup…** on the other, or export single profiles.
-</details>
+> Not by Zotero sync. Annotations and their tags sync as usual, but profiles and settings stay on the computer. Use **Create Full Backup…** on one computer and **Load Full Backup…** on the other, or export single profiles.
 
-<details>
-<summary><b>How do I export annotations to Excel or CSV, or group them by color?</b></summary>
-<br>
+#### How do I export annotations to Excel or CSV, or group them by color?
 
-Open the **Export** tab, choose the area, the format and the order. Each annotation becomes one row with label, text or image, comment, tags, page, source and a link back to Zotero. Ordered by label, the Excel file can be filtered by label and the HTML report groups all annotations under their labels.
-</details>
+> Open the **Export** tab, choose the area, the format and the order. Each annotation becomes one row with label, text or image, comment, tags, page, source and a link back to Zotero. Ordered by label, the Excel file can be filtered by label and the HTML report groups all annotations under their labels.
 
-<details>
-<summary><b>What happens when I uninstall the plugin?</b></summary>
-<br>
+#### What happens when I uninstall the plugin?
 
-Your annotations keep their colors, and tags stay on them. Remove plugin tags first with **Remove Plugin Tags…** if you do not want to keep them. The folder `better-annotations` in your Zotero data directory stays, so a later installation finds your profiles again.
-</details>
+> Your annotations keep their colors, and tags stay on them. Remove plugin tags first with **Remove Plugin Tags…** if you do not want to keep them. The folder `better-annotations` in your Zotero data directory stays, so a later installation finds your profiles again.
 
-<details>
-<summary><b>Does the plugin send data anywhere?</b></summary>
-<br>
+#### Does the plugin send data anywhere?
 
-No. The only network access is Zotero's own update check.
-</details>
+> No. The only network access is Zotero's own update check.
 
 <a name="compatibility"></a>
 
