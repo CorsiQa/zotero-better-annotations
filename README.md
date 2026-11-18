@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="docs/images/banner.png" width="100%" alt="Better Annotations for Zotero: every annotation color with a meaning. A context menu with labeled colors, the item pane section with the number of annotations per label, and the profile button with statistics.">
-
-<br>
+<p><img src="docs/images/banner.png" width="100%" alt="Better Annotations for Zotero: every annotation color with a meaning. A context menu with labeled colors, the item pane section with the number of annotations per label, and the profile button with statistics."></p>
 
 <p>
 <a href="https://github.com/CorsiQa/zotero-better-annotations/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/CorsiQa/zotero-better-annotations?include_prereleases&style=flat&label=release&color=6B5BD6"></a>
