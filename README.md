@@ -352,8 +352,6 @@ Releases are published by GitHub Actions as soon as a new version reaches `main`
 
 ## <img src="docs/images/icons/license.svg" width="26" height="26" align="top" alt="">&nbsp;License and credits
 
-Copyright © 2026 CorsiQa.
-
 [GNU Affero General Public License v3.0 or later](LICENSE). You may use, share and change the plugin; changed versions that you distribute must be published under the same license. The name Better Annotations and its logo are not covered by the AGPL license. Please do not use them for other projects without permission.
 
 Zotero is a registered trademark of the [Corporation for Digital Scholarship](https://digitalscholar.org). This plugin is an independent project and not affiliated with Zotero.
@@ -367,3 +365,5 @@ Thanks to the authors of these plugins, which Better Annotations builds on:
 - [Annotation Color Customizer](https://github.com/aidecameron/zotero-annotation-color-customizer) by aidecameron: the idea of renaming annotation colors.
 
 The screenshots show the article Block, J. H., Colombo, M. G., Cumming, D. J., & Vismara, S. (2018). New players in entrepreneurial finance and why they are there. *Small Business Economics, 50*(2), 239–250. [https://doi.org/10.1007/s11187-016-9826-6](https://doi.org/10.1007/s11187-016-9826-6). It is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+Copyright © 2026 CorsiQa.
